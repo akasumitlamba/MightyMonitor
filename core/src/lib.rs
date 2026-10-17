@@ -1,7 +1,14 @@
 //! MightyMonitor core: protocol framing and platform traits (skeleton).
 
+mod error;
+
 /// Length-prefixed framing for byte streams.
 pub mod frame;
+
+/// Asynchronous frame transports.
+pub mod transport;
+
+pub use transport::{TcpTransport, Transport, TransportError};
 
 pub use frame::{
     encode_frame_into, encode_stream_frame, Frame, FrameDecoder, FrameHeader, HEADER_LEN,
