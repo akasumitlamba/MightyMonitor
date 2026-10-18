@@ -63,3 +63,41 @@ See [ABR.md](ABR.md) for host feedback policy. Sequence gaps are not a packet-lo
 measurement: the host deliberately skips frames before writing. Current RTT also
 includes control scheduling and ordered TCP backlog, which is useful congestion
 feedback but is not a pure wire RTT.
+
+## Desktop control panel
+
+Build both binaries with `cargo build --release --workspace`, then run
+`target/release/mm-viewer`. The viewer finds `mm-host` beside its own executable;
+packaging must keep the two together. The generated app icon is embedded in the
+viewer window. The icon does not constitute a Windows executable resource or a
+Linux desktop-menu installation; those are packaging work.
+
+On Linux X11, **Share this screen** launches the sibling host without a shell.
+Enter a local listen IP/port, frame rate, and bitrate. The loopback default is
+for this computer only; use the computer's LAN address for another device.
+A trusted-network acknowledgement is required because the current transport
+has no authentication or encryption. The UI does not enable remote input.
+**Stop sharing**, or closing the application, terminates and reaps the owned
+host process. A separately started host is unaffected. Configuration controls
+are locked while the owned host runs. A sharing failure displays the last 4 KiB
+of host diagnostics; the private temporary log is removed during normal cleanup.
+Logs can remain after a crash or forced termination of the viewer.
+
+**View another screen** connects to a host IP/port. **Disconnect** cancels the
+viewer session and clears the last displayed frame. Viewing and sharing can run
+at the same time on Linux, but this does not create independent extended displays
+or provide multi-viewer hosting. Sharing captures the X11 root window: avoid
+viewing a stream of your own captured desktop to prevent recursive imagery.
+Windows still lacks functional video decoding and hosting, as shown in the UI.
+
+Manual acceptance (not yet performed on physical devices):
+
+1. Launch the bundled viewer with its host binary present; confirm the app icon,
+   controls, and empty state. Try invalid addresses and missing host binary.
+2. Start sharing on a Linux X11 LAN address, connect from another Linux device,
+   and verify moving video. Confirm settings cannot change during sharing.
+3. Stop sharing and confirm the host process and stream end. Restart sharing.
+4. Disconnect the viewer and confirm the displayed frame clears. Reconnect.
+5. Close the app while sharing and verify no owned mm-host process remains.
+6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
+7. Verify Windows opens the GUI and clearly identifies unsupported capabilities.
