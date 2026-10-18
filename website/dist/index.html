@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f2">
+  <meta name="description" content="MightyMonitor is building a local-first way to share, control, and extend screens across Linux, Windows, and Android. Explore the prototype, roadmap, and installer availability.">
+  <title>MightyMonitor — Your screens, connected.</title>
+  <link rel="icon" type="image/png" href="assets/icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site-header wrap">
+  <a class="brand" href="#" aria-label="MightyMonitor home"><img src="assets/icon.png" alt="" width="38" height="38"><span>MightyMonitor<span class="brand-dot">.</span></span></a>
+  <nav aria-label="Main navigation"><a href="#possibilities">The idea</a><a href="#progress">Progress</a><a class="nav-download" href="#download">Downloads <span aria-hidden="true">↗</span></a></nav>
+</header>
+<main id="main">
+<section class="hero wrap" aria-labelledby="hero-title">
+  <div class="hero-copy">
+    <h1 id="hero-title">Your screens,<br>working together.</h1>
+    <p class="hero-description">Your laptop. Your phone. Your other laptop. We’re building a way for them to work together—on your local network.</p>
+    <div class="hero-actions"><a class="button primary" href="#download">Find an installer <span aria-hidden="true">↓</span></a><a class="text-link" href="https://github.com/reduckyLang/MightyMonitor">View the project</a></div>
+    <p class="development-note"><span class="tiny-marker"></span> <span id="download-availability">Linux prototype. Installers are not published yet.</span></p>
+  </div>
+  <div class="concept" aria-label="Concept preview of connected screens, not a screenshot of the current application">
+    <div class="concept-top"><span class="eyebrow">Explore the idea</span><span class="concept-caption">Concept preview</span></div>
+    <div class="device-stage" data-mode="mirror" id="device-stage">
+      <div class="connection-line" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="desktop-device" aria-label="Primary computer illustration"><div class="device-bar"><i></i><i></i><i></i><span>My workspace</span></div><div class="desktop-screen"><div class="wallpaper-mark">M<span>.</span></div><div class="workspace-doc"><div></div><div></div><div></div><div></div><div></div></div><div class="workspace-folder"><span aria-hidden="true">↗</span><small>A little more room.</small></div></div><div class="device-chin"></div><div class="device-stand"></div></div>
+      <div class="phone-device" aria-label="Connected Android phone illustration"><div class="phone-notch"></div><div class="phone-screen"><span class="phone-time">09:41</span><span class="phone-symbol" aria-hidden="true">↗</span><div class="phone-lines"><i></i><i></i><i></i></div><span id="phone-label">Same screen.<br>New perspective.</span></div><div class="phone-home"></div></div>
+      <span class="device-label pc-label">YOUR COMPUTER</span><span class="device-label phone-label">YOUR PHONE</span>
+    </div>
+    <div class="mode-switch" role="group" aria-label="Explore planned screen modes"><button type="button" data-mode="mirror" aria-pressed="true">Mirror</button><button type="button" data-mode="control" aria-pressed="false">Control</button><button type="button" data-mode="extend" aria-pressed="false">Extend</button></div>
+    <p class="concept-detail" id="concept-detail" aria-live="polite">See a screen on another device. Linux implementation exists; real-device validation is pending.</p>
+  </div>
+</section>
+<div class="principles"><div class="wrap principles-inner"><span>Built with Rust</span><span>Local network first</span><span>No cloud account</span><span>Apache 2.0</span></div></div>
+<section class="possibilities wrap section" id="possibilities">
+  <div class="section-intro"><h2>Different devices.<br>Shared possibilities.</h2><p>The goal is simple: use the screen you have, from the device you’re on. These are the experiences we’re working toward.</p></div>
+  <div class="feature-list">
+    <article><div><span class="feature-tag">Mirror a screen</span><h3>A familiar screen.<br>Anywhere on your desk.</h3><p>Bring your phone into a window on your computer, or view your computer from another device.</p><span class="availability">Linux prototype · other platforms planned</span></div></article>
+    <article><div><span class="feature-tag">Control a device</span><h3>Reach less.<br>Do more.</h3><p>Use your computer’s keyboard and mouse on your phone. Or use your phone to control your PC.</p><span class="availability">Planned · not available yet</span></div></article>
+    <article><div><span class="feature-tag">Add a display</span><h3>Another device.<br>A bigger workspace.</h3><p>Turn a second computer or phone into an extra display. Eventually, share in both directions at once.</p><span class="availability">Planned · not available yet</span></div></article>
+  </div>
+</section>
+<section class="progress-section section" id="progress"><div class="wrap">
+  <div class="progress-heading"><div><p class="eyebrow">Development status</p><h2>A clear view of<br>where we are.</h2></div><p>This is a prototype, not a finished cross-platform app. Here’s what exists—and what still stands between us and the full experience.</p></div>
+  <div class="roadmap" aria-label="Project progress as of 18 October 2026">
+    <article class="phase built"><span class="phase-icon" aria-hidden="true">✓</span><span class="phase-state">Foundation built</span><h3>The engine</h3><p>Screen data transport, reconnect logic, video codecs and bitrate adaptation.</p></article>
+    <article class="phase active"><span class="phase-icon" aria-hidden="true">◐</span><span class="phase-state">Prototype</span><h3>Linux sharing</h3><p>Host, viewer and desktop controls exist. Real desktop and Wi-Fi testing remain.</p></article>
+    <article class="phase"><span class="phase-icon" aria-hidden="true">03</span><span class="phase-state">Still to build</span><h3>Across devices</h3><p>Windows and Android, secure pairing, remote input, extended displays and concurrent sessions.</p></article>
+    <article class="phase"><span class="phase-icon" aria-hidden="true">04</span><span class="phase-state">Not published</span><h3>Ready to install</h3><p>Installers, release builds and hands-on checks across supported devices.</p></article>
+  </div>
+  <div class="platform-status"><div><span class="platform-name">Linux</span><span class="platform-detail"><span class="legend-dot blue"></span>Prototype</span></div><div><span class="platform-name">Windows</span><span class="platform-detail"><span class="legend-dot"></span>App shell only</span></div><div><span class="platform-name">Android</span><span class="platform-detail"><span class="legend-dot"></span>Planned</span></div></div>
+  <p class="status-footnote">Status reviewed 18 October 2026. Building successfully does not mean a feature has been tested on physical devices. <a href="https://github.com/reduckyLang/MightyMonitor/blob/main/docs/CROSS_DEVICE.md">Read the acceptance plan ↗</a></p>
+</div></section>
+<section class="download-section wrap section" id="download" aria-labelledby="download-title">
+  <div class="download-heading"><div><h2 id="download-title">Installers, when<br>they’re ready.</h2></div><div><p>Installer links come straight from the project’s latest published release. No source archives disguised as downloads.</p><p id="release-status" class="release-status" role="status" aria-live="polite">Checking for published installers…</p></div></div>
+  <div class="download-grid">
+    <article class="download-card" data-platform="windows"><span class="os-mark" aria-hidden="true">⊞</span><h3>Windows</h3><p>Desktop installer</p><div class="asset-links"><button class="button unavailable" disabled>Checking availability…</button></div><small class="asset-note">MSI or setup installer</small></article>
+    <article class="download-card" data-platform="linux"><span class="os-mark" aria-hidden="true">›_</span><h3>Linux</h3><p>Desktop package</p><div class="asset-links"><button class="button unavailable" disabled>Checking availability…</button></div><small class="asset-note">DEB or RPM installer</small></article>
+    <article class="download-card" data-platform="android"><span class="os-mark android-mark" aria-hidden="true">◉</span><h3>Android</h3><p>Phone & tablet app</p><div class="asset-links"><button class="button unavailable" disabled>Checking availability…</button></div><small class="asset-note">APK installation package</small></article>
+  </div>
+  <div class="release-actions"><a class="text-link" href="https://github.com/reduckyLang/MightyMonitor/releases">Browse all releases ↗</a><button class="text-link retry" type="button" id="refresh-releases">Check again ↻</button></div>
+  <noscript><p>JavaScript is off. Check <a href="https://github.com/reduckyLang/MightyMonitor/releases">GitHub Releases</a> for installer availability. No installers were published as of 18 October 2026.</p></noscript>
+</section>
+<section class="faq-section wrap section"><div class="faq-layout"><h2>A few things,<br>up front.</h2><div class="faq-list">
+  <details><summary>Can I use this as my everyday screen-sharing app?</summary><p>Not yet. The Linux prototype is for development and testing. Windows video support, Android, remote control, extended displays, and installers are still pending. The current connection is not encrypted or password protected; use only a trusted local network.</p></details>
+  <details><summary>Will it work without cables?</summary><p>Wi-Fi and local-network operation are the primary goal. The current TCP transport is designed for local networks, but real Wi-Fi playback, recovery, and end-to-end latency still need device testing.</p></details>
+  <details><summary>Can I connect two laptops using USB-C?</summary><p>Not with every USB-C cable and laptop. Compatible Thunderbolt or USB4 networking can provide a direct network link; Ethernet is another option. Connector shape alone does not guarantee support. Wired transport still has capture and video-processing delay.</p></details>
+  <details><summary>Is my screen sent to the cloud?</summary><p>The app is designed to send screen data over your local network without a cloud account. Secure pairing and encrypted connections still need to be implemented before broader use.</p></details>
+</div></div></section>
+<section class="closing"><div class="wrap"><h2>Built in the open.<br>Follow what’s next.</h2><a class="button light" href="https://github.com/reduckyLang/MightyMonitor">Follow the project</a></div></section>
+</main>
+<footer class="wrap footer"><a class="brand" href="#"><img src="assets/icon.png" alt="" width="30" height="30"><span>MightyMonitor.</span></a><p>Original code. Local connections. Built in the open.</p><a href="https://github.com/reduckyLang/MightyMonitor/blob/main/LICENSE">Apache 2.0 ↗</a></footer>
+</body>
+</html>
