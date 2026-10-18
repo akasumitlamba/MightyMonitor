@@ -10,16 +10,17 @@ cargo run -p mightymonitor-viewer --bin mm-viewer
 ```
 
 Enter the host IP:port and click Connect. The default is 127.0.0.1:5000.
-Windows builds the GUI but Connect displays an explicit unsupported decoder
-message. Real decoding currently requires Linux. For a headless core build:
+Windows uses the same GStreamer H.264 decoder; see [WINDOWS.md](WINDOWS.md) for
+the native runtime/development prerequisites. Physical Windows playback still
+needs validation. For a headless core build:
 
 ```sh
 cargo test -p mightymonitor-viewer --no-default-features
 ```
 
 The initial handshake sends Hello (current PROTOCOL_VERSION, Viewer role), then
-requires an accepted HelloAck and H.264 VideoConfig. This depends on the M2-4
-host pipeline PR #29, which is not yet merged. See [HOST.md](HOST.md).
+requires an accepted HelloAck and H.264 VideoConfig. The M2-4
+host pipeline is merged. See [HOST.md](HOST.md).
 After a network failure, core ReconnectingSession's split reader/writer retries
 with backoff and sends Resume using the acknowledged session id and last received
 video sequence. The host responds with HelloAck/VideoConfig and a fresh keyframe;
@@ -51,7 +52,7 @@ forwarding, audio, mDNS, authentication or encryption; use a trusted LAN.
 3. Repeat with a LAN peer; interrupt its network for several seconds and recover.
    Record end-to-end latency separately following LATENCY.md.
 4. Click Connect again and close the window during an outage; confirm clean exit.
-5. On Windows, click Connect and confirm the clear Linux-only decoder message.
+5. On Windows, verify moving H.264 playback from Linux and Windows hosts.
 
 Loopback tests use a minimal fake protocol host and dummy decoder, covering
 Resume/session/sequence, post-reconnect frames, Closed and feedback cadence.
@@ -72,7 +73,8 @@ packaging must keep the two together. The generated app icon is embedded in the
 viewer window. The icon does not constitute a Windows executable resource or a
 Linux desktop-menu installation; those are packaging work.
 
-On Linux X11, **Share this screen** launches the sibling host without a shell.
+On Linux X11 or Windows, **Share this screen** launches the sibling host without
+a shell (mm-host on Linux, mm-host.exe on Windows).
 Enter a local listen IP/port, frame rate, and bitrate. The loopback default is
 for this computer only; use the computer's LAN address for another device.
 A trusted-network acknowledgement is required because the current transport
@@ -88,7 +90,8 @@ viewer session and clears the last displayed frame. Viewing and sharing can run
 at the same time on Linux, but this does not create independent extended displays
 or provide multi-viewer hosting. Sharing captures the X11 root window: avoid
 viewing a stream of your own captured desktop to prevent recursive imagery.
-Windows still lacks functional video decoding and hosting, as shown in the UI.
+Windows now uses real GStreamer decoding and the DXGI host. Native dependency
+setup and physical desktop acceptance are described in WINDOWS.md.
 
 Manual acceptance (not yet performed on physical devices):
 
@@ -100,4 +103,4 @@ Manual acceptance (not yet performed on physical devices):
 4. Disconnect the viewer and confirm the displayed frame clears. Reconnect.
 5. Close the app while sharing and verify no owned mm-host process remains.
 6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
-7. Verify Windows opens the GUI and clearly identifies unsupported capabilities.
+7. Verify Windows host/viewer playback using the acceptance steps in WINDOWS.md.

@@ -5,7 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 mightymonitor-core = { path = "../core" }
 gstreamer = { version = "=0.23.7", features = ["v1_20"] }
 gstreamer-app = { version = "=0.23.5", features = ["v1_20"] }

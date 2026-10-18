@@ -1,7 +1,8 @@
 //! Synchronous, bounded, low-latency H.264 codecs. See docs/CODEC.md.
 #![forbid(unsafe_code)]
-#![cfg(target_os = "linux")]
+#![cfg(any(target_os = "linux", target_os = "windows"))]
 
+pub mod capture;
 pub mod decoder;
 pub mod encoder;
 

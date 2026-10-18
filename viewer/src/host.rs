@@ -15,13 +15,17 @@ pub struct HostProcess {
 }
 impl HostProcess {
     pub fn start(address: &str, fps: u32, bitrate: u32) -> io::Result<Self> {
-        if !cfg!(target_os = "linux") {
+        if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
-                "Screen sharing currently requires Linux X11.",
+                "Screen sharing currently requires Linux X11 or Windows.",
             ));
         }
         validate(address, fps, bitrate)?;
-        let binary = std::env::current_exe()?.with_file_name("mm-host");
+        let binary = std::env::current_exe()?.with_file_name(if cfg!(target_os = "windows") {
+            "mm-host.exe"
+        } else {
+            "mm-host"
+        });
         if !binary.is_file() {
             return Err(io::Error::new(io::ErrorKind::NotFound,
                 "Sharing component missing. Install the Linux sharing component alongside this application."));

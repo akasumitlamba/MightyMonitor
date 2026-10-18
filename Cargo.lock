@@ -1895,6 +1895,7 @@ dependencies = [
  "codec-gst",
  "host-linux",
  "mightymonitor-core",
+ "mightymonitor-viewer",
  "tokio",
 ]
 

@@ -112,3 +112,13 @@ Hello version/role is rejected today, but after resources have been created.
 A capture backend that never returns can still retain its thread; idle timeout
 ends the session's wait, and in-progress writes remain bounded by write timeout.
 
+
+2026-10-18: Windows desktop streaming implementation added: shared GStreamer H.264
+encode/decode enabled on Windows, DXGI capture via d3d11screencapturesrc with
+bounded appsink, validated/cropped packed RGBA, CLI monitor selection, and real
+viewer decoding/host launch instead of unsupported placeholders. Windows CI
+installs the pinned official 1.28.8 SDK with SHA256 validation and verifies codec
+plugins before running tests. Linux synthetic-capture and buffer-boundary tests
+exercise the common conversion path; a real Windows capture smoke is opt-in.
+This is implementation progress, not physical Windows acceptance. Android, remote
+input, secure pairing, virtual displays, and installers remain separate milestones.
