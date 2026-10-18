@@ -112,3 +112,12 @@ Hello version/role is rejected today, but after resources have been created.
 A capture backend that never returns can still retain its thread; idle timeout
 ends the session's wait, and in-progress writes remain bounded by write timeout.
 
+
+2026-10-18: Android viewer implementation added: native Android Activity and
+MediaCodec surface decoding, a JNI bridge into the shared Rust protocol, bounded
+ordered video queue, Hello/Resume reconnect, configuration/keyframe gating, and
+Ping/NetStats feedback. Rust loopback tests cover actual protocol events, reconnect
+and shutdown under queue pressure. Android APK/emulator build workflow added;
+APK compilation, emulator decoding and physical phone acceptance are pending
+until those checks complete. This milestone does not include phone capture,
+remote input, secure pairing, virtual displays or a production-signed release.
