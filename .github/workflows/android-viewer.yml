@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui']
+    paths: ['android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
     paths: ['android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
