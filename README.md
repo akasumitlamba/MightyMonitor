@@ -12,8 +12,8 @@ Free, LAN-only, open-source, spacedesk-style screen sharing written in Rust. Sha
 ## Platform matrix
 | Platform | Host (shares screen) | Viewer (displays and controls) |
 |----------|----------------------|--------------------------------|
-| Linux    | planned | planned |
-| Windows  | planned | planned |
+| Linux    | implemented, desktop validation pending | implemented, desktop validation pending |
+| Windows  | planned | GUI exists; real decoder planned |
 | Android  | planned | planned |
 | Browser (ChromeOS, TVs, old laptops, Fire tablets) | - | planned |
 
@@ -26,7 +26,14 @@ Free, LAN-only, open-source, spacedesk-style screen sharing written in Rust. Sha
 - `android`: Rust library (cargo-ndk, uniffi) plus a thin Kotlin app (MediaProjection, MediaCodec, Accessibility or wireless adb for input).
 - Networking: tokio TCP first, QUIC (quinn) later. Discovery: mdns-sd.
 
-Only the `core` crate exists so far. See [docs/ROADMAP.md](docs/ROADMAP.md).
+The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
+a desktop viewer, and latency tools. Linux host/viewer paths are implemented;
+real desktop and Wi-Fi acceptance is still pending. See [docs/HOST.md](docs/HOST.md),
+[docs/VIEWER.md](docs/VIEWER.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
+
+The cross-device product requirements and acceptance gates are in
+[docs/CROSS_DEVICE.md](docs/CROSS_DEVICE.md). Mirroring, remote control, and
+extended displays are separate capabilities; the latter two are not implemented.
 
 ## Clean-room policy
 Our protocol and code are original. Nothing is copied from spacedesk or any proprietary app. Open-source projects (scrcpy, Weylus, Sunshine) may be studied only if their license allows, with attribution in NOTICE.
@@ -37,7 +44,10 @@ Our protocol and code are original. Nothing is copied from spacedesk or any prop
 - Virtual extended monitors need OS-specific drivers and stay optional.
 
 ## Status
-Bootstrap phase. See [docs/STATUS.md](docs/STATUS.md).
+Early development: core foundation complete; Linux streaming components exist.
+Windows capture/decoding, Android, input forwarding, and virtual displays remain
+future work. Current streaming is unauthenticated and unencrypted; use a trusted
+LAN for development. See [docs/STATUS.md](docs/STATUS.md).
 
 ## License
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).

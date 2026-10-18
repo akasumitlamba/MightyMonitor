@@ -1,5 +1,10 @@
 # Roadmap
 
+See [CROSS_DEVICE.md](CROSS_DEVICE.md) for cross-device roles, secure control,
+simultaneous sessions, wired transport constraints, and device acceptance gates.
+The numbered list below is the original implementation roadmap; it does not
+mean those features have passed physical-device acceptance.
+
 Cross-cutting requirement for every milestone: it must work **wirelessly over Wi-Fi/LAN with no cable**, with adaptive bitrate and automatic reconnects. Android uses wireless adb (adb pair / adb connect over Wi-Fi) and Wi-Fi streaming.
 
 1. [x] **Workspace, CI, core protocol (M1 done, 2026-10-18).** Acceptance: workspace builds; CI green on Linux and Windows; versioned framing; platform traits compile; TCP loopback test passes; reconnect and bitrate-adaptation interfaces defined.
