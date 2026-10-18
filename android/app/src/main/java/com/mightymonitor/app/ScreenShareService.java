@@ -64,8 +64,12 @@ public final class ScreenShareService extends Service {
         int heightAlignment = Math.max(2, capabilities.getHeightAlignment());
         width = Math.max(widthAlignment, width / widthAlignment * widthAlignment);
         height = Math.max(heightAlignment, height / heightAlignment * heightAlignment);
-        if (!capabilities.areSizeAndRateSupported(width, height, 30)) throw new IllegalStateException("This device cannot encode the selected screen size at 30 fps");
-        host = NativeBridge.startHost("0.0.0.0:5000", width, height, 30);
+        int fps = 30;
+        // Capability metadata can be incomplete on older codec implementations.
+        // Honor available rate limits; configure() is the final compatibility check.
+        if (capabilities.isSizeSupported(width, height)) fps = Math.max(1, Math.min(30, (int)Math.floor(capabilities.getSupportedFrameRatesFor(width, height).getUpper())));
+        android.util.Log.i("MightyMonitor", "Capture " + width + "x" + height + " at " + fps + " fps");
+        host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
         encoder.setCallback(new MediaCodec.Callback() {
             @Override public void onInputBufferAvailable(MediaCodec codec, int index) { }
             @Override public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
@@ -97,8 +101,8 @@ public final class ScreenShareService extends Service {
         }, worker);
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
-        format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate); format.setInteger(MediaFormat.KEY_FRAME_RATE, 30); format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
-        format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 33_333L);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, bitrate); format.setInteger(MediaFormat.KEY_FRAME_RATE, fps); format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 1);
+        format.setLong(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 1_000_000L / fps);
         encoder.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
         input = encoder.createInputSurface(); encoder.start();
         projection = getSystemService(MediaProjectionManager.class).getMediaProjection(resultCode, permission);

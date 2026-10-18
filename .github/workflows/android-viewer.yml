@@ -5,6 +5,9 @@ on:
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui']
   pull_request:
     paths: ['android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

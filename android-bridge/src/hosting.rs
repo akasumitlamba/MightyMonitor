@@ -201,6 +201,9 @@ fn serve(
             Ok(n) => {
                 decoder.push(&buffer[..n]);
                 while let Some(frame) = decoder.next_frame()? {
+                    if shared.stopped.load(Ordering::Relaxed) {
+                        return Ok(());
+                    }
                     let message = Message::from_frame_parts(frame.kind, &frame.payload)?;
                     last_control = Instant::now();
                     if !acknowledged {
