@@ -10,6 +10,8 @@ Congestion reduces by core's 0.7 factor, additionally capped at 90% of measured
 payload throughput when nonzero. Throughput alone never causes a reduction:
 it can be application limited. A completed video write taking over 100 ms also
 signals congestion. Failed encoder updates retain controller state for retry.
+Write pressure is latched across rate-limited or invalid reports and encoder
+rejections, then consumed by the next successfully applied valid decision.
 Invalid loss reports are ignored. A frame write can delay processing feedback;
 write timeout remains the upper bound, not a two-second real-network guarantee.
 
