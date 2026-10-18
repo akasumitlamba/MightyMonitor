@@ -118,6 +118,7 @@ MediaCodec surface decoding, a JNI bridge into the shared Rust protocol, bounded
 ordered video queue, Hello/Resume reconnect, configuration/keyframe gating, and
 Ping/NetStats feedback. Rust loopback tests cover actual protocol events, reconnect
 and shutdown under queue pressure. Android APK/emulator build workflow added;
-APK compilation, emulator decoding and physical phone acceptance are pending
-until those checks complete. This milestone does not include phone capture,
+APK compilation passed for arm64, 32-bit ARM and x86_64. Real PC H.264
+playback passed on Android 10, 11, 14 and 16 emulators; physical phone
+acceptance remains pending. This milestone does not include phone capture,
 remote input, secure pairing, virtual displays or a production-signed release.

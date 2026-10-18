@@ -46,6 +46,7 @@ jobs:
             android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
   emulator:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -90,10 +91,11 @@ jobs:
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
             adb shell am instrument -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb logcat -d > /tmp/mm-android-logcat.log
             grep -q 'OK (1 test)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
-        run: adb logcat -d > /tmp/mm-android-logcat.log || true
+        run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true
       - uses: actions/upload-artifact@v4
         if: always()
         with:
