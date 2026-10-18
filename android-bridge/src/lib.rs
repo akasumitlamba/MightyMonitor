@@ -15,6 +15,7 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, Instant},
 };
+pub mod hosting;
 #[cfg(feature = "jni")]
 mod native;
 type Error = Box<dyn std::error::Error + Send + Sync>;
