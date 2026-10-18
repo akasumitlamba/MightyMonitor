@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=MightyMonitor
+Comment=Share and view screens on your local network
+Exec=mightymonitor
+Icon=mightymonitor
+Terminal=false
+Categories=Network;RemoteAccess;
+StartupNotify=true
