@@ -24,7 +24,8 @@ pub mod reconnect;
 
 pub use reconnect::{
     Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, SendOutcome,
-    SessionError, SessionEvent, SessionState, SplitMix64, TcpConnector,
+    SessionError, SessionEvent, SessionReader, SessionState, SessionWriter, SplitMix64,
+    TcpConnector,
 };
 pub use transport::{TcpTransport, Transport, TransportError};
 
