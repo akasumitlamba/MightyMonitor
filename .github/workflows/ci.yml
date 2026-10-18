@@ -26,4 +26,9 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
       - run: cargo build --workspace
+      - name: X11 capture smoke test
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update && sudo apt-get install -y xvfb
+          xvfb-run -a -s "-screen 0 1280x720x24" cargo test -p host-linux -- --ignored x11_capture_smoke
       - run: cargo run -p bench --release -- --frames 100 --size 65536 --max-p99-ms 50
