@@ -186,8 +186,13 @@ mod tests {
                 skipped.loss_pct = f32::NAN;
             }
             assert_eq!(
-                abr.apply(&mut encoder, &skipped, Duration::from_millis(500), true)
-                    .unwrap(),
+                abr.apply(
+                    &mut encoder,
+                    &skipped,
+                    Duration::from_millis(if invalid { 1_000 } else { 500 }),
+                    true
+                )
+                .unwrap(),
                 None
             );
             encoder.reject = true;
