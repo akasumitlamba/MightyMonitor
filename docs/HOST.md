@@ -19,8 +19,8 @@ seconds, positive values only); Pings and other valid controls reset it.
 
 The executable captures the X11 root window, converts packed BGRA to RGBA, and
 uses codec-gst's low-latency H.264 encoder. It serves one viewer at a time and
-accepts another after disconnection. The portable library and tests compile on
-Windows; the executable's real capture/codec backend is Linux-only.
+accepts another after disconnection. The Windows executable uses DXGI desktop capture through GStreamer and the same
+H.264 pipeline. See [WINDOWS.md](WINDOWS.md) for setup and pending acceptance.
 
 ## Session and pipeline
 

@@ -16,4 +16,10 @@ async-trait = "0.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 host-linux = { path = "../host-linux" }
+
+[target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 codec-gst = { path = "../codec-gst" }
+
+[dev-dependencies]
+socket2 = "0.6"
+mightymonitor-viewer = { path = "../viewer", default-features = false }
