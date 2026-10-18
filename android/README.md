@@ -14,7 +14,7 @@ From the repository root:
 ```sh
 cargo install cargo-ndk --version 4.1.2 --locked
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
-RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni
+RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -P 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni
 cd android
 gradle assembleDebug
 ```
