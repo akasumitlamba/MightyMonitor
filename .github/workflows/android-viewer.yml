@@ -19,7 +19,7 @@ jobs:
       - uses: android-actions/setup-android@v3
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,x86_64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
           components: clippy,rustfmt
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p android-bridge --features jni --locked
@@ -29,7 +29,8 @@ jobs:
       - name: Build the shared Rust protocol library
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
-          cargo ndk -t arm64-v8a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni --locked
+          export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384"
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni --locked
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
@@ -42,6 +43,10 @@ jobs:
             android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
           if-no-files-found: error
   emulator:
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 30, 34, 36]
     needs: apk
     runs-on: ubuntu-24.04
     steps:
@@ -73,7 +78,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 35
+          api-level: ${{ matrix.api }}
           arch: x86_64
           target: google_apis
           profile: pixel_2
@@ -89,7 +94,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: android-viewer-test-logs
+          name: android-viewer-test-logs-api-${{ matrix.api }}
           path: |
             /tmp/mm-host.log
             /tmp/mm-xvfb.log

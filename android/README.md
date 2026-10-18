@@ -13,13 +13,13 @@ From the repository root:
 
 ```sh
 cargo install cargo-ndk --version 0.8.1 --locked
-rustup target add aarch64-linux-android x86_64-linux-android
-cargo ndk -t arm64-v8a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni
 cd android
 gradle assembleDebug
 ```
 
-Install app/build/outputs/apk/debug/app-debug.apk on an Android 8+ arm64 device
+Install app/build/outputs/apk/debug/app-debug.apk on an Android 8+ ARM device
 (or x86_64 emulator). Start the PC host on its LAN IP, enter that IP:port in the
 app, acknowledge the trusted network and press Connect. Disconnect/backgrounding
 stops the Rust worker and decoder. Rotation uses the same surface when possible;
@@ -33,4 +33,6 @@ MediaCodec. Frame counters measure decoder output submission, not physical
 screen scanout. Android platform APIs remain subject to device codec limits.
 
 Physical phone playback, rotation, Wi-Fi recovery and clean installation still
-need verification. An emulator smoke checks real PC H.264 to Android decoding.
+need verification. Emulator smoke jobs check real PC H.264 to Android decoding on API 29, 30, 34,
+and 36 (Android 10, 11, 14, and 16). Native libraries use 16 KiB ELF alignment
+and AGP 8.7.3 APK packaging for newer Android page-size compatibility.
