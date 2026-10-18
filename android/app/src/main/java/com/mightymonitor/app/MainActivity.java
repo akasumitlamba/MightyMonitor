@@ -32,6 +32,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private final AtomicInteger renderedFrames = new AtomicInteger();
     private SurfaceView video;
     private TextView status;
+    private TextView emptyPreview;
     private EditText address;
     private CheckBox trusted;
     private Button connect;
@@ -83,33 +84,36 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         LinearLayout navigation = new LinearLayout(this);
         Button viewTab = new Button(this); viewTab.setText("View");
         Button shareTab = new Button(this); shareTab.setText("Share"); shareTab.setId(SHARE_TAB_ID);
+        styleTab(viewTab, true); styleTab(shareTab, false);
         navigation.addView(viewTab, new LinearLayout.LayoutParams(0, dp(56), 1));
         navigation.addView(shareTab, new LinearLayout.LayoutParams(0, dp(56), 1)); layout.addView(navigation);
         viewPage = column(); sharePage = column();
         layout.addView(viewPage, new LinearLayout.LayoutParams(-1, 0, 1));
         layout.addView(sharePage, new LinearLayout.LayoutParams(-1, 0, 1)); sharePage.setVisibility(View.GONE);
-        viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); sharePage.setVisibility(View.GONE); });
-        shareTab.setOnClickListener(v -> { disconnect("Not connected"); viewPage.setVisibility(View.GONE); sharePage.setVisibility(View.VISIBLE); });
+        viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); sharePage.setVisibility(View.GONE); styleTab(viewTab, true); styleTab(shareTab, false); });
+        shareTab.setOnClickListener(v -> { disconnect("Not connected"); viewPage.setVisibility(View.GONE); sharePage.setVisibility(View.VISIBLE); styleTab(viewTab, false); styleTab(shareTab, true); });
         address = new EditText(this); address.setId(ADDRESS_ID); address.setSingleLine(true);
-        address.setHint("Device address · 192.168.1.10:5000");
+        address.setHint("Device address (IP:port)"); address.setTextSize(16);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         address.setText(getPreferences(MODE_PRIVATE).getString("address", ""));
         viewPage.addView(address, new LinearLayout.LayoutParams(-1, dp(56)));
-        trusted = new CheckBox(this); trusted.setId(TRUST_ID); trusted.setText("Trusted Wi-Fi (unencrypted)"); viewPage.addView(trusted);
+        trusted = new CheckBox(this); trusted.setId(TRUST_ID); trusted.setText("Trusted Wi-Fi (unencrypted)"); trusted.setTextSize(14); viewPage.addView(trusted);
         LinearLayout buttons = new LinearLayout(this);
-        connect = new Button(this); connect.setId(CONNECT_ID); connect.setText("Connect"); connect.setEnabled(false); connect.setOnClickListener(v -> startViewing());
+        connect = new Button(this); connect.setId(CONNECT_ID); connect.setText("Connect"); connect.setEnabled(false); styleButton(connect, true); connect.setOnClickListener(v -> { if (handle != 0) disconnect("Not connected"); else startViewing(); });
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
-        Button stop = new Button(this); stop.setText("Disconnect"); stop.setOnClickListener(v -> disconnect("Not connected")); buttons.addView(stop, new LinearLayout.LayoutParams(0, -2, 1)); viewPage.addView(buttons);
+        viewPage.addView(buttons);
         status = text("Not connected", 14, Color.rgb(61, 91, 77)); status.setPadding(0, dp(8), 0, dp(8)); viewPage.addView(status);
         video = new SurfaceView(this); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
         video.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fitVideo());
         android.widget.FrameLayout viewport = new android.widget.FrameLayout(this);
-        viewport.addView(video, new android.widget.FrameLayout.LayoutParams(-1, -1, Gravity.CENTER)); viewPage.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
+        viewport.addView(video, new android.widget.FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
+        emptyPreview = text("Your other screen will appear here", 15, Color.rgb(83, 102, 91)); emptyPreview.setGravity(Gravity.CENTER); emptyPreview.setBackground(rounded(Color.rgb(235, 241, 237)));
+        viewport.addView(emptyPreview, new android.widget.FrameLayout.LayoutParams(-1, -1)); viewPage.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView heading = text("Share this screen", 24, Color.rgb(30, 39, 35)); heading.setPadding(0, dp(24), 0, dp(12)); sharePage.addView(heading);
         sharePage.addView(text("Open MightyMonitor on your PC and enter:", 15, Color.rgb(83, 94, 88)));
         TextView ownAddress = text(ScreenShareService.localAddress(), 22, Color.rgb(30, 39, 35)); ownAddress.setTextIsSelectable(true); ownAddress.setPadding(0, dp(12), 0, dp(12)); sharePage.addView(ownAddress);
-        shareTrust = new CheckBox(this); shareTrust.setId(SHARE_TRUST_ID); shareTrust.setText("Trusted Wi-Fi (unencrypted)"); sharePage.addView(shareTrust);
-        share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); sharePage.addView(share);
+        shareTrust = new CheckBox(this); shareTrust.setId(SHARE_TRUST_ID); shareTrust.setText("Trusted Wi-Fi (unencrypted)"); shareTrust.setTextSize(14); sharePage.addView(shareTrust);
+        share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
             if (ScreenShareService.sharing) { stopService(new android.content.Intent(this, ScreenShareService.class)); return; }
@@ -121,6 +125,22 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         shareTrust.setOnCheckedChangeListener((v, checked) -> { if (!checked) stopService(new android.content.Intent(this, ScreenShareService.class)); });
         trusted.setOnCheckedChangeListener((v, checked) -> { if (!checked) disconnect("Not connected"); });
         setContentView(layout); handler.post(refreshSharing);
+    }
+    private android.graphics.drawable.GradientDrawable rounded(int color) {
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable(); shape.setColor(color); shape.setCornerRadius(dp(8)); return shape;
+    }
+    private void styleButton(Button button, boolean primary) {
+        button.setAllCaps(false); button.setTextSize(16); button.setElevation(0); button.setStateListAnimator(null); button.setMinHeight(dp(48)); button.setPadding(dp(14), dp(10), dp(14), dp(10));
+        android.graphics.drawable.StateListDrawable background = new android.graphics.drawable.StateListDrawable();
+        background.addState(new int[]{-android.R.attr.state_enabled}, rounded(Color.rgb(223, 231, 226)));
+        background.addState(new int[]{android.R.attr.state_pressed}, rounded(Color.rgb(30, 91, 60)));
+        background.addState(new int[]{}, rounded(primary ? Color.rgb(38, 115, 77) : Color.rgb(235, 241, 237)));
+        button.setBackground(background); button.setTextColor(primary ? Color.WHITE : Color.rgb(30, 65, 43));
+    }
+    private void styleTab(Button button, boolean selected) {
+        styleButton(button, false); button.setBackground(rounded(selected ? Color.rgb(217, 236, 223) : Color.rgb(247, 248, 247)));
+        button.setTypeface(android.graphics.Typeface.create(selected ? "sans-serif-medium" : "sans-serif", android.graphics.Typeface.NORMAL));
+        button.setSelected(selected);
     }
     private LinearLayout column() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
@@ -142,7 +162,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             handle = NativeBridge.connect(endpoint);
             if (handle == 0) throw new IllegalStateException("Could not start the network client");
             getPreferences(MODE_PRIVATE).edit().putString("address", endpoint).apply();
-            renderedFrames.set(0);
+            renderedFrames.set(0); connect.setText("Disconnect");
             handler.post(pump);
         } catch (Exception | UnsatisfiedLinkError error) { disconnect("Cannot connect: " + error.getMessage()); }
     }
@@ -184,7 +204,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         if (codec == null) return;
         for (int count = 0; count < 8; count++) {
             int output = codec.dequeueOutputBuffer(bufferInfo, 0);
-            if (output >= 0) { codec.releaseOutputBuffer(output, true); renderedFrames.incrementAndGet(); }
+            if (output >= 0) { codec.releaseOutputBuffer(output, true); renderedFrames.incrementAndGet(); emptyPreview.setVisibility(View.GONE); }
             else if (output != MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) break;
         }
     }
@@ -209,6 +229,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         long previous = handle; handle = 0;
         if (previous != 0) cleanup.execute(() -> NativeBridge.disconnect(previous));
         releaseDecoder();
+        if (connect != null) connect.setText("Connect");
+        if (emptyPreview != null) emptyPreview.setVisibility(View.VISIBLE);
         if (status != null) status.setText(message);
     }
     public int getRenderedFrames() { return renderedFrames.get(); }
