@@ -16,6 +16,7 @@ public final class ViewerSmokeTest {
         MainActivity app = activity.getActivity();
         long deadline = System.currentTimeMillis() + 60000;
         while (!((Button) app.findViewById(MainActivity.CONNECT_ID)).isEnabled() && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        saveScreenshot("view");
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             ((EditText) app.findViewById(MainActivity.ADDRESS_ID)).setText("10.0.2.2:5000");
             ((CheckBox) app.findViewById(MainActivity.TRUST_ID)).setChecked(true);
@@ -40,6 +41,7 @@ public final class ViewerSmokeTest {
             long deadline = System.currentTimeMillis() + 60000;
             while (ScreenShareService.capturedFrames < 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
             assertTrue("MediaProjection produced no encoded screen frames: " + ScreenShareService.summary, ScreenShareService.capturedFrames >= 3);
+            saveScreenshot("share");
             client = NativeBridge.connect("127.0.0.1:5000"); int decoded = 0; byte[] pending = null;
             android.media.MediaCodec.BufferInfo info = new android.media.MediaCodec.BufferInfo();
             while (decoded < 3 && System.currentTimeMillis() < deadline) {
@@ -66,5 +68,12 @@ public final class ViewerSmokeTest {
             if (decoder != null) { decoder.stop(); decoder.release(); }
             app.stopService(new android.content.Intent(app, ScreenShareService.class));
         }
+    }
+    private void saveScreenshot(String name) throws Exception {
+        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+        android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        java.io.File directory = new java.io.File(activity.getActivity().getExternalFilesDir(null), "screenshots"); directory.mkdirs();
+        try (java.io.FileOutputStream output = new java.io.FileOutputStream(new java.io.File(directory, name + ".png"))) { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output); }
+        bitmap.recycle();
     }
 }

@@ -91,6 +91,7 @@ jobs:
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
             adb shell am instrument -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb pull /sdcard/Android/data/com.mightymonitor.app/files/screenshots /tmp/mm-screenshots
             adb logcat -d > /tmp/mm-android-logcat.log
             grep -q 'OK (2 tests)' /tmp/mm-android-test.log
       - name: Collect logs
@@ -105,3 +106,4 @@ jobs:
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
             /tmp/mm-android-logcat.log
+            /tmp/mm-screenshots
