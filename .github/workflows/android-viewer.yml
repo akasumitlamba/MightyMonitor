@@ -70,6 +70,7 @@ jobs:
           sudo apt-get install -y xvfb libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked -p mightymonitor-host
+      - run: cargo build --release --locked -p mightymonitor-viewer --example receive_smoke --no-default-features
       - name: Start isolated test desktop and real H.264 host
         run: |
           Xvfb :99 -screen 0 640x480x24 > /tmp/mm-xvfb.log 2>&1 &
@@ -90,7 +91,10 @@ jobs:
           script: |
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
-            adb shell am instrument -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb forward tcp:5001 tcp:5000
+            adb shell mkdir -p /sdcard/Android/data/com.mightymonitor.app/files
+            (./target/release/examples/receive_smoke 127.0.0.1:5001 && adb shell touch /sdcard/Android/data/com.mightymonitor.app/files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
+            adb shell am instrument -e desktopInterop true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
             adb pull /sdcard/Android/data/com.mightymonitor.app/files/screenshots /tmp/mm-screenshots
             adb logcat -d > /tmp/mm-android-logcat.log
             grep -q 'OK (2 tests)' /tmp/mm-android-test.log
@@ -102,6 +106,7 @@ jobs:
         with:
           name: android-viewer-test-logs-api-${{ matrix.api }}
           path: |
+            /tmp/mm-desktop-video.log
             /tmp/mm-host.log
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log

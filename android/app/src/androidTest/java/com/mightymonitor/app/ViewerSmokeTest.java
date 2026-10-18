@@ -63,6 +63,13 @@ public final class ViewerSmokeTest {
                 }
             }
             assertTrue("Android capture -> Rust host -> Rust viewer -> decoder produced no video", decoded >= 3);
+            NativeBridge.disconnect(client); client = 0;
+            if ("true".equals(InstrumentationRegistry.getArguments().getString("desktopInterop"))) {
+                java.io.File marker = new java.io.File(app.getExternalFilesDir(null), "desktop-video-ok");
+                long until = System.currentTimeMillis() + 60000;
+                while (!marker.isFile() && System.currentTimeMillis() < until) Thread.sleep(100);
+                assertTrue("Desktop GStreamer viewer did not decode the phone stream", marker.isFile());
+            }
         } finally {
             if (client != 0) NativeBridge.disconnect(client);
             if (decoder != null) { decoder.stop(); decoder.release(); }
