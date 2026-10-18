@@ -62,3 +62,9 @@ LAN for development. See [docs/STATUS.md](docs/STATUS.md).
 
 ## License
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+## Linux alpha installer
+
+Debian/Ubuntu package generation and local installation instructions are in
+[docs/INSTALLERS.md](docs/INSTALLERS.md). This packages the Linux development
+prototype; it does not mean all cross-device features are complete.

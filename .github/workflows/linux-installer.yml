@@ -1,0 +1,41 @@
+name: Build Linux installer
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Debian package version (alpha by default)
+        required: true
+        default: '0.0.1~alpha.1'
+  push:
+    branches: ['codex/linux-installer']
+permissions:
+  contents: read
+jobs:
+  deb:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install build and runtime dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libx11-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
+      - name: Create Debian package
+        env:
+          PACKAGE_VERSION: ${{ inputs.version || '0.0.1~alpha.1' }}
+        run: python3 scripts/package-linux.py --version "$PACKAGE_VERSION"
+      - name: Inspect package and extracted executables
+        run: |
+          dpkg-deb --info output/installers/*.deb
+          dpkg-deb --contents output/installers/*.deb
+          dpkg-deb --extract output/installers/*.deb /tmp/mightymonitor-package
+          /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-host --help
+          test -x /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-viewer
+          test -f /tmp/mightymonitor-package/usr/share/applications/mightymonitor.desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mightymonitor-linux-deb
+          path: output/installers/*.deb
+          if-no-files-found: error
