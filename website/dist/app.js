@@ -14,6 +14,7 @@ for (const button of document.querySelectorAll('.mode-switch button')) {
     document.getElementById('device-stage').dataset.mode = mode;
     document.getElementById('phone-label').innerText = descriptions[mode][0];
     document.getElementById('concept-detail').textContent = descriptions[mode][1];
+    document.getElementById('laptop-title').textContent = { mirror: 'A second view', control: 'Control from here', extend: 'An extra display' }[mode];
   });
 }
 // Accept installable packages only. Portable executables and source archives are excluded.
@@ -41,6 +42,7 @@ async function loadRelease() {
   const status = document.getElementById('release-status');
   const refresh = document.getElementById('refresh-releases');
   refresh.disabled = true;
+  document.getElementById('download-availability').textContent = 'Linux prototype. Installer availability is listed below.';
   resetDownloads('Checking availability…');
   status.textContent = 'Checking for published installers…';
   const controller = new AbortController();
