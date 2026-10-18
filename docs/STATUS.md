@@ -123,3 +123,15 @@ APK compilation passed for arm64, 32-bit ARM and x86_64. Real PC H.264
 playback passed on Android 10, 11, 14 and 16 emulators; physical phone
 acceptance remains pending. This milestone does not include phone capture,
 remote input, secure pairing, virtual displays or a production-signed release.
+
+
+2026-10-18: Android screen hosting and light interface milestone added. Android
+MediaProjection consent and a foreground capture service feed surface H.264 to
+an original Rust protocol server. Native queue bounds, overflow IDR gating,
+handshake, timed writes, keepalive, stop lifecycle and bitrate feedback are
+implemented. Capture-to-Rust-to-Android-decoder tests passed on Android 10, 11,
+14 and 16 emulators. A separate real desktop decoder interoperability check is
+being added. Desktop and Android now separate View/Share with a light neutral
+and green palette; technical settings are collapsed. Physical devices, secure
+pairing, remote input, extended monitors, concurrent peers and production
+Windows packaging remain incomplete.

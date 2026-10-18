@@ -22,7 +22,7 @@ iOS are not currently targeted.
 |----------|----------------------|--------------------------------|
 | Linux    | implemented, desktop validation pending | implemented, desktop validation pending |
 | Windows  | implemented, physical-device validation pending | implemented, physical-device validation pending |
-| Android  | planned | alpha APK; playback tested on Android 10/11/14/16 emulators |
+| Android  | capture alpha; emulator tested | viewer alpha; Android 10/11/14/16 emulator tested |
 | Browser (ChromeOS, TVs, old laptops, Fire tablets) | - | planned |
 
 ## Architecture (Cargo workspace)
@@ -31,7 +31,7 @@ iOS are not currently targeted.
 - Windows host: GStreamer DXGI desktop capture with shared H.264/TCP streaming; input injection is planned.
 - `viewer`: egui/eframe viewer for Linux and Windows.
 - Browser streaming: planned; the static project website is not a streaming viewer.
-- `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture and remote input are planned. See [Android build/install instructions](android/README.md).
+- `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture uses MediaProjection and surface H.264; remote input is planned. See [Android build/install instructions](android/README.md).
 - Networking: TCP today. QUIC and mDNS discovery are planned.
 
 The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
@@ -50,7 +50,7 @@ only where its license permits, with appropriate attribution in NOTICE.
 
 ## Known limits
 - The Linux host CLI currently requires X11. Wayland portal integration and physical-device validation are pending.
-- Android currently views PC streams only. Phone capture and control are not implemented.
+- Android can view PC streams and explicitly share its own screen. Remote control is not implemented.
 - Virtual extended monitors need OS-specific drivers and stay optional.
 
 ## Status
@@ -58,7 +58,7 @@ Early development: core foundation complete; Linux streaming components exist.
 Windows capture and H.264 decoding are implemented with GStreamer; physical-device
 validation is pending. An Android viewer APK is built and real desktop video
 decoding passed on Android 10, 11, 14 and 16 emulators; physical phone tests
-remain pending. Phone capture, input forwarding, secure pairing, discovery and
+remain pending. Input forwarding, secure pairing, discovery and
 virtual displays remain future work. Current streaming is unauthenticated and unencrypted; use a trusted
 LAN for development. See [docs/STATUS.md](docs/STATUS.md).
 
@@ -70,3 +70,11 @@ Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
 Debian/Ubuntu package generation and local installation instructions are in
 [docs/INSTALLERS.md](docs/INSTALLERS.md). This packages the Linux development
 prototype; it does not mean all cross-device features are complete.
+
+## App interface
+
+View and Share are separate destinations. Quality/network settings are under
+Settings, and live connection statistics under Details. Android sharing requires
+fresh system consent and includes a Stop action in its ongoing notification.
+
+![Light desktop interface](docs/images/desktop-light.png)
