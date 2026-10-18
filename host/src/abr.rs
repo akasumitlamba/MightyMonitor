@@ -9,6 +9,7 @@ pub struct Abr {
     core: AimdController,
     last: Option<Duration>,
     baseline_rtt: Option<u32>,
+    pending_write_pressure: bool,
     min: u32,
     max: u32,
 }
@@ -25,6 +26,7 @@ impl Abr {
             })?,
             last: None,
             baseline_rtt: None,
+            pending_write_pressure: false,
             min,
             max,
         })
@@ -41,15 +43,18 @@ impl Abr {
         now: Duration,
         blocked: bool,
     ) -> Result<Option<u32>, mightymonitor_core::CodecError> {
+        // Latch before cloning so skipped reports and encoder failures retain
+        // the observation until a valid decision is successfully committed.
+        self.pending_write_pressure |= blocked;
         let mut next = self.clone();
-        let target = next.decide(stats, now, blocked);
+        let target = next.decide(stats, now);
         if let Some(target) = target {
             encoder.set_bitrate_kbps(target)?;
         }
         *self = next;
         Ok(target)
     }
-    fn decide(&mut self, stats: &NetStats, now: Duration, blocked: bool) -> Option<u32> {
+    fn decide(&mut self, stats: &NetStats, now: Duration) -> Option<u32> {
         if !stats.loss_pct.is_finite()
             || !(0.0..=100.0).contains(&stats.loss_pct)
             || self
@@ -63,10 +68,11 @@ impl Abr {
             .baseline_rtt
             .map_or(stats.rtt_ms, |r| r.min(stats.rtt_ms));
         self.baseline_rtt = Some(baseline);
-        let congested = blocked
+        let congested = self.pending_write_pressure
             || stats.loss_pct > 2.0
             || f64::from(stats.rtt_ms)
                 > (f64::from(baseline) * 1.5).max(f64::from(baseline) + 20.0);
+        self.pending_write_pressure = false;
         let previous = self.target_kbps();
         let mut feedback = stats.clone();
         if congested {
@@ -166,6 +172,72 @@ mod tests {
         abr.apply(&mut encoder, &stats(100, 1), Duration::from_secs(21), true)
             .unwrap();
         assert_eq!(abr.target_kbps(), 500);
+    }
+
+    #[test]
+    fn write_pressure_survives_skipped_reports_and_encoder_rejection() {
+        for invalid in [false, true] {
+            let mut abr = Abr::new(10_000, 500, 20_000).unwrap();
+            let mut encoder = EncoderStub::default();
+            abr.apply(&mut encoder, &stats(20, 10_000), Duration::ZERO, false)
+                .unwrap();
+            let mut skipped = stats(20, 10_000);
+            if invalid {
+                skipped.loss_pct = f32::NAN;
+            }
+            assert_eq!(
+                abr.apply(
+                    &mut encoder,
+                    &skipped,
+                    Duration::from_millis(if invalid { 1_000 } else { 500 }),
+                    true
+                )
+                .unwrap(),
+                None
+            );
+            encoder.reject = true;
+            assert!(abr
+                .apply(
+                    &mut encoder,
+                    &stats(20, 10_000),
+                    Duration::from_secs(1),
+                    false
+                )
+                .is_err());
+            assert_eq!(abr.target_kbps(), 10_000);
+            encoder.reject = false;
+            assert_eq!(
+                abr.apply(
+                    &mut encoder,
+                    &stats(20, 10_000),
+                    Duration::from_secs(1),
+                    false
+                )
+                .unwrap(),
+                Some(7_000)
+            );
+            // Consumed pressure must not cause another decrease.
+            assert_eq!(
+                abr.apply(
+                    &mut encoder,
+                    &stats(20, 10_000),
+                    Duration::from_secs(2),
+                    false
+                )
+                .unwrap(),
+                None
+            );
+            assert_eq!(
+                abr.apply(
+                    &mut encoder,
+                    &stats(20, 10_000),
+                    Duration::from_secs(3),
+                    false
+                )
+                .unwrap(),
+                Some(12_000)
+            );
+        }
     }
 
     #[test]
