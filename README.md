@@ -1,6 +1,14 @@
 # MightyMonitor
 
-Free, LAN-only, open-source, spacedesk-style screen sharing written in Rust. Share a screen between Linux, Windows and Android in any direction. No cloud, no accounts, no cost. macOS and iOS are not targeted.
+MightyMonitor is a free, open-source application being built to share, control,
+and extend screens across Linux, Windows, and Android devices over a local
+network. View another device in a window, use your keyboard and mouse or touch
+to control it, and turn another device into an additional display as these
+capabilities become available.
+
+Built in Rust, with local connections and no cloud accounts. Wi-Fi is the primary
+connection method; wired networking is part of the planned experience. macOS and
+iOS are not currently targeted.
 
 ## Goals
 - Share a screen between Linux, Windows and Android (host to viewer, any direction).
@@ -36,7 +44,9 @@ The cross-device product requirements and acceptance gates are in
 extended displays are separate capabilities; the latter two are not implemented.
 
 ## Clean-room policy
-Our protocol and code are original. Nothing is copied from spacedesk or any proprietary app. Open-source projects (scrcpy, Weylus, Sunshine) may be studied only if their license allows, with attribution in NOTICE.
+Our protocol and code are original. No code, protocols, drivers, or assets are
+copied from proprietary applications. Third-party open-source work may be studied
+only where its license permits, with appropriate attribution in NOTICE.
 
 ## Known limits
 - Wayland requires a permission prompt per capture session.
