@@ -21,4 +21,5 @@ host-linux = { path = "../host-linux" }
 codec-gst = { path = "../codec-gst" }
 
 [dev-dependencies]
+socket2 = "0.6"
 mightymonitor-viewer = { path = "../viewer", default-features = false }

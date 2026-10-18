@@ -37,6 +37,16 @@ jobs:
         env:
           RUSTDOCFLAGS: -D warnings
       - run: cargo build --workspace
+      - name: Save Windows development binaries
+        if: runner.os == 'Windows'
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-desktop-development
+          path: |
+            target/debug/mm-host.exe
+            target/debug/mm-viewer.exe
+            docs/WINDOWS.md
+          if-no-files-found: error
       - name: X11 capture smoke test
         if: runner.os == 'Linux'
         run: |

@@ -1896,6 +1896,7 @@ dependencies = [
  "host-linux",
  "mightymonitor-core",
  "mightymonitor-viewer",
+ "socket2",
  "tokio",
 ]
 
