@@ -5,14 +5,14 @@ JNI bridge. This milestone views an existing PC screen; phone capture, remote
 input, secure pairing and virtual displays are not implemented here.
 
 Build requirements: JDK 17, Gradle 8.9, Android SDK 35/build-tools 35.0.0, NDK,
-Rust Android targets and cargo-ndk 0.8.1. See the Android viewer workflow for the
+Rust Android targets and cargo-ndk 4.1.2. See the Android viewer workflow for the
 reproducible build and APK artifact. The debug APK is installable for development,
 not a signed production release or Play Store package.
 
 From the repository root:
 
 ```sh
-cargo install cargo-ndk --version 0.8.1 --locked
+cargo install cargo-ndk --version 4.1.2 --locked
 rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
 RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384" cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -p 26 -o android/app/src/main/jniLibs build --release -p android-bridge --features jni
 cd android

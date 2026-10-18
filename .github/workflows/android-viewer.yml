@@ -28,7 +28,7 @@ jobs:
       - run: cargo test -p android-bridge --features jni --locked
       - run: cargo clippy -p android-bridge --features jni --all-targets --locked -- -D warnings
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'ndk;27.2.12479018'
-      - run: cargo install cargo-ndk --version 0.8.1 --locked
+      - run: cargo install cargo-ndk --version 4.1.2 --locked
       - name: Build the shared Rust protocol library
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
