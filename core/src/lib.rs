@@ -9,6 +9,14 @@ pub use error::FrameError;
 /// Asynchronous frame transports.
 pub mod transport;
 
+/// Reconnection policy and session lifecycle.
+pub mod reconnect;
+
+pub use reconnect::{
+    Backoff, BackoffPolicy, Connector, JitterSource, ReconnectingSession, ResumePayloadError,
+    ResumeRequest, SendOutcome, SessionError, SessionEvent, SessionState, SplitMix64, TcpConnector,
+    KIND_RESUME,
+};
 pub use transport::{TcpTransport, Transport, TransportError};
 
 pub use frame::{
