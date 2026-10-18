@@ -22,6 +22,7 @@ pub struct App {
     trusted_network: bool,
     host: Option<crate::host::HostProcess>,
     host_message: String,
+    host_error: bool,
     last_host_poll: std::time::Instant,
     output: SharedOutput,
     texture: Option<egui::TextureHandle>,
@@ -42,6 +43,7 @@ impl App {
             trusted_network: false,
             host: None,
             host_message: String::new(),
+            host_error: false,
             last_host_poll: std::time::Instant::now(),
             output: Arc::new(Mutex::new(Output {
                 state: State::Closed,
@@ -108,10 +110,12 @@ impl eframe::App for App {
                             "Sharing stopped. {}",
                             host.diagnostics().unwrap_or_default()
                         );
+                        self.host_error = true;
                         self.host = None;
                     }
                     Err(error) => {
                         self.host_message = format!("Unable to check sharing: {error}");
+                        self.host_error = true;
                         self.host = None;
                     }
                     Ok(false) => {
@@ -262,6 +266,7 @@ impl eframe::App for App {
                     if ui.button("Stop sharing").clicked() {
                         self.host = None;
                         self.host_message = "Sharing stopped".into();
+                        self.host_error = false;
                     }
                 } else {
                     ui.checkbox(&mut self.trusted_network, "Trusted Wi-Fi (unencrypted)");
@@ -281,10 +286,20 @@ impl eframe::App for App {
                             Ok(host) => {
                                 self.host = Some(host);
                                 self.host_message = "Starting sharing…".into();
+                                self.host_error = false;
                             }
-                            Err(error) => self.host_message = error.to_string(),
+                            Err(error) => {
+                                self.host_message = error.to_string();
+                                self.host_error = true;
+                            }
                         }
                     }
+                }
+                if self.host_error {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(166, 48, 36),
+                        "Sharing could not continue. Open sharing details below.",
+                    );
                 }
                 ui.add_space(20.0);
                 ui.collapsing("Settings", |ui| {
@@ -333,7 +348,38 @@ impl eframe::App for App {
                         .max(0.01);
                     ui.add(egui::Image::new(texture).fit_to_exact_size(size * scale));
                 } else {
-                    ui.centered_and_justified(|ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space((ui.available_height() * 0.42).max(20.0));
+                        let (response, painter) =
+                            ui.allocate_painter(egui::vec2(180.0, 96.0), egui::Sense::hover());
+                        let origin = response.rect.min;
+                        let ink = egui::Color32::from_rgb(128, 145, 135);
+                        for (x, y, w, h) in [(4.0, 4.0, 106.0, 66.0), (86.0, 30.0, 86.0, 54.0)] {
+                            let rect = egui::Rect::from_min_size(
+                                origin + egui::vec2(x, y),
+                                egui::vec2(w, h),
+                            );
+                            painter.rect_filled(rect, 5.0, egui::Color32::WHITE);
+                            painter.rect_stroke(
+                                rect,
+                                5.0,
+                                egui::Stroke::new(2.0_f32, ink),
+                                egui::StrokeKind::Inside,
+                            );
+                            painter.line_segment(
+                                [
+                                    rect.center_bottom(),
+                                    rect.center_bottom() + egui::vec2(0.0, 8.0),
+                                ],
+                                egui::Stroke::new(2.0_f32, ink),
+                            );
+                        }
+                        painter.circle_filled(
+                            origin + egui::vec2(105.0, 63.0),
+                            10.0,
+                            egui::Color32::from_rgb(38, 115, 77),
+                        );
+                        ui.add_space(10.0);
                         ui.label("Your other screen will appear here");
                     });
                 }

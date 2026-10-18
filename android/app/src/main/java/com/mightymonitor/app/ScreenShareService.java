@@ -58,11 +58,18 @@ public final class ScreenShareService extends Service {
         else { DisplayMetrics metrics = new DisplayMetrics(); windows.getDefaultDisplay().getRealMetrics(metrics); width = metrics.widthPixels; height = metrics.heightPixels; }
         double scale = Math.min(1.0, 1280.0 / Math.max(width, height));
         width = Math.max(2, ((int)(width * scale)) & ~1); height = Math.max(2, ((int)(height * scale)) & ~1);
-        host = NativeBridge.startHost("0.0.0.0:5000", width, height, 30);
         encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+        MediaCodecInfo.VideoCapabilities capabilities = encoder.getCodecInfo().getCapabilitiesForType(MediaFormat.MIMETYPE_VIDEO_AVC).getVideoCapabilities();
+        int widthAlignment = Math.max(2, capabilities.getWidthAlignment());
+        int heightAlignment = Math.max(2, capabilities.getHeightAlignment());
+        width = Math.max(widthAlignment, width / widthAlignment * widthAlignment);
+        height = Math.max(heightAlignment, height / heightAlignment * heightAlignment);
+        if (!capabilities.areSizeAndRateSupported(width, height, 30)) throw new IllegalStateException("This device cannot encode the selected screen size at 30 fps");
+        host = NativeBridge.startHost("0.0.0.0:5000", width, height, 30);
         encoder.setCallback(new MediaCodec.Callback() {
             @Override public void onInputBufferAvailable(MediaCodec codec, int index) { }
             @Override public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
+                if (closed) return;
                 try {
                     ByteBuffer output = codec.getOutputBuffer(index);
                     if (output != null && info.size > 0) {
