@@ -19,7 +19,7 @@ pub struct App {
     share_address: String,
     share_fps: u32,
     share_bitrate: u32,
-    trusted_network: bool,
+    allow_legacy: bool,
     host: Option<crate::host::HostProcess>,
     host_message: String,
     host_error: bool,
@@ -40,7 +40,7 @@ impl App {
             share_address: local_endpoint(),
             share_fps: 30,
             share_bitrate: 4000,
-            trusted_network: false,
+            allow_legacy: false,
             host: None,
             host_message: String::new(),
             host_error: false,
@@ -70,6 +70,12 @@ impl App {
     }
     fn connect(&mut self) {
         self.disconnect();
+        if let Err(error) =
+            mightymonitor_security::Endpoint::parse(&self.address, self.allow_legacy)
+        {
+            self.output.lock().unwrap_or_else(|e| e.into_inner()).error = Some(error.to_string());
+            return;
+        }
         #[cfg(any(target_os = "linux", target_os = "windows"))]
         match codec_gst::decoder::Decoder::new() {
             Ok(decoder) => {
@@ -101,6 +107,9 @@ impl Drop for App {
 }
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _: &mut eframe::Frame) {
+        if self.task.as_ref().is_some_and(|task| task.is_finished()) {
+            self.task = None;
+        }
         if self.last_host_poll.elapsed() >= std::time::Duration::from_millis(500) {
             self.last_host_poll = std::time::Instant::now();
             if let Some(host) = &mut self.host {
@@ -210,7 +219,7 @@ impl eframe::App for App {
                     ui.add_sized(
                         [ui.available_width() - 130.0, 40.0],
                         egui::TextEdit::singleline(&mut self.address)
-                            .hint_text("Device address (IP:port)"),
+                            .hint_text("Paste a connection link"),
                     );
                     if self.task.is_some() {
                         if ui.button("Disconnect").clicked() {
@@ -226,6 +235,12 @@ impl eframe::App for App {
                         self.address = self.address.trim().to_owned();
                         self.connect();
                     }
+                });
+                ui.collapsing("Connection settings", |ui| {
+                    ui.checkbox(
+                        &mut self.allow_legacy,
+                        "Connect to an older alpha (unencrypted)",
+                    );
                 });
                 ui.add_space(12.0);
             },
@@ -254,11 +269,20 @@ impl eframe::App for App {
                 ui.add_space(24.0);
                 ui.heading("Share this screen");
                 ui.add_space(10.0);
-                ui.label("Enter this address on your other device");
+                ui.label("Copy the connection link to your other device");
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&self.share_address).size(28.0).strong());
-                    if ui.button("Copy").clicked() {
-                        ctx.copy_text(self.share_address.clone());
+                    let invitation = self.host.as_ref().and_then(|host| host.invitation());
+                    if ui
+                        .add_enabled(
+                            invitation.is_some(),
+                            egui::Button::new("Copy connection link"),
+                        )
+                        .clicked()
+                    {
+                        if let Some(invitation) = invitation {
+                            ctx.copy_text(invitation.to_link());
+                        }
                     }
                 });
                 ui.add_space(18.0);
@@ -269,10 +293,9 @@ impl eframe::App for App {
                         self.host_error = false;
                     }
                 } else {
-                    ui.checkbox(&mut self.trusted_network, "Trusted Wi-Fi (unencrypted)");
                     if ui
                         .add_enabled(
-                            self.trusted_network,
+                            true,
                             egui::Button::new("Share this screen")
                                 .fill(egui::Color32::from_rgb(218, 237, 226)),
                         )

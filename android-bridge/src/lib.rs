@@ -6,8 +6,8 @@ use mightymonitor_core::{
 };
 use std::{
     collections::VecDeque,
-    io::{self, Read, Write},
-    net::{SocketAddr, TcpStream},
+    io::{self, Read},
+    net::TcpStream,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -16,6 +16,9 @@ use std::{
     time::{Duration, Instant},
 };
 pub mod hosting;
+mod socket;
+use mightymonitor_security::{blocking, Endpoint};
+use socket::{Connection, FrameWriter};
 #[cfg(feature = "jni")]
 mod native;
 type Error = Box<dyn std::error::Error + Send + Sync>;
@@ -23,7 +26,7 @@ const QUEUE_CAPACITY: usize = 3;
 
 struct Shared {
     events: Mutex<VecDeque<Vec<u8>>>,
-    stopped: AtomicBool,
+    stopped: Arc<AtomicBool>,
 }
 impl Shared {
     fn emit(&self, mut event: Vec<u8>) -> bool {
@@ -58,17 +61,10 @@ impl Client {
     /// Accept literal IP:port endpoints (including bracketed IPv6), avoiding
     /// unbounded DNS resolution on an Android UI call.
     pub fn connect(address: &str) -> io::Result<Self> {
-        let address: SocketAddr = address.parse().map_err(|_| {
-            io::Error::other("Enter a PC IP and port, for example 192.168.1.10:5000")
-        })?;
-        if address.port() == 0 || address.ip().is_unspecified() {
-            return Err(io::Error::other(
-                "Use a specific PC address and a nonzero port",
-            ));
-        }
+        let address = Endpoint::parse(address, true)?;
         let shared = Arc::new(Shared {
             events: Mutex::new(VecDeque::new()),
-            stopped: AtomicBool::new(false),
+            stopped: Arc::new(AtomicBool::new(false)),
         });
         let worker_shared = shared.clone();
         let worker = thread::Builder::new()
@@ -80,7 +76,7 @@ impl Client {
         })
     }
     /// Events: 1=UTF-8 status, 2=width/height/fps LE u32, 3=pts LE u64,
-    /// keyframe byte and Annex-B H.264; 4=UTF-8 error. Video order is preserved.
+    /// keyframe byte and Annex-B H.264; 4=UTF-8 recoverable error, 5=fatal authentication error. Video order is preserved.
     pub fn poll(&self) -> Option<Vec<u8>> {
         self.shared
             .events
@@ -97,12 +93,15 @@ impl Drop for Client {
         }
     }
 }
-fn send(stream: &mut TcpStream, message: Message) -> Result<(), Error> {
+fn send(stream: &mut impl FrameWriter, message: Message) -> Result<(), Error> {
     let (kind, payload) = message.to_frame_parts()?;
-    stream.write_all(&encode_stream_frame(kind, &payload)?)?;
+    stream.write_frame(
+        &encode_stream_frame(kind, &payload)?,
+        Duration::from_secs(2),
+    )?;
     Ok(())
 }
-fn run(shared: Arc<Shared>, address: SocketAddr) {
+fn run(shared: Arc<Shared>, address: Endpoint) {
     let mut session_id = None;
     let mut last_seq = 0;
     while !shared.stopped.load(Ordering::Relaxed) {
@@ -114,9 +113,26 @@ fn run(shared: Arc<Shared>, address: SocketAddr) {
                 "Connecting…"
             },
         );
-        if let Err(error) = connection(&shared, address, &mut session_id, &mut last_seq) {
+        if let Err(error) = connection(&shared, &address, &mut session_id, &mut last_seq) {
             if shared.stopped.load(Ordering::Relaxed) {
                 break;
+            }
+            if error.downcast_ref::<io::Error>().is_some_and(|e| {
+                matches!(
+                    e.kind(),
+                    io::ErrorKind::PermissionDenied | io::ErrorKind::InvalidData
+                )
+            }) {
+                shared
+                    .events
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clear();
+                shared.text(
+                    5,
+                    "Connection verification failed. Ask for a new sharing link.",
+                );
+                return;
             }
             // A replacement stream always starts from a fresh config + IDR.
             shared
@@ -136,14 +152,22 @@ fn run(shared: Arc<Shared>, address: SocketAddr) {
 }
 fn connection(
     shared: &Shared,
-    address: SocketAddr,
+    address: &Endpoint,
     session_id: &mut Option<u64>,
     last_seq: &mut u64,
 ) -> Result<(), Error> {
-    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))?;
+    let stream = TcpStream::connect_timeout(&address.address(), Duration::from_secs(2))?;
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(Duration::from_millis(100)))?;
     stream.set_write_timeout(Some(Duration::from_secs(2)))?;
+    let mut stream = match address {
+        Endpoint::Secure(invitation) => Connection::Secure(blocking::connect_cancellable(
+            stream,
+            invitation,
+            shared.stopped.clone(),
+        )?),
+        Endpoint::Legacy(_) => Connection::Plain(stream),
+    };
     let first = match *session_id {
         Some(id) => Message::Resume {
             session_id: id,
@@ -317,7 +341,7 @@ mod tests {
     fn full_queue_can_be_cancelled_without_blocking_shutdown() {
         let shared = Arc::new(Shared {
             events: Mutex::new(VecDeque::from([vec![1], vec![1], vec![1]])),
-            stopped: AtomicBool::new(false),
+            stopped: Arc::new(AtomicBool::new(false)),
         });
         let worker_shared = shared.clone();
         let worker = thread::spawn(move || worker_shared.emit(vec![3; 1024]));

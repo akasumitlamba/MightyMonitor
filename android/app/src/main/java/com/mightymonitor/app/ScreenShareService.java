@@ -20,6 +20,7 @@ import java.util.Collections;
 public final class ScreenShareService extends Service {
     public static final String STOP = "com.mightymonitor.STOP_SHARING";
     public static volatile boolean sharing;
+    public static volatile String invitation = "";
     public static volatile String summary = "Not sharing";
     public static volatile long capturedFrames;
     private HandlerThread thread;
@@ -70,6 +71,7 @@ public final class ScreenShareService extends Service {
         if (capabilities.isSizeSupported(width, height)) fps = Math.max(1, Math.min(30, (int)Math.floor(capabilities.getSupportedFrameRatesFor(width, height).getUpper())));
         android.util.Log.i("MightyMonitor", "Capture " + width + "x" + height + " at " + fps + " fps");
         host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
+        invitation = NativeBridge.hostInvite(host, localAddress());
         encoder.setCallback(new MediaCodec.Callback() {
             @Override public void onInputBufferAvailable(MediaCodec codec, int index) { }
             @Override public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
@@ -145,7 +147,7 @@ public final class ScreenShareService extends Service {
         return "Connect to Wi-Fi to see your address";
     }
     @Override public void onDestroy() {
-        sharing = false;
+        sharing = false; invitation = "";
         worker.post(() -> {
             closed = true; worker.removeCallbacks(update);
             if (projection != null && projectionCallback != null) projection.unregisterCallback(projectionCallback);

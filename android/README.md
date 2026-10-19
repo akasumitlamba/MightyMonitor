@@ -2,7 +2,8 @@
 
 Native Android UI/MediaCodec with the shared original Rust protocol via a narrow
 JNI bridge. View an existing PC screen or explicitly share the phone screen.
-Remote input, secure pairing and virtual extended displays are not implemented.
+Sharing uses private session links and pinned TLS 1.3. Remote input, persistent
+device pairing and virtual extended displays are not implemented.
 
 Build requirements: JDK 17, Gradle 8.9, Android SDK 35/build-tools 35.0.0, NDK,
 Rust Android targets and cargo-ndk 4.1.2. See the Android viewer workflow for the
@@ -20,10 +21,10 @@ gradle assembleDebug
 ```
 
 Install app/build/outputs/apk/debug/app-debug.apk on an Android 8+ ARM device
-(or x86_64 emulator). Start the PC host on its LAN IP, enter that IP:port in the
-app, acknowledge the trusted network and press Connect. Disconnect/backgrounding
+(or x86_64 emulator). Start sharing on the PC, copy its private connection link to the
+app, and press Connect. Disconnect/backgrounding
 stops the Rust worker and decoder. Rotation uses the same surface when possible;
-a surface loss closes viewing. Current connections are not encrypted or paired.
+a surface loss closes viewing. Connections use pinned TLS; links expire when sharing stops.
 
 Native event queues are bounded and retain encoded reference order. The Rust
 worker uses the existing framing/messages, sends Hello/Resume and Ping/NetStats,
@@ -39,9 +40,9 @@ and AGP 8.7.3 APK packaging for newer Android page-size compatibility.
 
 ## Share the phone screen
 
-Open Share, confirm a trusted Wi-Fi network and choose Share this screen.
+Open Share and choose Share this screen.
 Approve Android's system capture prompt for this session. On a PC, open View
-and enter the address shown on the phone. End sharing in the app, its ongoing
+and paste the private connection link copied from the phone. End sharing in the app, its ongoing
 notification, or Android's screen-sharing controls. Denied permission never starts
 capture. A stopped or killed service does not restart capture automatically.
 
@@ -56,9 +57,9 @@ Rust owns the original TCP/framing/message server. It handles Hello/Resume,
 configuration, sequence numbers, Ping/Pong, timed writes and bounded bitrate
 feedback. Only one viewer is served at a time. Queue overflow discards the old
 reference chain and requests a fresh keyframe, including SPS/PPS. A new viewer
-always starts on a keyframe. Sharing remains unauthenticated and unencrypted;
-use a trusted local network. Control is not enabled by this implementation.
+always starts on a keyframe. The original protocol is carried over authenticated TLS. Control is not enabled by this implementation.
 
 Both PC-to-phone playback and consent-based phone capture passed emulator tests
-on Android 10, 11, 14 and 16. The desktop decoder interoperability check is a
-separate acceptance step; physical Wi-Fi phone/PC verification remains pending.
+on Android 10, 11, 14 and 16. Desktop decoder interoperability also passed for the capture milestone; the
+secure transport upgrade reruns that check. Physical Wi-Fi phone/PC verification
+remains pending. See [connection security](../docs/SECURE_CONNECTIONS.md).

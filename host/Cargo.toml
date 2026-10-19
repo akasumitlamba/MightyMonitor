@@ -11,6 +11,7 @@ path = "src/main.rs"
 
 [dependencies]
 mightymonitor-core = { path = "../core" }
+mightymonitor-security = { path = "../security", features = ["async"] }
 tokio.workspace = true
 async-trait = "0.1"
 

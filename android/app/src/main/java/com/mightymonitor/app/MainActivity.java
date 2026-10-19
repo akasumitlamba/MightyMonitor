@@ -67,7 +67,6 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private LinearLayout viewPage, sharePage;
     private TextView shareStatus;
     private Button share;
-    private CheckBox shareTrust;
     private final Runnable refreshSharing = new Runnable() {
         @Override public void run() {
             share.setText(ScreenShareService.sharing ? "Stop sharing" : "Share this screen");
@@ -93,11 +92,16 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); sharePage.setVisibility(View.GONE); styleTab(viewTab, true); styleTab(shareTab, false); });
         shareTab.setOnClickListener(v -> { disconnect("Not connected"); viewPage.setVisibility(View.GONE); sharePage.setVisibility(View.VISIBLE); styleTab(viewTab, false); styleTab(shareTab, true); });
         address = new EditText(this); address.setId(ADDRESS_ID); address.setSingleLine(true);
-        address.setHint("Device address (IP:port)"); address.setTextSize(16);
+        address.setHint("Paste a connection link");
+        address.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(512)});
+        address.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO); address.setTextSize(16);
         address.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
-        address.setText(getPreferences(MODE_PRIVATE).getString("address", ""));
+        getPreferences(MODE_PRIVATE).edit().remove("address").apply();
         viewPage.addView(address, new LinearLayout.LayoutParams(-1, dp(56)));
-        trusted = new CheckBox(this); trusted.setId(TRUST_ID); trusted.setText("Trusted Wi-Fi (unencrypted)"); trusted.setTextSize(14); viewPage.addView(trusted);
+        trusted = new CheckBox(this); trusted.setId(TRUST_ID); trusted.setText("Allow older alpha (unencrypted)"); trusted.setTextSize(14);
+        trusted.setVisibility(View.GONE);
+        Button settings = new Button(this); settings.setText("Connection settings"); styleButton(settings, false); settings.setOnClickListener(v -> trusted.setVisibility(trusted.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
+        viewPage.addView(settings); viewPage.addView(trusted);
         LinearLayout buttons = new LinearLayout(this);
         connect = new Button(this); connect.setId(CONNECT_ID); connect.setText("Connect"); connect.setEnabled(false); styleButton(connect, true); connect.setOnClickListener(v -> { if (handle != 0) disconnect("Not connected"); else startViewing(); });
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
@@ -110,19 +114,25 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         emptyPreview = text("Your other screen will appear here", 15, Color.rgb(83, 102, 91)); emptyPreview.setGravity(Gravity.CENTER); emptyPreview.setBackground(rounded(Color.rgb(235, 241, 237)));
         viewport.addView(emptyPreview, new android.widget.FrameLayout.LayoutParams(-1, -1)); viewPage.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView heading = text("Share this screen", 24, Color.rgb(30, 39, 35)); heading.setPadding(0, dp(24), 0, dp(12)); sharePage.addView(heading);
-        sharePage.addView(text("Open MightyMonitor on your PC and enter:", 15, Color.rgb(83, 94, 88)));
+        sharePage.addView(text("Share a private link with your other device.", 15, Color.rgb(83, 94, 88)));
         TextView ownAddress = text(ScreenShareService.localAddress(), 22, Color.rgb(30, 39, 35)); ownAddress.setTextIsSelectable(true); ownAddress.setPadding(0, dp(12), 0, dp(12)); sharePage.addView(ownAddress);
-        shareTrust = new CheckBox(this); shareTrust.setId(SHARE_TRUST_ID); shareTrust.setText("Trusted Wi-Fi (unencrypted)"); shareTrust.setTextSize(14); sharePage.addView(shareTrust);
+        Button copyLink = new Button(this); copyLink.setText("Copy connection link"); styleButton(copyLink, false); sharePage.addView(copyLink);
+        copyLink.setOnClickListener(v -> {
+            String link = ScreenShareService.invitation;
+            if (link.isEmpty()) { shareStatus.setText("Start sharing first"); return; }
+            android.content.ClipData clip = android.content.ClipData.newPlainText("MightyMonitor connection", link);
+            if (android.os.Build.VERSION.SDK_INT >= 33) { android.os.PersistableBundle extras = new android.os.PersistableBundle(); extras.putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true); clip.getDescription().setExtras(extras); }
+            getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
+            shareStatus.setText("Link copied");
+        });
         share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
             if (ScreenShareService.sharing) { stopService(new android.content.Intent(this, ScreenShareService.class)); return; }
-            if (!shareTrust.isChecked()) { shareStatus.setText("Confirm your trusted Wi-Fi first"); return; }
             android.media.projection.MediaProjectionManager manager = getSystemService(android.media.projection.MediaProjectionManager.class);
             android.content.Intent permission = android.os.Build.VERSION.SDK_INT >= 34 ? manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay()) : manager.createScreenCaptureIntent();
             startActivityForResult(permission, 200);
         });
-        shareTrust.setOnCheckedChangeListener((v, checked) -> { if (!checked) stopService(new android.content.Intent(this, ScreenShareService.class)); });
         trusted.setOnCheckedChangeListener((v, checked) -> { if (!checked) disconnect("Not connected"); });
         setContentView(layout); handler.post(refreshSharing);
     }
@@ -145,7 +155,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private LinearLayout column() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
-        if (request == 200 && result == RESULT_OK && data != null && shareTrust.isChecked()) {
+        if (request == 200 && result == RESULT_OK && data != null) {
             android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data);
             startForegroundService(service);
         } else if (request == 200) shareStatus.setText("Sharing cancelled");
@@ -155,19 +165,20 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private void startViewing() {
-        if (!surfaceReady || !trusted.isChecked()) { status.setText("Confirm your trusted network before connecting"); return; }
+        if (!surfaceReady) { status.setText("Display is not ready"); return; }
+        if (!address.getText().toString().trim().startsWith("mightymonitor://") && !trusted.isChecked()) { status.setText("Paste a connection link"); return; }
         disconnect("Connecting…");
         try {
             String endpoint = address.getText().toString().trim();
             handle = NativeBridge.connect(endpoint);
             if (handle == 0) throw new IllegalStateException("Could not start the network client");
-            getPreferences(MODE_PRIVATE).edit().putString("address", endpoint).apply();
             renderedFrames.set(0); connect.setText("Disconnect");
             handler.post(pump);
         } catch (Exception | UnsatisfiedLinkError error) { disconnect("Cannot connect: " + error.getMessage()); }
     }
     private void consume(byte[] event) throws Exception {
         if (event.length == 0) throw new IllegalArgumentException("Empty network event");
+        if (event[0] == 5) { disconnect(new String(event, 1, event.length - 1, StandardCharsets.UTF_8)); return; }
         if (event[0] == 1 || event[0] == 4) {
             status.setText(new String(event, 1, event.length - 1, StandardCharsets.UTF_8));
             if (event[0] == 4) releaseDecoder();

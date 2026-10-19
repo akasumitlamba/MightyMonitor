@@ -1,10 +1,14 @@
 //! Encoded Android screen hosting. Platform capture stays outside the protocol.
-use crate::{Error, FrameDecoder, Message, Role, PROTOCOL_VERSION};
+use crate::{
+    socket::{Connection, FrameWriter},
+    Error, FrameDecoder, Message, Role, PROTOCOL_VERSION,
+};
 use mightymonitor_core::{encode_stream_frame, Codec};
+use mightymonitor_security::{blocking, Invitation, ShareIdentity};
 use std::{
     collections::VecDeque,
-    io::{self, Read, Write},
-    net::{SocketAddr, TcpListener, TcpStream},
+    io::{self, Read},
+    net::{SocketAddr, TcpListener},
     sync::{
         atomic::{AtomicBool, AtomicU32, Ordering},
         Arc, Mutex,
@@ -19,7 +23,7 @@ struct Frame {
 }
 struct Shared {
     queue: Mutex<VecDeque<Frame>>,
-    stopped: AtomicBool,
+    stopped: Arc<AtomicBool>,
     connected: AtomicBool,
     need_keyframe: AtomicBool,
     bitrate: AtomicU32,
@@ -29,6 +33,7 @@ pub struct ScreenHost {
     shared: Arc<Shared>,
     worker: Option<JoinHandle<()>>,
     address: SocketAddr,
+    identity: Arc<ShareIdentity>,
 }
 impl ScreenHost {
     pub fn start(address: &str, width: u32, height: u32, fps: u32) -> io::Result<Self> {
@@ -50,12 +55,14 @@ impl ScreenHost {
         listener.set_nonblocking(true)?;
         let shared = Arc::new(Shared {
             queue: Mutex::new(VecDeque::new()),
-            stopped: AtomicBool::new(false),
+            stopped: Arc::new(AtomicBool::new(false)),
             connected: AtomicBool::new(false),
             need_keyframe: AtomicBool::new(true),
             bitrate: AtomicU32::new(4_000_000),
             status: Mutex::new("Ready to connect".into()),
         });
+        let identity = Arc::new(ShareIdentity::generate()?);
+        let server_identity = identity.clone();
         let state = shared.clone();
         // Session identity changes on each explicitly started sharing session.
         let id = std::time::SystemTime::now()
@@ -74,7 +81,14 @@ impl ScreenHost {
                                 .unwrap_or_else(|e| e.into_inner())
                                 .clear();
                             state.need_keyframe.store(true, Ordering::Relaxed);
-                            let result = serve(&state, stream, id, width, height, fps);
+                            let result = blocking::accept_cancellable(
+                                stream,
+                                &server_identity,
+                                state.stopped.clone(),
+                            )
+                            .map(Connection::Secure)
+                            .map_err(|e| -> Error { e.into() })
+                            .and_then(|stream| serve(&state, stream, id, width, height, fps));
                             state.connected.store(false, Ordering::Relaxed);
                             state
                                 .queue
@@ -100,7 +114,11 @@ impl ScreenHost {
             shared,
             worker: Some(worker),
             address,
+            identity,
         })
+    }
+    pub fn invitation(&self, address: SocketAddr) -> io::Result<Invitation> {
+        self.identity.invitation(address)
     }
     pub fn address(&self) -> SocketAddr {
         self.address
@@ -155,33 +173,22 @@ impl Drop for ScreenHost {
         }
     }
 }
-fn write_message(stream: &mut TcpStream, message: Message) -> Result<(), Error> {
+fn write_message(stream: &mut impl FrameWriter, message: Message) -> Result<(), Error> {
     let (kind, payload) = message.to_frame_parts()?;
-    let frame = encode_stream_frame(kind, &payload)?;
-    let end = Instant::now() + Duration::from_millis(500);
-    let mut offset = 0;
-    while offset < frame.len() {
-        let left = end
-            .checked_duration_since(Instant::now())
-            .ok_or("Viewer is too slow")?;
-        stream.set_write_timeout(Some(left))?;
-        let n = stream.write(&frame[offset..])?;
-        if n == 0 {
-            return Err("Viewer disconnected".into());
-        }
-        offset += n;
-    }
+    stream.write_frame(
+        &encode_stream_frame(kind, &payload)?,
+        Duration::from_millis(500),
+    )?;
     Ok(())
 }
 fn serve(
     shared: &Shared,
-    mut stream: TcpStream,
+    mut stream: Connection,
     id: u64,
     width: u32,
     height: u32,
     fps: u32,
 ) -> Result<(), Error> {
-    stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(Duration::from_millis(15)))?;
     let mut decoder = FrameDecoder::new();
     let mut buffer = [0; 16 * 1024];
@@ -327,9 +334,49 @@ mod tests {
         assert_eq!(host.shared.queue.lock().unwrap().len(), 1);
     }
     #[test]
+    fn secure_android_client_receives_video_from_secure_android_host() {
+        let host = ScreenHost::start("127.0.0.1:0", 640, 480, 30).unwrap();
+        let client =
+            crate::Client::connect(&host.invitation(host.address()).unwrap().to_link()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        let mut configured = false;
+        while Instant::now() < deadline {
+            host.publish(vec![0, 0, 0, 1, 0x65], 42, true);
+            if let Some(event) = client.poll() {
+                if event[0] == 2 {
+                    configured = true;
+                }
+                if event[0] == 3 {
+                    assert!(configured);
+                    assert_eq!(&event[1..9], &42_u64.to_le_bytes());
+                    return;
+                }
+                assert_ne!(event[0], 5, "Secure host authentication failed");
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        panic!("Secure Android client never received video");
+    }
+    #[test]
+    fn stop_cancels_an_unauthenticated_stalled_peer() {
+        let host = ScreenHost::start("127.0.0.1:0", 640, 480, 30).unwrap();
+        let _silent = std::net::TcpStream::connect(host.address()).unwrap();
+        thread::sleep(Duration::from_millis(50));
+        let start = Instant::now();
+        drop(host);
+        assert!(start.elapsed() < Duration::from_secs(1));
+    }
+    #[test]
     fn viewer_receives_config_keyframe_and_pong() {
         let host = ScreenHost::start("127.0.0.1:0", 640, 480, 30).unwrap();
-        let mut stream = TcpStream::connect(host.address()).unwrap();
+        let invitation = host.invitation(host.address()).unwrap();
+        let mut stream = Connection::Secure(
+            blocking::connect(
+                std::net::TcpStream::connect(host.address()).unwrap(),
+                &invitation,
+            )
+            .unwrap(),
+        );
         stream
             .set_read_timeout(Some(Duration::from_secs(2)))
             .unwrap();

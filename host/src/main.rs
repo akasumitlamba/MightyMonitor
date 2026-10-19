@@ -10,7 +10,7 @@ mod desktop {
     use mightymonitor_core::{Bytes, CodecError, Encoder};
     use mightymonitor_host::{
         pipeline::{HostEncoder, Pipeline},
-        session::{serve, SessionConfig},
+        session::{serve_transport, SessionConfig},
         Error,
     };
     use std::time::Duration;
@@ -69,6 +69,7 @@ mod desktop {
         }
     }
     pub async fn run() -> Result<(), Error> {
+        let mut secure = false;
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
         let mut monitor: i32 = -1;
@@ -76,8 +77,12 @@ mod desktop {
         let mut idle_timeout_secs = 30;
         let mut args = std::env::args().skip(1);
         while let Some(flag) = args.next() {
+            if flag == "--secure" {
+                secure = true;
+                continue;
+            }
             if flag == "--help" {
-                println!("mm-host [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -98,7 +103,17 @@ mod desktop {
             return Err("invalid fps, bitrate or idle timeout".into());
         }
         let listener = tokio::net::TcpListener::bind(&bind).await?;
-        if !listener.local_addr()?.ip().is_loopback() {
+        let identity = if secure {
+            Some(mightymonitor_security::ShareIdentity::generate()?)
+        } else {
+            None
+        };
+        if let Some(identity) = &identity {
+            let invitation = identity.invitation(listener.local_addr()?)?;
+            // stdout is an explicit invitation channel; never write it to diagnostics.
+            println!("MM_INVITE {}", invitation.to_link());
+        }
+        if !secure && !listener.local_addr()?.ip().is_loopback() {
             eprintln!(
                 "WARNING: non-loopback bind exposes streaming without authentication or encryption"
             );
@@ -108,6 +123,18 @@ mod desktop {
         let session_id = 1;
         loop {
             let (stream, _) = listener.accept().await?;
+            let transport: Box<dyn mightymonitor_core::Transport> =
+                if let Some(identity) = &identity {
+                    match mightymonitor_security::asynchronous::accept(stream, identity).await {
+                        Ok(tls) => Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),
+                        Err(error) => {
+                            eprintln!("Secure peer rejected: {error}");
+                            continue;
+                        }
+                    }
+                } else {
+                    Box::new(mightymonitor_core::TcpTransport::new(stream)?)
+                };
             let (capture, width, height) = capture(fps, monitor)?;
             let encoder = Codec(GstEncoder::new(EncoderConfig {
                 width,
@@ -128,7 +155,7 @@ mod desktop {
                 handshake_timeout: Duration::from_secs(5),
                 idle_timeout: Duration::from_secs(idle_timeout_secs),
             };
-            if let Err(error) = serve(stream, pipeline, config).await {
+            if let Err(error) = serve_transport(transport, pipeline, config).await {
                 eprintln!("viewer session ended: {error}");
             }
         }

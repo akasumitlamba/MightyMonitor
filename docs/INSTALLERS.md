@@ -40,9 +40,9 @@ and clean-machine installation acceptance remain pending.
 
 An alpha development installer for the existing Linux X11 sharing/viewing app.
 It is not a declaration that the complete cross-platform product is finished.
-The transport is still trusted-LAN-only without authentication/encryption; it
-must not be exposed to untrusted networks. Android, remote input, independent
-extended displays, and complete multi-device acceptance remain unfinished.
+The GUI uses private viewing links over pinned TLS; see
+[connection security](SECURE_CONNECTIONS.md). Remote input, independent extended
+displays, and complete multi-device acceptance remain unfinished.
 
 ## Releases and downloads
 

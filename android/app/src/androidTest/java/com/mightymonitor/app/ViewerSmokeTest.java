@@ -17,9 +17,9 @@ public final class ViewerSmokeTest {
         long deadline = System.currentTimeMillis() + 60000;
         while (!((Button) app.findViewById(MainActivity.CONNECT_ID)).isEnabled() && System.currentTimeMillis() < deadline) Thread.sleep(100);
         saveScreenshot("view");
+        final String pcInvitation = new String(java.nio.file.Files.readAllBytes(new java.io.File(app.getFilesDir(), "pc-invitation").toPath()), java.nio.charset.StandardCharsets.UTF_8).trim();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            ((EditText) app.findViewById(MainActivity.ADDRESS_ID)).setText("10.0.2.2:5000");
-            ((CheckBox) app.findViewById(MainActivity.TRUST_ID)).setChecked(true);
+            ((EditText) app.findViewById(MainActivity.ADDRESS_ID)).setText(pcInvitation);
             app.findViewById(MainActivity.CONNECT_ID).performClick();
         });
         while (app.getRenderedFrames() < 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
@@ -32,7 +32,6 @@ public final class ViewerSmokeTest {
         desktopMarker.delete();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             app.findViewById(MainActivity.SHARE_TAB_ID).performClick();
-            ((CheckBox) app.findViewById(MainActivity.SHARE_TRUST_ID)).setChecked(true);
             app.findViewById(MainActivity.SHARE_ID).performClick();
         });
         androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
@@ -44,7 +43,7 @@ public final class ViewerSmokeTest {
             while (ScreenShareService.capturedFrames < 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
             assertTrue("MediaProjection produced no encoded screen frames: " + ScreenShareService.summary, ScreenShareService.capturedFrames >= 3);
             saveScreenshot("share");
-            client = NativeBridge.connect("127.0.0.1:5000"); int decoded = 0; byte[] pending = null;
+            client = NativeBridge.connect(ScreenShareService.invitation.replaceFirst("mightymonitor://[^/]+/", "mightymonitor://127.0.0.1:5000/")); int decoded = 0; byte[] pending = null;
             android.media.MediaCodec.BufferInfo info = new android.media.MediaCodec.BufferInfo();
             while (decoded < 3 && System.currentTimeMillis() < deadline) {
                 if (decoder != null) { int out = decoder.dequeueOutputBuffer(info, 0); if (out >= 0) { decoder.releaseOutputBuffer(out, false); decoded++; } }
@@ -66,6 +65,7 @@ public final class ViewerSmokeTest {
             }
             assertTrue("Android capture -> Rust host -> Rust viewer -> decoder produced no video", decoded >= 3);
             NativeBridge.disconnect(client); client = 0;
+            java.nio.file.Files.write(new java.io.File(app.getFilesDir(), "share-invitation").toPath(), ScreenShareService.invitation.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             if ("true".equals(InstrumentationRegistry.getArguments().getString("desktopInterop"))) {
                 java.io.File marker = new java.io.File(app.getFilesDir(), "desktop-video-ok");
                 long until = System.currentTimeMillis() + 60000;

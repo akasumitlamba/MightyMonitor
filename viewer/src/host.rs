@@ -1,10 +1,11 @@
 //! Lifecycle for the optional sibling host executable. Never invokes a shell.
 use std::{
     fs::{File, OpenOptions},
-    io::{self, Read, Seek, SeekFrom},
+    io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
     net::SocketAddr,
     path::PathBuf,
     process::{Child, Command, Stdio},
+    sync::{Arc, Mutex},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -12,6 +13,8 @@ pub struct HostProcess {
     child: Child,
     log: File,
     log_path: PathBuf,
+    invitation: Arc<Mutex<Option<mightymonitor_security::Invitation>>>,
+    invitation_worker: Option<std::thread::JoinHandle<()>>,
 }
 impl HostProcess {
     pub fn start(address: &str, fps: u32, bitrate: u32) -> io::Result<Self> {
@@ -32,6 +35,7 @@ impl HostProcess {
         }
         let mut command = Command::new(binary);
         command.args([
+            "--secure",
             "--bind",
             address,
             "--fps",
@@ -64,21 +68,61 @@ impl HostProcess {
         let log = options.open(&log_path)?;
         let spawned = command
             .stdin(Stdio::null())
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(OpenOptions::new().append(true).open(&log_path)?)
             .spawn();
         match spawned {
-            Ok(child) => Ok(Self {
-                child,
-                log,
-                log_path,
-            }),
+            Ok(mut child) => {
+                let invitation = Arc::new(Mutex::new(None));
+                let shared = invitation.clone();
+                let Some(stdout) = child.stdout.take() else {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    let _ = std::fs::remove_file(&log_path);
+                    return Err(io::Error::other("Sharing invitation channel unavailable"));
+                };
+                let worker = std::thread::Builder::new()
+                    .name("mm-invitation".into())
+                    .spawn(move || {
+                        let mut input = BufReader::new(stdout).take(1024);
+                        let mut line = String::new();
+                        if input.read_line(&mut line).is_ok() {
+                            if let Some(link) = line.strip_prefix("MM_INVITE ") {
+                                if let Ok(value) = link.trim().parse() {
+                                    *shared.lock().unwrap_or_else(|e| e.into_inner()) = Some(value);
+                                }
+                            }
+                        }
+                    });
+                match worker {
+                    Ok(worker) => Ok(Self {
+                        child,
+                        log,
+                        log_path,
+                        invitation,
+                        invitation_worker: Some(worker),
+                    }),
+                    Err(error) => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        drop(log);
+                        let _ = std::fs::remove_file(log_path);
+                        Err(error)
+                    }
+                }
+            }
             Err(error) => {
                 drop(log);
                 let _ = std::fs::remove_file(log_path);
                 Err(error)
             }
         }
+    }
+    pub fn invitation(&self) -> Option<mightymonitor_security::Invitation> {
+        self.invitation
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone()
     }
     pub fn exited(&mut self) -> io::Result<bool> {
         Ok(self.child.try_wait()?.is_some())
@@ -98,6 +142,10 @@ impl Drop for HostProcess {
     fn drop(&mut self) {
         let _ = self.child.kill();
         let _ = self.child.wait();
+        if let Some(worker) = self.invitation_worker.take() {
+            let _ = worker.join();
+        }
+        *self.invitation.lock().unwrap_or_else(|e| e.into_inner()) = None;
         let _ = std::fs::remove_file(&self.log_path);
     }
 }
@@ -105,6 +153,11 @@ fn validate(address: &str, fps: u32, bitrate: u32) -> io::Result<()> {
     let parsed: SocketAddr = address
         .parse()
         .map_err(|_| io::Error::other("Enter a local IP and port, such as 192.168.1.10:5000."))?;
+    if parsed.ip().is_unspecified() {
+        return Err(io::Error::other(
+            "Choose this computer's Wi-Fi IP for encrypted sharing",
+        ));
+    }
     if parsed.port() == 0 || !(1..=240).contains(&fps) || !(1..=1_000_000).contains(&bitrate) {
         return Err(io::Error::other(
             "Use port 1–65535, 1–240 fps, and bitrate 1–1000000 kbit/s.",

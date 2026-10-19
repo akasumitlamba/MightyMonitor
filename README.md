@@ -58,9 +58,10 @@ Early development: core foundation complete; Linux streaming components exist.
 Windows capture and H.264 decoding are implemented with GStreamer; physical-device
 validation is pending. An Android viewer APK is built and real desktop video
 decoding passed on Android 10, 11, 14 and 16 emulators; physical phone tests
-remain pending. Input forwarding, secure pairing, discovery and
-virtual displays remain future work. Current streaming is unauthenticated and unencrypted; use a trusted
-LAN for development. See [docs/STATUS.md](docs/STATUS.md).
+remain pending. Desktop and Android sharing use private session links and pinned
+TLS 1.3; persistent device pairing is pending. Input forwarding, discovery and
+virtual displays remain future work. Legacy plaintext compatibility is opt-in in
+the viewer. See [secure connection instructions](docs/SECURE_CONNECTIONS.md). See [docs/STATUS.md](docs/STATUS.md).
 
 ## License
 Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE).
