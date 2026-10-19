@@ -58,8 +58,9 @@ and returns without capturing. Unit tests use a fake source without a display.
 
 ## Wayland / PipeWire (M2-2 step B)
 
-XWayland capture only sees X11 surfaces. For the native Wayland desktop, enable
-`pipewire` (off by default). Linux feature builds require native development libs:
+XWayland capture only sees X11 surfaces. For the native Wayland desktop, use portal-authorized
+PipeWire capture. The host enables `pipewire` by default; the standalone capture
+crate still keeps it optional. Linux host builds require native development libs:
 
 ```sh
 sudo apt-get install libpipewire-0.3-dev libspa-0.2-dev clang pkg-config
@@ -93,9 +94,11 @@ resolution changes do not require reopening. Row padding and chunk offsets are
 respected. `timestamp_us` uses `Instant` elapsed from worker stream setup, after
 conversion, before queueing; it is not the compositor's presentation timestamp.
 A one-frame queue bounds memory; frames arriving while it is full are dropped.
+`poll_captured(timeout)` distinguishes an idle desktop from a closed stream.
+The host retains a single latest frame across viewer reconnects.
 `next_captured()` waits up to five seconds and returns `None` on timeout or worker
 termination. The core `Capture` implementation returns the same frame bytes.
-The cursor is hidden. Conversion/stride/timestamp tests run without the feature,
+The cursor is embedded when the portal supports it, otherwise hidden. Conversion/stride/timestamp tests run without the feature,
 native libraries, or a desktop.
 
 Both native dependencies are optional and Linux-target-only, so default Linux
