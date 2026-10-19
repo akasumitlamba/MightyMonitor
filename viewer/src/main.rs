@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let app = mightymonitor_viewer::app::App::new()?;
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../../assets/mightymonitor.png"))?;

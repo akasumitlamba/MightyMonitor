@@ -1,4 +1,4 @@
-#![cfg(target_os = "linux")]
+#![cfg(any(target_os = "linux", target_os = "windows"))]
 use codec_gst::{
     decoder::Decoder,
     encoder::{Encoder, EncoderConfig, PixelFormat},
@@ -7,6 +7,11 @@ use std::time::Instant;
 
 fn available() -> bool {
     if let Err(e) = gstreamer::init() {
+        assert_ne!(
+            std::env::var("MM_REQUIRE_CODECS").as_deref(),
+            Ok("1"),
+            "Required GStreamer initialization failed: {e}"
+        );
         eprintln!("SKIP GStreamer codec tests: {e}");
         return false;
     }
@@ -15,6 +20,11 @@ fn available() -> bool {
         .filter(|name| gstreamer::ElementFactory::find(name).is_none())
         .collect();
     if !missing.is_empty() {
+        assert_ne!(
+            std::env::var("MM_REQUIRE_CODECS").as_deref(),
+            Ok("1"),
+            "Required codec plugins missing: {missing:?}"
+        );
         eprintln!("SKIP GStreamer codec tests: missing plugins {missing:?}");
         return false;
     }

@@ -77,6 +77,9 @@ async fn start_with_idle(
     let address = listener.local_addr().unwrap();
     let host = tokio::spawn(async move {
         let (stream, _) = listener.accept().await?;
+        if size > 8 {
+            socket2::SockRef::from(&stream).set_send_buffer_size(4096)?;
+        }
         serve(
             stream,
             pipeline,
@@ -93,7 +96,13 @@ async fn start_with_idle(
         )
         .await
     });
-    let mut viewer = TcpTransport::connect(address).await.unwrap();
+    let stream = tokio::net::TcpStream::connect(address).await.unwrap();
+    if size > 8 {
+        socket2::SockRef::from(&stream)
+            .set_recv_buffer_size(4096)
+            .unwrap();
+    }
+    let mut viewer = TcpTransport::new(stream).unwrap();
     let hello = if resume {
         Message::Resume {
             session_id: 42,
@@ -185,7 +194,9 @@ async fn host_streams_n_frames() {
 }
 #[tokio::test]
 async fn slow_viewer_drops_frames_not_latency() {
-    let (mut viewer, monitor, host) = start(2 * 1024 * 1024, false).await;
+    let (mut viewer, monitor, host) = start(64 * 1024, false).await;
+    // Small socket buffers create backpressure without serializing multi-MiB
+    // dummy frames past the freshness deadline in debug builds.
     // Withhold reads until backpressure causes a drop, allowing for different
     // TCP buffer sizes and CI scheduling instead of assuming a fixed delay.
     let drop_deadline = tokio::time::Instant::now() + Duration::from_secs(10);

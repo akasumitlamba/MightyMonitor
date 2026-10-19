@@ -1,5 +1,5 @@
 //! Thin egui presentation layer.
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use crate::net::ViewerSession;
 use crate::net::{Output, SharedOutput, State};
 use eframe::egui;
@@ -17,7 +17,7 @@ pub struct App {
     output: SharedOutput,
     texture: Option<egui::TextureHandle>,
     task: Option<tokio::task::JoinHandle<()>>,
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
     runtime: tokio::runtime::Runtime,
 }
 impl App {
@@ -37,7 +37,7 @@ impl App {
             })),
             texture: None,
             task: None,
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "windows"))]
             runtime: tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(2)
                 .enable_all()
@@ -56,7 +56,7 @@ impl App {
     }
     fn connect(&mut self) {
         self.disconnect();
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
         match codec_gst::decoder::Decoder::new() {
             Ok(decoder) => {
                 let session = ViewerSession::new(decoder);
@@ -69,11 +69,12 @@ impl App {
                 output.error = Some(e.to_string());
             }
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
             let mut output = self.output.lock().unwrap_or_else(|p| p.into_inner());
             output.state = State::Closed;
-            output.error = Some("H.264 decoding is currently available only on Linux. Windows decoding is not implemented.".into());
+            output.error =
+                Some("Video decoding is currently supported on Linux and Windows.".into());
         }
     }
 }
@@ -132,8 +133,8 @@ impl eframe::App for App {
             ui.separator();
             ui.add_space(12.0);
             ui.heading("Share this screen");
-            if cfg!(target_os = "linux") {
-                ui.label("Linux X11 • screen viewing only");
+            if cfg!(any(target_os = "linux", target_os = "windows")) {
+                ui.label(if cfg!(target_os = "windows") { "Windows desktop • screen viewing only" } else { "Linux X11 • screen viewing only" });
                 ui.label("Local IP and port to listen on");
                 ui.add_enabled(self.host.is_none(), egui::TextEdit::singleline(&mut self.share_address));
                 ui.small("127.0.0.1 is this computer only. Use your LAN IP to share with another device.");
@@ -153,11 +154,11 @@ impl eframe::App for App {
                 }
                 ui.label(&self.host_message);
             } else {
-                ui.label("Screen sharing and video decoding on Windows are under development.");
+                ui.label("Screen sharing requires Linux or Windows.");
             }
             ui.add_space(18.0);
             ui.separator();
-            ui.small("Remote control, extended displays and Android support are coming in future milestones.");
+            ui.small("Remote control, extended displays and Android support are under development.");
             });
         });
         let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());

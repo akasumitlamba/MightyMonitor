@@ -122,3 +122,14 @@ APK compilation passed for arm64, 32-bit ARM and x86_64. Real PC H.264
 playback passed on Android 10, 11, 14 and 16 emulators; physical phone
 acceptance remains pending. This milestone does not include phone capture,
 remote input, secure pairing, virtual displays or a production-signed release.
+
+2026-10-18: Windows desktop streaming implementation added: shared GStreamer H.264
+encode/decode enabled on Windows, DXGI capture via d3d11screencapturesrc with
+bounded appsink, validated/cropped packed RGBA, CLI monitor selection, and real
+viewer decoding/host launch instead of unsupported placeholders. Windows CI
+installs the pinned official 1.28.8 SDK with SHA256 validation and verifies codec
+plugins before running tests. Linux synthetic-capture and buffer-boundary tests
+exercise the common conversion path; a real Windows capture smoke is opt-in.
+This is implementation progress, not physical Windows acceptance. Remote input,
+secure pairing, virtual displays, and Windows installers remain separate milestones.
+The Linux Debian alpha packaging milestone is also included from main.
