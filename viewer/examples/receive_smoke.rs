@@ -3,7 +3,23 @@
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     use std::time::Duration;
-    let address = std::env::args().nth(1).ok_or("Pass the sharing IP:port")?;
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let address = if args.first().map(String::as_str) == Some("--invitation-file") {
+        let path = args.get(1).ok_or("Pass an invitation file")?;
+        let invitation: mightymonitor_security::Invitation =
+            std::fs::read_to_string(path)?.trim().parse()?;
+        if args.get(2).map(String::as_str) == Some("--via") {
+            invitation
+                .via_address(args.get(3).ok_or("Pass a forwarding address")?.parse()?)?
+                .to_link()
+        } else {
+            invitation.to_link()
+        }
+    } else {
+        args.first()
+            .ok_or("Pass a connection link or invitation file")?
+            .clone()
+    };
     let session =
         mightymonitor_viewer::net::ViewerSession::new(codec_gst::decoder::Decoder::new()?);
     let output = session.output.clone();

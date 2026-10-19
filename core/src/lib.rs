@@ -29,7 +29,7 @@ pub use reconnect::{
     SessionError, SessionEvent, SessionReader, SessionState, SessionWriter, SplitMix64,
     TcpConnector,
 };
-pub use transport::{TcpTransport, Transport, TransportError};
+pub use transport::{FramedTransport, TcpTransport, Transport, TransportError};
 
 pub use frame::{
     decode_frame, encode_frame, encode_frame_into, encode_stream_frame, Frame, FrameDecoder,

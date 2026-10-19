@@ -46,20 +46,20 @@ impl Default for Output {
 }
 pub type SharedOutput = Arc<Mutex<Output>>;
 struct Dial {
-    address: String,
-    first: Option<TcpTransport>,
+    endpoint: mightymonitor_security::Endpoint,
+    first: Option<Box<dyn Transport>>,
 }
 #[async_trait]
 impl Connector for Dial {
     async fn connect(&mut self) -> Result<Box<dyn Transport>, TransportError> {
         let transport = match self.first.take() {
             Some(t) => t,
-            None => TcpTransport::connect(&self.address).await?,
+            None => mightymonitor_security::asynchronous::connect_transport(&self.endpoint).await?,
         };
-        Ok(Box::new(transport))
+        Ok(transport)
     }
 }
-async fn send_transport(t: &mut TcpTransport, m: Message) -> Result<(), Error> {
+async fn send_transport(t: &mut dyn Transport, m: Message) -> Result<(), Error> {
     let (k, p) = m.to_frame_parts()?;
     t.send(k, &p).await?;
     Ok(())
@@ -93,11 +93,14 @@ impl<D: Decoder> ViewerSession<D> {
         }
     }
     async fn drive(&mut self, address: String) -> Result<(), Error> {
+        let endpoint = mightymonitor_security::Endpoint::parse(&address, true)?;
+        let handshake_timeout = Duration::from_secs(if endpoint.is_secure() { 15 } else { 5 });
         let (transport, id) = loop {
-            match tokio::time::timeout(Duration::from_secs(5), async {
-                let mut t = TcpTransport::connect(&address).await?;
+            match tokio::time::timeout(handshake_timeout, async {
+                let mut t =
+                    mightymonitor_security::asynchronous::connect_transport(&endpoint).await?;
                 send_transport(
-                    &mut t,
+                    t.as_mut(),
                     Message::Hello {
                         proto_version: PROTOCOL_VERSION,
                         device_name: "mm-viewer".into(),
@@ -119,6 +122,12 @@ impl<D: Decoder> ViewerSession<D> {
             {
                 Ok(Ok(v)) => break v,
                 Ok(Err(e)) => {
+                    if matches!(
+                        e.downcast_ref::<TransportError>(),
+                        Some(TransportError::Authentication(_))
+                    ) {
+                        return Err(e);
+                    }
                     self.output.lock().unwrap_or_else(|p| p.into_inner()).error =
                         Some(e.to_string());
                 }
@@ -131,7 +140,7 @@ impl<D: Decoder> ViewerSession<D> {
         };
         let mut session = ReconnectingSession::new(
             Dial {
-                address,
+                endpoint,
                 first: Some(transport),
             },
             id,

@@ -59,3 +59,8 @@ Windows DXGI through its public pipeline API. The Rust adapter is original.
 GStreamer Windows SDK distribution, runtime DLLs and plugins retain their
 individual licenses; obtain them from the official GStreamer project. The
 pinned CI installer checksum is from the vendor's published .sha256sum file.
+
+Secure connections use Rustls (Apache-2.0 OR ISC OR MIT), ring (ISC-style and
+permissive notices), rcgen (MIT OR Apache-2.0), SHA-2/base64/subtle/zeroize and
+getrandom (permissive licenses recorded in Cargo.lock/package metadata). TLS is
+used through their public APIs; certificate and viewing-token integration is original.

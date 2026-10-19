@@ -202,3 +202,33 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_stopHost(
         .remove(&id);
     drop(host);
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostInvite(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    address: JString,
+) -> jstring {
+    let result = (|| -> Result<String, String> {
+        let address: String = env.get_string(&address).map_err(|e| e.to_string())?.into();
+        let address = address
+            .parse()
+            .map_err(|_| "Invalid sharing address".to_owned())?;
+        let table = hosts().lock().unwrap_or_else(|e| e.into_inner());
+        let host = table.get(&id).ok_or("Sharing stopped")?;
+        Ok(host
+            .invitation(address)
+            .map_err(|e| e.to_string())?
+            .to_link())
+    })();
+    match result {
+        Ok(link) => env
+            .new_string(link)
+            .map_or(std::ptr::null_mut(), |s| s.into_raw()),
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error);
+            std::ptr::null_mut()
+        }
+    }
+}

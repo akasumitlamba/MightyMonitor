@@ -418,6 +418,17 @@ impl<C: Connector, J: JitterSource> ReconnectingSession<C, J> {
                     });
                     return Ok(());
                 }
+                Err(error @ SessionError::Transport(TransportError::Authentication(_))) => {
+                    self.emit(SessionEvent::ReconnectFailed {
+                        attempt,
+                        error: error.to_string(),
+                    });
+                    self.state = SessionState::GaveUp;
+                    self.emit(SessionEvent::GaveUp {
+                        attempts: self.backoff.attempts,
+                    });
+                    return Err(error);
+                }
                 Err(error) => self.emit(SessionEvent::ReconnectFailed {
                     attempt,
                     error: error.to_string(),
@@ -1151,6 +1162,25 @@ mod tests {
             ),
             calls,
         )
+    }
+    #[tokio::test(start_paused = true)]
+    async fn rejected_identity_stops_reconnect_without_retry_or_resume() {
+        let sent = Sent::default();
+        let (mut session, calls) = session(
+            vec![
+                transport(&sent, vec![], false),
+                Err(TransportError::Authentication("Expired invitation".into())),
+            ],
+            20,
+        );
+        session.connect_initial().await.unwrap();
+        assert!(matches!(
+            session.recv().await,
+            Err(SessionError::Transport(TransportError::Authentication(_)))
+        ));
+        assert_eq!(session.state(), SessionState::GaveUp);
+        assert_eq!(*calls.lock().unwrap(), 2);
+        assert!(sent.lock().unwrap().is_empty());
     }
     #[tokio::test(start_paused = true)]
     async fn reconnects_after_transport_drop() {

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["core", "host-linux", "bench", "codec-gst", "host", "viewer", "android-bridge"]
+members = ["core", "host-linux", "bench", "codec-gst", "host", "viewer", "android-bridge", "security"]
 
 [workspace.package]
 version = "0.0.1"

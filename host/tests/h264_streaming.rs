@@ -4,7 +4,7 @@ use codec_gst::encoder::{Encoder as H264Encoder, EncoderConfig, PixelFormat};
 use mightymonitor_core::{Bytes, Capture, Codec, CodecError, Encoder};
 use mightymonitor_host::{
     pipeline::{HostEncoder, Pipeline},
-    session::{serve, SessionConfig},
+    session::{serve_transport, SessionConfig},
     Error,
 };
 use std::time::Duration;
@@ -40,6 +40,13 @@ impl HostEncoder for VideoEncoder {
 }
 #[tokio::test]
 async fn real_h264_reaches_viewer_over_tcp() {
+    exercise(false).await;
+}
+#[tokio::test]
+async fn real_h264_reaches_viewer_over_authenticated_tls() {
+    exercise(true).await;
+}
+async fn exercise(secure: bool) {
     let encoder = H264Encoder::new(EncoderConfig {
         width: 64,
         height: 64,
@@ -62,15 +69,32 @@ async fn real_h264_reaches_viewer_over_tcp() {
     };
     let decoder = codec_gst::decoder::Decoder::new().expect("H.264 decoder required");
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let address = listener.local_addr().unwrap().to_string();
+    let identity = secure.then(|| mightymonitor_security::ShareIdentity::generate().unwrap());
+    let address = identity.as_ref().map_or_else(
+        || listener.local_addr().unwrap().to_string(),
+        |id| {
+            id.invitation(listener.local_addr().unwrap())
+                .unwrap()
+                .to_link()
+        },
+    );
     let host = tokio::spawn(async move {
         let (stream, _) = listener.accept().await.unwrap();
+        let transport: Box<dyn mightymonitor_core::Transport> = if let Some(identity) = identity {
+            Box::new(mightymonitor_core::FramedTransport::from_stream(
+                mightymonitor_security::asynchronous::accept(stream, &identity)
+                    .await
+                    .unwrap(),
+            ))
+        } else {
+            Box::new(mightymonitor_core::TcpTransport::new(stream).unwrap())
+        };
         let pipeline = Pipeline::new(SolidFrame, VideoEncoder(encoder), 10)
             .unwrap()
             .with_bitrate(1000)
             .unwrap();
-        serve(
-            stream,
+        serve_transport(
+            transport,
             pipeline,
             SessionConfig {
                 session_id: 11,

@@ -28,14 +28,11 @@ pub struct SessionConfig {
 }
 /// A server accepts a replacement socket in its listener, rather than dialing
 /// the viewer. Disable core retries and never replay old video on replacement.
-struct Accepted(Option<TcpTransport>);
+struct Accepted(Option<Box<dyn Transport>>);
 #[async_trait]
 impl Connector for Accepted {
     async fn connect(&mut self) -> Result<Box<dyn Transport>, TransportError> {
-        self.0
-            .take()
-            .map(|t| Box::new(t) as Box<dyn Transport>)
-            .ok_or(TransportError::Closed)
+        self.0.take().ok_or(TransportError::Closed)
     }
 }
 struct ReaderTask(tokio::task::JoinHandle<()>);
@@ -61,10 +58,19 @@ async fn send(
 /// Sequence numbers continue after last_seq on resume; old video is not replayed.
 pub async fn serve<E: HostEncoder>(
     stream: TcpStream,
+    pipeline: Pipeline<E>,
+    config: SessionConfig,
+) -> Result<(), Error> {
+    serve_transport(Box::new(TcpTransport::new(stream)?), pipeline, config).await
+}
+
+/// Serve an already established transport. TLS peers must be authenticated
+/// before capture/session creation. This does not authorize remote input.
+pub async fn serve_transport<E: HostEncoder>(
+    transport: Box<dyn Transport>,
     mut pipeline: Pipeline<E>,
     config: SessionConfig,
 ) -> Result<(), Error> {
-    let transport = TcpTransport::new(stream)?;
     let mut session = ReconnectingSession::new(
         Accepted(Some(transport)),
         config.session_id,

@@ -11,6 +11,7 @@ public final class NativeBridge {
     public static native boolean publish(long handle, byte[] data, long timestampUs, boolean keyframe);
     public static native boolean hostNeedsKeyframe(long handle);
     public static native int hostBitrate(long handle);
+    public static native String hostInvite(long handle, String address);
     public static native String hostStatus(long handle);
     public static native void stopHost(long handle);
 }

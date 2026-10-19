@@ -4,7 +4,7 @@ use std::future::Future;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpStream, ToSocketAddrs};
 
 use crate::{encode_stream_frame, Frame, FrameDecoder, FrameError};
@@ -15,6 +15,9 @@ pub enum TransportError {
     /// An underlying socket operation failed.
     #[error("transport I/O failed: {0}")]
     Io(#[from] std::io::Error),
+    /// Host identity or viewing permission was rejected; never retry as plaintext.
+    #[error("secure connection rejected: {0}")]
+    Authentication(String),
     /// A frame could not be encoded or decoded.
     #[error("invalid frame: {0}")]
     Frame(#[from] FrameError),
@@ -55,27 +58,36 @@ pub trait Transport: Send {
 /// a max-size 16 MiB frame requires about 1.6 MiB/s sustained throughput.
 /// Drop and reconnect after malformed frames, EOF, I/O failures, or interrupted
 /// writes; no automatic replay is performed.
-pub struct TcpTransport {
-    stream: TcpStream,
+pub struct FramedTransport<S> {
+    stream: S,
     decoder: FrameDecoder,
     read_buffer: Box<[u8; 64 * 1024]>,
     read_timeout: Option<Duration>,
     write_timeout: Option<Duration>,
 }
 
-impl TcpTransport {
-    /// Wrap a connected stream, enabling TCP_NODELAY and default timeouts.
-    pub fn new(stream: TcpStream) -> Result<Self, TransportError> {
-        stream.set_nodelay(true)?;
-        Ok(Self {
+/// Legacy plaintext TCP specialization. Secure channels use FramedTransport
+/// with an already authenticated TLS stream; framing/limits stay identical.
+pub type TcpTransport = FramedTransport<TcpStream>;
+
+impl<S: AsyncRead + AsyncWrite + Unpin + Send> FramedTransport<S> {
+    /// Wrap an established byte stream. TLS authentication belongs before this.
+    pub fn from_stream(stream: S) -> Self {
+        Self {
             stream,
             decoder: FrameDecoder::new(),
             read_buffer: Box::new([0; 64 * 1024]),
             read_timeout: None,
             write_timeout: Some(Duration::from_secs(10)),
-        })
+        }
     }
-
+}
+impl FramedTransport<TcpStream> {
+    /// Wrap a connected TCP stream and enable TCP_NODELAY.
+    pub fn new(stream: TcpStream) -> Result<Self, TransportError> {
+        stream.set_nodelay(true)?;
+        Ok(Self::from_stream(stream))
+    }
     /// Resolve and connect within five seconds, then enable TCP_NODELAY.
     pub async fn connect(addr: impl ToSocketAddrs) -> Result<Self, TransportError> {
         Self::connect_with_timeout(addr, Duration::from_secs(5)).await
@@ -92,7 +104,8 @@ impl TcpTransport {
         .await?;
         Self::new(stream)
     }
-
+}
+impl<S: AsyncRead + AsyncWrite + Unpin + Send> FramedTransport<S> {
     /// Set a deadline for the entire next receive, or `None` to wait indefinitely.
     /// A read timeout retains partial frame bytes and permits retrying `recv`.
     pub fn set_read_timeout(&mut self, timeout: Option<Duration>) {
@@ -124,7 +137,7 @@ impl TcpTransport {
 }
 
 #[async_trait]
-impl Transport for TcpTransport {
+impl<S: AsyncRead + AsyncWrite + Unpin + Send> Transport for FramedTransport<S> {
     /// Encode and send one frame, allocating a new buffer and copying `payload`.
     /// With the default 10-second write timeout, a max-size 16 MiB frame needs
     /// about 1.6 MiB/s of sustained throughput to complete.
