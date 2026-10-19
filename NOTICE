@@ -68,3 +68,6 @@ used through their public APIs; certificate and viewing-token integration is ori
 Android JNI integration uses jni 0.21.1 (MIT OR Apache-2.0) and its permissively
 licensed dependencies. Android UI/MediaCodec glue and Rust networking code are
 original. AndroidX test libraries are used only for emulator instrumentation.
+
+Desktop connection QR codes use qrcode 0.14.1 (MIT OR Apache-2.0), without its
+optional image/rendering dependencies. The app paints the module matrix directly.

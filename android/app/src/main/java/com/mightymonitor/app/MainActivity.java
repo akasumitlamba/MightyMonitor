@@ -135,7 +135,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         });
         trusted.setOnCheckedChangeListener((v, checked) -> { if (!checked) disconnect("Not connected"); });
         setContentView(layout); handler.post(refreshSharing);
+        String incoming = getIntent().getDataString();
+        if (android.content.Intent.ACTION_VIEW.equals(getIntent().getAction()) && incoming != null && incoming.startsWith("mightymonitor://") && incoming.length() <= 512) address.setText(incoming);
+
     }
+    @Override protected void onNewIntent(android.content.Intent intent) { super.onNewIntent(intent); setIntent(intent); recreate(); }
     private android.graphics.drawable.GradientDrawable rounded(int color) {
         android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable(); shape.setColor(color); shape.setCornerRadius(dp(8)); return shape;
     }

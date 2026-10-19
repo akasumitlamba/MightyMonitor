@@ -22,6 +22,7 @@ pub struct App {
     allow_legacy: bool,
     host: Option<crate::host::HostProcess>,
     host_message: String,
+    share_qr: Option<(String, qrcode::QrCode)>,
     host_error: bool,
     last_host_poll: std::time::Instant,
     output: SharedOutput,
@@ -43,6 +44,7 @@ impl App {
             allow_legacy: false,
             host: None,
             host_message: String::new(),
+            share_qr: None,
             host_error: false,
             last_host_poll: std::time::Instant::now(),
             output: Arc::new(Mutex::new(Output {
@@ -269,7 +271,7 @@ impl eframe::App for App {
                 ui.add_space(24.0);
                 ui.heading("Share this screen");
                 ui.add_space(10.0);
-                ui.label("Copy the connection link to your other device");
+                ui.label("Scan with your phone or copy the connection link");
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(&self.share_address).size(28.0).strong());
                     let invitation = self.host.as_ref().and_then(|host| host.invitation());
@@ -285,10 +287,52 @@ impl eframe::App for App {
                         }
                     }
                 });
+                let link = self
+                    .host
+                    .as_ref()
+                    .and_then(|host| host.invitation())
+                    .map(|invite| invite.to_link());
+                match link {
+                    Some(link) => {
+                        if self
+                            .share_qr
+                            .as_ref()
+                            .is_none_or(|(cached, _)| *cached != link)
+                        {
+                            self.share_qr = qrcode::QrCode::new(link.as_bytes())
+                                .ok()
+                                .map(|code| (link, code));
+                        }
+                    }
+                    None => self.share_qr = None,
+                }
+                if let Some((_, code)) = &self.share_qr {
+                    ui.add_space(16.0);
+                    let modules = code.width();
+                    let scale = (240.0 / (modules + 8) as f32).floor().max(2.0);
+                    let side = (modules + 8) as f32 * scale;
+                    let (rect, _) =
+                        ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
+                    ui.painter().rect_filled(rect, 0.0, egui::Color32::WHITE);
+                    for y in 0..modules {
+                        for x in 0..modules {
+                            if code[(x, y)] == qrcode::Color::Dark {
+                                let pos = rect.min
+                                    + egui::vec2((x + 4) as f32 * scale, (y + 4) as f32 * scale);
+                                ui.painter().rect_filled(
+                                    egui::Rect::from_min_size(pos, egui::vec2(scale, scale)),
+                                    0.0,
+                                    egui::Color32::BLACK,
+                                );
+                            }
+                        }
+                    }
+                }
                 ui.add_space(18.0);
                 if self.host.is_some() {
                     if ui.button("Stop sharing").clicked() {
                         self.host = None;
+                        self.share_qr = None;
                         self.host_message = "Sharing stopped".into();
                         self.host_error = false;
                     }
