@@ -19,14 +19,14 @@ not the application's installer.
 
 ```powershell
 cargo build --release --workspace
-.\target\release\mm-host.exe --bind 192.168.1.10:5000 --fps 30 --bitrate 4000
+.\target\release\mm-host.exe --secure --bind 192.168.1.10:5000 --fps 30 --bitrate 4000
 .\target\release\mm-viewer.exe
 ```
 
 Use the host computer's actual LAN IP instead of the example. On a second Linux
-or Windows computer, enter that IP:port in the viewer. Windows firewall access
-must allow the chosen local-network port. Do not expose the listener to the
-Internet: authentication and encryption are still pending.
+or Windows computer, paste the private connection link printed by the host into the viewer. Windows firewall access
+must allow the chosen local-network port. Keep this development listener on a local network. Secure links use pinned TLS
+and expire when sharing stops; see [connection security](SECURE_CONNECTIONS.md).
 
 The viewer can also start/stop its sibling mm-host.exe from Share this screen.
 Keep both executables together. Windows codec errors are now surfaced from the
@@ -47,8 +47,8 @@ A resolution change ends the current capture so reconnect can renegotiate it.
 Capture startup/frame waits are bounded to three seconds. Pipeline cleanup sets
 GStreamer to NULL; no raw pointers or new unsafe Rust were added.
 
-This does not implement virtual extended monitors, remote input, or secure
-pairing. It streams an existing display. CPU H.264 remains the default; hardware
+This does not implement virtual extended monitors, remote input, or persistent
+trusted-device pairing. It streams an existing display. CPU H.264 remains the default; hardware
 encoder improvements are separate work.
 
 ## Acceptance on physical devices (pending)

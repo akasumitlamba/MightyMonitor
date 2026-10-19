@@ -146,3 +146,13 @@ exercise the common conversion path; a real Windows capture smoke is opt-in.
 This is implementation progress, not physical Windows acceptance. Remote input,
 secure pairing, virtual displays, and Windows installers remain separate milestones.
 Linux Debian alpha packaging is included from main.
+
+
+2026-10-19: Private session viewing invitations and pinned TLS 1.3 implemented
+across desktop and Android. Authentication failures are terminal; there is no
+secure-to-plaintext fallback. Android workers can cancel stalled TLS handshakes.
+Local workspace tests include real H.264 over TLS, wrong pin/token rejection,
+blocking/async interoperability, Android client/server video and stop lifecycle.
+Platform CI/emulator validation is tracked in the milestone PR. Persistent device
+pairing, remote control, extended displays and physical-device acceptance remain
+incomplete; this is a viewing-security milestone, not a finished product.
