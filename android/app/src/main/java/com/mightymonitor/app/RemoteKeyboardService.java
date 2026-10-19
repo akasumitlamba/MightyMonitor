@@ -15,6 +15,7 @@ public final class RemoteKeyboardService extends InputMethodService {
     }
     private static InputConnection connection() {RemoteKeyboardService service = current; return service != null && ScreenShareService.sharing && ScreenShareService.allowControl ? service.getCurrentInputConnection() : null;}
     public static boolean ready() {return connection() != null;}
+    static boolean readyFor(int fieldId) {RemoteKeyboardService service = current; android.view.inputmethod.EditorInfo editor = service != null ? service.getCurrentInputEditorInfo() : null; return ready() && editor != null && editor.fieldId == fieldId;}
     public static boolean type(String text) {InputConnection connection = connection(); return connection != null && connection.commitText(text, 1);}
     public static boolean key(int hid, boolean pressed, boolean shift, boolean ctrl, boolean alt) {
         InputConnection connection = connection(); if (connection == null) return false;

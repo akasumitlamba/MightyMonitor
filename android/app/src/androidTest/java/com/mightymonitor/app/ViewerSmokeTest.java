@@ -127,8 +127,10 @@ public final class ViewerSmokeTest {
             while (InputTestActivity.taps.get() < 1 && System.currentTimeMillis() < deadline) Thread.sleep(20);
             assertTrue("Remote gesture did not click the actual Android button", InputTestActivity.taps.get() >= 1);
             android.widget.EditText editor = target.findViewById(InputTestActivity.EDITOR_ID); tap(client, editor);
-            while (!RemoteKeyboardService.ready() && System.currentTimeMillis() < deadline) Thread.sleep(20);
-            assertTrue("Test remote keyboard did not obtain an input connection", RemoteKeyboardService.ready());
+            // A prior activity can still have an input connection while the remote
+            // tap is in flight. Wait for this actual editor, not just any IME client.
+            while (!RemoteKeyboardService.readyFor(InputTestActivity.EDITOR_ID) && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Remote tap did not focus the test editor and connect its keyboard", RemoteKeyboardService.readyFor(InputTestActivity.EDITOR_ID));
             NativeBridge.typeText(client, "MightyMonitor");
             java.util.concurrent.atomic.AtomicReference<String> text = new java.util.concurrent.atomic.AtomicReference<>("");
             while (!"MightyMonitor".equals(text.get()) && System.currentTimeMillis() < deadline) {InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> text.set(editor.getText().toString())); Thread.sleep(20);}
