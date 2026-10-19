@@ -315,6 +315,7 @@ fn connection(
                 } if !acknowledged => {
                     *session_id = Some(id);
                     acknowledged = true;
+                    let control_available = control_available && address.is_secure();
                     shared
                         .control_available
                         .store(control_available, Ordering::Release);

@@ -404,3 +404,12 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_pollHostInput(
         }
     }
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_releaseInput(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jboolean {
+    dispatch_input(&mut env, id, mightymonitor_core::InputEvent::ReleaseAll)
+}

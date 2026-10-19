@@ -6,6 +6,7 @@ public final class NativeBridge {
     private NativeBridge() {}
     public static native long connect(String address);
     public static native byte[] poll(long handle);
+    public static native boolean releaseInput(long handle);
     public static native boolean requestControl(long handle, boolean enabled);
     public static native boolean pointer(long handle, float x, float y, int phase);
     public static native boolean key(long handle, int code, boolean pressed);

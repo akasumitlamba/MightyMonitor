@@ -49,7 +49,10 @@ mod desktop {
     enum CaptureFactory {
         X11,
         #[cfg(feature = "pipewire")]
-        Wayland(host_linux::SharedCapture),
+        Wayland {
+            capture: host_linux::SharedCapture,
+            input: Option<host_linux::PortalInput>,
+        },
     }
     #[cfg(target_os = "linux")]
     struct DesktopCapture(Box<dyn Capture + Send>);
@@ -61,7 +64,9 @@ mod desktop {
     }
     #[cfg(target_os = "linux")]
     impl CaptureFactory {
-        fn open(mode: &str) -> Result<Self, Error> {
+        fn open(mode: &str, allow_control: bool) -> Result<Self, Error> {
+            #[cfg(not(feature = "pipewire"))]
+            let _ = allow_control;
             let wayland = match mode {
                 "auto" => {
                     std::env::var_os("WAYLAND_DISPLAY").is_some()
@@ -77,15 +82,34 @@ mod desktop {
             #[cfg(feature = "pipewire")]
             {
                 eprintln!("Choose a screen in the system sharing dialog.");
-                let mut portal = host_linux::PipeWireCapture::open()?;
+                let mut portal = host_linux::PipeWireCapture::open_with_control(allow_control)?;
+                let input = portal.input();
                 let shared = host_linux::SharedCapture::start(move |timeout| {
                     portal.poll_captured(timeout).map_err(std::io::Error::other)
                 })?;
-                Ok(Self::Wayland(shared))
+                Ok(Self::Wayland {
+                    capture: shared,
+                    input,
+                })
             }
             #[cfg(not(feature = "pipewire"))]
             {
                 Err("This build has no Wayland capture. Install a PipeWire-enabled build, or use --capture x11 in an X11 session.".into())
+            }
+        }
+        fn input(
+            &self,
+            width: u32,
+            height: u32,
+        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+            match self {
+                Self::X11 => Ok(Some(Box::new(
+                    mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+                ))),
+                #[cfg(feature = "pipewire")]
+                Self::Wayland { input, .. } => Ok(input.clone().map(|input| {
+                    Box::new(input) as Box<dyn mightymonitor_host::input::InputTarget>
+                })),
             }
         }
         fn capture(&self, _fps: u32, monitor: i32) -> Result<(DesktopCapture, u32, u32), Error> {
@@ -101,7 +125,9 @@ mod desktop {
                     Ok((DesktopCapture(Box::new(capture)), w, h))
                 }
                 #[cfg(feature = "pipewire")]
-                Self::Wayland(shared) => {
+                Self::Wayland {
+                    capture: shared, ..
+                } => {
                     let (capture, w, h) = shared.viewer()?;
                     Ok((DesktopCapture(Box::new(capture)), w, h))
                 }
@@ -112,11 +138,20 @@ mod desktop {
     struct CaptureFactory;
     #[cfg(target_os = "windows")]
     impl CaptureFactory {
-        fn open(mode: &str) -> Result<Self, Error> {
+        fn open(mode: &str, _allow_control: bool) -> Result<Self, Error> {
             if mode != "auto" {
                 return Err("Windows uses DXGI capture; --capture must be auto".into());
             }
             Ok(Self)
+        }
+        fn input(
+            &self,
+            width: u32,
+            height: u32,
+        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+            Ok(Some(Box::new(
+                mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+            )))
         }
         fn capture(
             &self,
@@ -202,11 +237,7 @@ mod desktop {
         if allow_control && (!secure || monitor != -1) {
             return Err("Remote control requires --secure and the primary/default screen".into());
         }
-        let factory = CaptureFactory::open(&capture_mode)?;
-        #[cfg(target_os = "linux")]
-        if allow_control && !matches!(factory, CaptureFactory::X11) {
-            return Err("Wayland input requires a separate RemoteDesktop portal grant; use view-only sharing for this build".into());
-        }
+        let factory = CaptureFactory::open(&capture_mode, allow_control)?;
         let mut stop = Box::pin(async move {
             if managed {
                 let (tx, rx) = tokio::sync::oneshot::channel();
@@ -276,11 +307,7 @@ mod desktop {
                 idle_timeout: Duration::from_secs(idle_timeout_secs),
             };
             let input = if allow_control {
-                Some(
-                    Box::new(mightymonitor_host::input::desktop::DesktopInput::new(
-                        width, height,
-                    )?) as Box<dyn mightymonitor_host::input::InputTarget>,
-                )
+                factory.input(width, height)?
             } else {
                 None
             };

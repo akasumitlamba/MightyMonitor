@@ -124,6 +124,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         status = text("Not connected", 14, Color.rgb(61, 91, 77)); status.setPadding(0, dp(8), 0, dp(8)); viewPage.addView(status);
         video = new SurfaceView(this); video.setId(VIDEO_ID); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
         video.setFocusableInTouchMode(true);
+        video.setOnFocusChangeListener((v, focused) -> {if (!focused && handle != 0 && remoteControlActive) {try {NativeBridge.releaseInput(handle);} catch (Exception error) {disconnect(error.getMessage());}}});
         video.setOnTouchListener((v, event) -> {
             if (handle == 0 || !viewControl.isChecked()) return false;
             int action = event.getActionMasked(); int phase;

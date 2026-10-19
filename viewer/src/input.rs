@@ -86,6 +86,25 @@ pub fn translate(
     old: &mut egui::Modifiers,
     modifiers: egui::Modifiers,
 ) -> Vec<InputEvent> {
+    if events.iter().any(|event| matches!(event, Event::Paste(_))) {
+        let mut output = vec![InputEvent::ReleaseAll];
+        for event in events {
+            if let Event::Paste(text) = event {
+                let mut chunk = String::new();
+                for ch in text.chars() {
+                    if chunk.len() + ch.len_utf8() > 1024 {
+                        output.push(InputEvent::Text(std::mem::take(&mut chunk)));
+                    }
+                    chunk.push(ch);
+                }
+                if !chunk.is_empty() {
+                    output.push(InputEvent::Text(chunk));
+                }
+            }
+        }
+        *old = egui::Modifiers::NONE;
+        return output;
+    }
     let mut output = vec![];
     for (code, before, after) in [
         (224, old.ctrl, modifiers.ctrl),
@@ -189,6 +208,43 @@ pub fn translate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn paste_releases_shortcuts_and_preserves_unicode_across_chunks() {
+        let text = "🙂".repeat(600);
+        let mut modifiers = egui::Modifiers::CTRL;
+        let events = [
+            Event::Key {
+                key: Key::V,
+                physical_key: Some(Key::V),
+                pressed: true,
+                repeat: false,
+                modifiers,
+            },
+            Event::Paste(text.clone()),
+        ];
+        let mapped = translate(
+            &events,
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(100.0, 100.0)),
+            &mut modifiers,
+            egui::Modifiers::CTRL,
+        );
+        assert_eq!(mapped[0], InputEvent::ReleaseAll);
+        let restored: String = mapped
+            .iter()
+            .filter_map(|event| {
+                if let InputEvent::Text(text) = event {
+                    assert!(text.len() <= 1024);
+                    Some(text.as_str())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(restored, text);
+        assert!(!mapped
+            .iter()
+            .any(|event| matches!(event, InputEvent::Key { .. })));
+    }
     #[test]
     fn letterboxed_preview_maps_only_image_and_releases_outside_buttons() {
         let rect = egui::Rect::from_min_size(egui::pos2(100.0, 50.0), egui::vec2(200.0, 100.0));

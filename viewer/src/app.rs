@@ -210,8 +210,8 @@ impl eframe::App for App {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.add_space(12.0);
                     ui.collapsing("About", |ui| {
-                        ui.small("Alpha · screen viewing");
-                        ui.small("Control and extended displays are in development.");
+                        ui.small("Alpha · viewing and control");
+                        ui.small("Extended displays are in development.");
                     });
                 });
             });

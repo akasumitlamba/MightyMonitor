@@ -119,7 +119,10 @@ pub mod desktop {
                         },
                     )?;
                 }
-                InputEvent::Text(text) => self.backend.text(text)?,
+                InputEvent::Text(text) => {
+                    self.release_all();
+                    self.backend.text(text)?;
+                }
                 InputEvent::ReleaseAll => self.release_all(),
                 InputEvent::Touch { id: 0, phase, x, y } => {
                     self.point(*x, *y)?;
@@ -222,5 +225,16 @@ pub mod desktop {
             assert_eq!(key(224), Some(Key::Control));
             assert!(key(u32::MAX).is_none());
         }
+    }
+}
+
+#[cfg(all(target_os = "linux", feature = "pipewire"))]
+impl InputTarget for host_linux::PortalInput {
+    fn apply(&mut self, event: &InputEvent) -> Result<(), Error> {
+        self.send(event.clone())?;
+        Ok(())
+    }
+    fn release_all(&mut self) {
+        self.release();
     }
 }

@@ -165,6 +165,7 @@ impl<D: Decoder> ViewerSession<D> {
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         };
+        let control_available = control_available && endpoint.is_secure();
         self.output
             .lock()
             .unwrap_or_else(|e| e.into_inner())

@@ -84,7 +84,7 @@ public final class RemoteControlService extends AccessibilityService {
                 else {point(bytes.getFloat(2), bytes.getFloat(6)); down = false; changed = true; drainGesture();}
                 break;
             case 4: if (event.length == 6) key(bytes.getInt(1), event[5] != 0); break;
-            case 5: if (event.length > 1 && event.length <= 4097) type(new String(event, 1, event.length - 1, StandardCharsets.UTF_8)); break;
+            case 5: if (event.length > 1 && event.length <= 4097) {release(); type(new String(event, 1, event.length - 1, StandardCharsets.UTF_8));} break;
             case 6: if (event.length == 9) scroll(bytes.getFloat(1), bytes.getFloat(5)); break;
             case 7: release(); break;
             default: break;
