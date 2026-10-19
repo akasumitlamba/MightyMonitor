@@ -27,7 +27,7 @@ iOS are not currently targeted.
 
 ## Architecture (Cargo workspace)
 - `core`: protocol (serde + bincode, version byte first), framing, input events, platform traits (Capture, Encoder, Decoder, InputInjector), adaptive bitrate and reconnect logic.
-- `host-linux`: X11 capture and an optional PipeWire portal backend. The current host CLI uses X11; input injection is planned.
+- `host-linux`: X11 capture and a PipeWire portal backend, selected automatically for the desktop session; input injection is planned.
 - Windows host: GStreamer DXGI desktop capture with shared H.264/TCP streaming; input injection is planned.
 - `viewer`: egui/eframe viewer for Linux and Windows.
 - Browser streaming: planned; the static project website is not a streaming viewer.
@@ -49,7 +49,7 @@ copied from proprietary applications. Third-party open-source work may be studie
 only where its license permits, with appropriate attribution in NOTICE.
 
 ## Known limits
-- The Linux host CLI currently requires X11. Wayland portal integration and physical-device validation are pending.
+- Linux sharing supports X11 and system-authorized Wayland capture. Wayland requires a working desktop portal backend; physical-device validation is pending.
 - Android can view PC streams and explicitly share its own screen. Remote control is not implemented.
 - Virtual extended monitors need OS-specific drivers and stay optional.
 

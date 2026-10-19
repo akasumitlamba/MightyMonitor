@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    if std::env::args().nth(1).as_deref() == Some("--check-runtime") {
+        let _decoder = codec_gst::decoder::Decoder::new()?;
+        return Ok(());
+    }
     let app = mightymonitor_viewer::app::App::new()?;
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../../assets/mightymonitor.png"))?;
     let options = eframe::NativeOptions {

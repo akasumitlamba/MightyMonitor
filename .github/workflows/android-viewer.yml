@@ -2,7 +2,7 @@ name: Build and test Android viewer
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing']
+    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing']
     paths: ['security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
     paths: ['security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
@@ -71,7 +71,7 @@ jobs:
       - name: Install real desktop video dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y xvfb libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
+          sudo apt-get install -y xvfb libpipewire-0.3-dev libspa-0.2-dev clang libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked -p mightymonitor-host
       - run: cargo build --release --locked -p mightymonitor-viewer --example receive_smoke --no-default-features

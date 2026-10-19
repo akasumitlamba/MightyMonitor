@@ -2,7 +2,8 @@
 
 Desktop Share and Android Share generate a fresh connection link for each sharing
 session. Start sharing, copy the link, transfer it directly to your other device,
-and paste it into View. Anyone holding the link can view while that sharing session
+and paste it into View. A phone camera can scan the desktop QR code and open
+the link in the Android app; press Connect to begin viewing. Anyone holding the link can view while that sharing session
 is running. Keep it private; stopping sharing closes the connection and invalidates
 that session's link. Restarting sharing generates a new identity and token.
 

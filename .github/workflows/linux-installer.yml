@@ -5,9 +5,9 @@ on:
       version:
         description: Debian package version (alpha by default)
         required: true
-        default: '0.0.1~alpha.3'
+        default: '0.0.1~alpha.4'
   push:
-    branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing']
+    branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing']
     paths: ['security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
 permissions:
   contents: read
@@ -20,12 +20,12 @@ jobs:
       - name: Install build and runtime dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y dpkg-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libx11-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
+          sudo apt-get install -y dpkg-dev libxkbcommon-dev libwayland-dev libgl1-mesa-dev libx11-dev libpipewire-0.3-dev libspa-0.2-dev clang libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
       - name: Create Debian package
         env:
-          PACKAGE_VERSION: ${{ inputs.version || '0.0.1~alpha.3' }}
+          PACKAGE_VERSION: ${{ inputs.version || '0.0.1~alpha.4' }}
         run: python3 scripts/package-linux.py --version "$PACKAGE_VERSION"
       - name: Inspect package and extracted executables
         run: |
