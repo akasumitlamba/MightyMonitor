@@ -98,8 +98,8 @@ jobs:
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
             # Isolated emulator acceptance: preauthorize only our test service/IME.
             # The shipped app never writes these settings and always requires the user's system grant.
-            adb shell settings put secure enabled_accessibility_services com.mightymonitor.app/.RemoteControlService
-            adb shell settings put secure accessibility_enabled 1
+            # Grant accessibility inside instrumentation after its process restart.
+            # Prebinding here makes Android 10/11 mark the service crashed.
             adb logcat -d > /tmp/mm-ime-install-logcat.log
             for i in $(seq 1 60); do adb shell ime list -a -s | grep -F RemoteKeyboardService && break; sleep 1; done
             adb shell dumpsys input_method > /tmp/mm-input-methods.log
