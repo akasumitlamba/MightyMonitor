@@ -81,6 +81,7 @@ def main():
             'libgstreamer1.0-0 (>= 1.20)', 'gstreamer1.0-plugins-base',
             'gstreamer1.0-plugins-good', 'gstreamer1.0-plugins-ugly', 'gstreamer1.0-libav',
             'libxkbcommon0', 'libwayland-client0', 'libx11-6', 'libegl1', 'libgl1',
+            'xdg-desktop-portal',
         ]
         control = package / 'DEBIAN'
         control.mkdir()

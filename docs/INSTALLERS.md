@@ -38,7 +38,7 @@ and clean-machine installation acceptance remain pending.
 
 ## What this package is
 
-An alpha development installer for the existing Linux X11 sharing/viewing app.
+An alpha development installer for the Linux X11/Wayland sharing and viewing app.
 It is not a declaration that the complete cross-platform product is finished.
 The GUI uses private viewing links over pinned TLS; see
 [connection security](SECURE_CONNECTIONS.md). Remote input, independent extended

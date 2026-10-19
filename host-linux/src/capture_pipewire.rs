@@ -95,10 +95,12 @@ mod native {
                         let result = async {
                             let closed = session.receive_closed().await?;
                             let mut closed = std::pin::pin!(closed);
+                            let cursor_modes = portal.available_cursor_modes().await?;
+                            let cursor = if cursor_modes.contains(CursorMode::Embedded) { CursorMode::Embedded } else { CursorMode::Hidden };
                             portal
                                 .select_sources(
                                     &session,
-                                    CursorMode::Hidden,
+                                    cursor,
                                     SourceType::Monitor.into(),
                                     false,
                                     None,
@@ -147,6 +149,18 @@ mod native {
 
         /// Wait at most five seconds. Timestamps measure monotonic elapsed time
         /// since worker setup, recorded after conversion, before queue delivery.
+        pub fn poll_captured(
+            &mut self,
+            timeout: Duration,
+        ) -> Result<Option<CapturedFrame>, PipeWireError> {
+            match self.frames.recv_timeout(timeout) {
+                Ok(frame) => Ok(Some(frame)),
+                Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
+                Err(mpsc::RecvTimeoutError::Disconnected) => Err(PipeWireError(
+                    "Screen sharing permission or stream ended".into(),
+                )),
+            }
+        }
         pub fn next_captured(&mut self) -> Option<CapturedFrame> {
             self.frames.recv_timeout(Duration::from_secs(5)).ok()
         }

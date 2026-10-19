@@ -156,3 +156,10 @@ blocking/async interoperability, Android client/server video and stop lifecycle.
 Platform CI/emulator validation is tracked in the milestone PR. Persistent device
 pairing, remote control, extended displays and physical-device acceptance remain
 incomplete; this is a viewing-security milestone, not a finished product.
+
+
+2026-10-19: Linux host now selects portal-authorized Wayland capture automatically
+when built with its default PipeWire feature. A bounded shared latest-frame source
+keeps one portal session across viewer reconnects, handles idle desktops and
+renegotiates resolution changes. Synthetic lifecycle/crop/resize tests supplement
+native builds; interactive compositor acceptance remains pending.

@@ -9,6 +9,10 @@ license.workspace = true
 name = "mm-host"
 path = "src/main.rs"
 
+[features]
+default = ["pipewire"]
+pipewire = ["host-linux/pipewire"]
+
 [dependencies]
 mightymonitor-core = { path = "../core" }
 mightymonitor-security = { path = "../security", features = ["async"] }

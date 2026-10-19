@@ -9,3 +9,6 @@ pub use capture_x11::{CaptureError, CapturedFrame, FrameSource, LinuxCapture, X1
 pub mod capture_pipewire;
 #[cfg(feature = "pipewire")]
 pub use capture_pipewire::{PipeWireCapture, PipeWireError};
+
+pub mod shared_capture;
+pub use shared_capture::{SharedCapture, SharedViewer};

@@ -20,7 +20,7 @@ impl HostProcess {
     pub fn start(address: &str, fps: u32, bitrate: u32) -> io::Result<Self> {
         if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
-                "Screen sharing currently requires Linux X11 or Windows.",
+                "Screen sharing currently requires Linux or Windows.",
             ));
         }
         validate(address, fps, bitrate)?;

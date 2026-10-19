@@ -28,7 +28,7 @@ mod desktop {
         }
     }
     #[cfg(target_os = "linux")]
-    fn capture(_fps: u32, monitor: i32) -> Result<(RgbaCapture, u32, u32), Error> {
+    fn x11_capture(monitor: i32) -> Result<(RgbaCapture, u32, u32), Error> {
         if monitor != -1 {
             return Err("--monitor is currently Windows-only".into());
         }
@@ -44,6 +44,87 @@ mod desktop {
         let source = codec_gst::capture::WindowsCapture::open(fps, monitor)?;
         let (width, height) = source.dimensions();
         Ok((source, width, height))
+    }
+    #[cfg(target_os = "linux")]
+    enum CaptureFactory {
+        X11,
+        #[cfg(feature = "pipewire")]
+        Wayland(host_linux::SharedCapture),
+    }
+    #[cfg(target_os = "linux")]
+    struct DesktopCapture(Box<dyn Capture + Send>);
+    #[cfg(target_os = "linux")]
+    impl Capture for DesktopCapture {
+        fn next_frame(&mut self) -> Option<Bytes> {
+            self.0.next_frame()
+        }
+    }
+    #[cfg(target_os = "linux")]
+    impl CaptureFactory {
+        fn open(mode: &str) -> Result<Self, Error> {
+            let wayland = match mode {
+                "auto" => {
+                    std::env::var_os("WAYLAND_DISPLAY").is_some()
+                        || std::env::var("XDG_SESSION_TYPE").is_ok_and(|s| s == "wayland")
+                }
+                "wayland" => true,
+                "x11" => false,
+                _ => return Err("--capture must be auto, x11 or wayland".into()),
+            };
+            if !wayland {
+                return Ok(Self::X11);
+            }
+            #[cfg(feature = "pipewire")]
+            {
+                eprintln!("Choose a screen in the system sharing dialog.");
+                let mut portal = host_linux::PipeWireCapture::open()?;
+                let shared = host_linux::SharedCapture::start(move |timeout| {
+                    portal.poll_captured(timeout).map_err(std::io::Error::other)
+                })?;
+                Ok(Self::Wayland(shared))
+            }
+            #[cfg(not(feature = "pipewire"))]
+            {
+                Err("This build has no Wayland capture. Install a PipeWire-enabled build, or use --capture x11 in an X11 session.".into())
+            }
+        }
+        fn capture(&self, _fps: u32, monitor: i32) -> Result<(DesktopCapture, u32, u32), Error> {
+            if monitor != -1 {
+                return Err(
+                    "--monitor is Windows-only; select your Wayland screen in the system dialog"
+                        .into(),
+                );
+            }
+            match self {
+                Self::X11 => {
+                    let (capture, w, h) = x11_capture(monitor)?;
+                    Ok((DesktopCapture(Box::new(capture)), w, h))
+                }
+                #[cfg(feature = "pipewire")]
+                Self::Wayland(shared) => {
+                    let (capture, w, h) = shared.viewer()?;
+                    Ok((DesktopCapture(Box::new(capture)), w, h))
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "windows")]
+    struct CaptureFactory;
+    #[cfg(target_os = "windows")]
+    impl CaptureFactory {
+        fn open(mode: &str) -> Result<Self, Error> {
+            if mode != "auto" {
+                return Err("Windows uses DXGI capture; --capture must be auto".into());
+            }
+            Ok(Self)
+        }
+        fn capture(
+            &self,
+            fps: u32,
+            monitor: i32,
+        ) -> Result<(codec_gst::capture::WindowsCapture, u32, u32), Error> {
+            capture(fps, monitor)
+        }
     }
     struct Codec(GstEncoder);
     impl Encoder for Codec {
@@ -70,6 +151,7 @@ mod desktop {
     }
     pub async fn run() -> Result<(), Error> {
         let mut secure = false;
+        let mut capture_mode = "auto".to_string();
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
         let mut monitor: i32 = -1;
@@ -82,12 +164,13 @@ mod desktop {
                 continue;
             }
             if flag == "--help" {
-                println!("mm-host [--secure] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
             match flag.as_str() {
                 "--bind" => bind = value,
+                "--capture" => capture_mode = value,
                 "--fps" => fps = value.parse()?,
                 "--monitor" => monitor = value.parse()?,
                 "--bitrate" => bitrate = value.parse()?,
@@ -102,6 +185,9 @@ mod desktop {
         {
             return Err("invalid fps, bitrate or idle timeout".into());
         }
+        // Obtain Wayland system consent before publishing an invitation or starting
+        // network handshake deadlines. The portal lives for this sharing lifetime.
+        let factory = CaptureFactory::open(&capture_mode)?;
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure {
             Some(mightymonitor_security::ShareIdentity::generate()?)
@@ -135,7 +221,7 @@ mod desktop {
                 } else {
                     Box::new(mightymonitor_core::TcpTransport::new(stream)?)
                 };
-            let (capture, width, height) = capture(fps, monitor)?;
+            let (capture, width, height) = factory.capture(fps, monitor)?;
             let encoder = Codec(GstEncoder::new(EncoderConfig {
                 width,
                 height,

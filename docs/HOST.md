@@ -1,24 +1,30 @@
 # Host streaming
 
-On Linux, install the X11 and GStreamer prerequisites in [LINUX.md](LINUX.md)
-and [CODEC.md](CODEC.md), including the H.264 encoder plugins. Run in an X11
-session with `DISPLAY` set:
+On Linux, install the X11/PipeWire and GStreamer prerequisites in [LINUX.md](LINUX.md)
+and [CODEC.md](CODEC.md), including the H.264 encoder plugins. Wayland uses the system screen-selection dialog; X11 uses `DISPLAY`:
 
 ```sh
-cargo run -p mightymonitor-host --bin mm-host -- --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
+cargo run -p mightymonitor-host --bin mm-host -- --secure --bind 127.0.0.1:5000 --fps 30 --bitrate 4000
 ```
 
 `--bind` is the TCP listen address (default `127.0.0.1:5000`; use a LAN address
 for a remote viewer). `--fps` accepts 1–240 (default 30). `--bitrate` is the
 initial H.264 target in kbit/s, 1–1000000 (default 4000); viewer NetStats updates
-adapt it through core's AIMD controller. `--help` prints usage. The protocol
-currently provides no authentication or encryption; use a trusted LAN. The host
-warns on stderr when the resolved listen address is non-loopback.
+adapt it through core's AIMD controller. `--help` prints usage. Use `--secure` for a private viewing link over pinned TLS. The GUI always uses
+this mode. Legacy CLI mode remains unencrypted and prints a non-loopback warning.
+See [connection security](SECURE_CONNECTIONS.md).
 `--idle-timeout-secs` sets the post-handshake viewer silence limit (default 30
 seconds, positive values only); Pings and other valid controls reset it.
 
-The executable captures the X11 root window, converts packed BGRA to RGBA, and
-uses codec-gst's low-latency H.264 encoder. It serves one viewer at a time and
+The executable selects a portal-authorized screen on Wayland or the X11 root
+window, converts packed BGRA to RGBA, and uses codec-gst's low-latency H.264 encoder.
+`--capture auto` is the default; `--capture x11` and `--capture wayland` explicitly
+select a backend. Default Linux builds enable PipeWire. Minimal X11-only builds
+can use `--no-default-features`. Wayland permission is requested before publishing
+the connection link, and one portal session survives viewer reconnection. Static
+screens reuse the last frame. Resolution changes end the current video session;
+a reconnect renegotiates dimensions without a new system prompt. Stopping the
+host closes the portal. A missing/denied portal never silently falls back to X11. It serves one viewer at a time and
 accepts another after disconnection. The Windows executable uses DXGI desktop capture through GStreamer and the same
 H.264 pipeline. See [WINDOWS.md](WINDOWS.md) for setup and pending acceptance.
 
@@ -28,8 +34,9 @@ The viewer sends Hello with the current protocol version and Viewer role. The
 host replies HelloAck followed by VideoConfig, then VideoFrame messages. Ping
 receives Pong with the same nonce and timestamp; Pong and NetStats are accepted.
 Bye ends a session. Invalid handshakes are rejected, with a five-second deadline.
-Invalid peers currently cause capture/encoder setup before handshake validation;
-moving validation ahead of resource creation remains a follow-up.
+Secure peers complete TLS and token authorization before per-viewer encoder
+setup. The core Hello/Resume validation follows that authorization. Wayland
+capture permission belongs to the sharing session and precedes network listening.
 See [PROTOCOL.md](PROTOCOL.md) for framing and typed payloads.
 
 The pipeline uses core Capture and Encoder through a HostEncoder extension for
