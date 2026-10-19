@@ -10,7 +10,7 @@ mod desktop {
     use mightymonitor_core::{Bytes, CodecError, Encoder};
     use mightymonitor_host::{
         pipeline::{HostEncoder, Pipeline},
-        session::{serve_transport, SessionConfig},
+        session::{serve_with_input, SessionConfig},
         Error,
     };
     use std::time::Duration;
@@ -150,7 +150,11 @@ mod desktop {
         }
     }
     pub async fn run() -> Result<(), Error> {
+        #[cfg(target_os = "windows")]
+        let _ = enigo::set_dpi_awareness();
         let mut secure = false;
+        let mut allow_control = false;
+        let mut managed = false;
         let mut capture_mode = "auto".to_string();
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
@@ -163,8 +167,16 @@ mod desktop {
                 secure = true;
                 continue;
             }
+            if flag == "--allow-control" {
+                allow_control = true;
+                continue;
+            }
+            if flag == "--managed" {
+                managed = true;
+                continue;
+            }
             if flag == "--help" {
-                println!("mm-host [--secure] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--allow-control] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -187,7 +199,28 @@ mod desktop {
         }
         // Obtain Wayland system consent before publishing an invitation or starting
         // network handshake deadlines. The portal lives for this sharing lifetime.
+        if allow_control && (!secure || monitor != -1) {
+            return Err("Remote control requires --secure and the primary/default screen".into());
+        }
         let factory = CaptureFactory::open(&capture_mode)?;
+        #[cfg(target_os = "linux")]
+        if allow_control && !matches!(factory, CaptureFactory::X11) {
+            return Err("Wayland input requires a separate RemoteDesktop portal grant; use view-only sharing for this build".into());
+        }
+        let mut stop = Box::pin(async move {
+            if managed {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    let mut line = String::new();
+                    let _ = std::io::stdin().lock().read_line(&mut line);
+                    let _ = tx.send(());
+                });
+                let _ = rx.await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        });
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure {
             Some(mightymonitor_security::ShareIdentity::generate()?)
@@ -208,7 +241,8 @@ mod desktop {
         // One logical host session survives sequential viewer reconnections.
         let session_id = 1;
         loop {
-            let (stream, _) = listener.accept().await?;
+            let (stream, _) =
+                tokio::select! { _=&mut stop => return Ok(()), peer=listener.accept()=>peer? };
             let transport: Box<dyn mightymonitor_core::Transport> =
                 if let Some(identity) = &identity {
                     match mightymonitor_security::asynchronous::accept(stream, identity).await {
@@ -241,8 +275,18 @@ mod desktop {
                 handshake_timeout: Duration::from_secs(5),
                 idle_timeout: Duration::from_secs(idle_timeout_secs),
             };
-            if let Err(error) = serve_transport(transport, pipeline, config).await {
-                eprintln!("viewer session ended: {error}");
+            let input = if allow_control {
+                Some(
+                    Box::new(mightymonitor_host::input::desktop::DesktopInput::new(
+                        width, height,
+                    )?) as Box<dyn mightymonitor_host::input::InputTarget>,
+                )
+            } else {
+                None
+            };
+            tokio::select! {
+                _=&mut stop => return Ok(()),
+                result=serve_with_input(transport,pipeline,config,input) => if let Err(error)=result {eprintln!("viewer session ended: {error}");},
             }
         }
     }

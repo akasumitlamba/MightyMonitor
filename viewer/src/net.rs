@@ -33,6 +33,9 @@ pub struct Output {
     pub stats: Stats,
     pub picture: Option<Picture>,
     pub error: Option<String>,
+    pub control_available: bool,
+    pub controlling: bool,
+    pub control_epoch: u64,
 }
 impl Default for Output {
     fn default() -> Self {
@@ -41,8 +44,21 @@ impl Default for Output {
             stats: Stats::default(),
             picture: None,
             error: None,
+            control_available: false,
+            controlling: false,
+            control_epoch: 0,
         }
     }
+}
+#[derive(Debug)]
+pub struct Command {
+    pub generation: u64,
+    pub action: ControlAction,
+}
+#[derive(Debug)]
+pub enum ControlAction {
+    Control(bool),
+    Input(InputEvent),
 }
 pub type SharedOutput = Arc<Mutex<Output>>;
 struct Dial {
@@ -76,18 +92,24 @@ async fn send(w: &mut SessionWriter, m: Message) -> Result<(), Error> {
 pub struct ViewerSession<D: Decoder> {
     pub output: SharedOutput,
     decoder: D,
+    pub commands: mpsc::Sender<Command>,
+    control_rx: mpsc::Receiver<Command>,
 }
 impl<D: Decoder> ViewerSession<D> {
     pub fn new(decoder: D) -> Self {
+        let (commands, control_rx) = mpsc::channel(64);
         Self {
             output: Arc::new(Mutex::new(Output::default())),
             decoder,
+            commands,
+            control_rx,
         }
     }
     pub async fn run(mut self, address: String) {
         let result = self.drive(address).await;
         let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());
         out.state = State::Closed;
+        out.controlling = false;
         if let Err(e) = result {
             out.error = Some(e.to_string());
         }
@@ -95,7 +117,7 @@ impl<D: Decoder> ViewerSession<D> {
     async fn drive(&mut self, address: String) -> Result<(), Error> {
         let endpoint = mightymonitor_security::Endpoint::parse(&address, true)?;
         let handshake_timeout = Duration::from_secs(if endpoint.is_secure() { 15 } else { 5 });
-        let (transport, id) = loop {
+        let (transport, id, control_available) = loop {
             match tokio::time::timeout(handshake_timeout, async {
                 let mut t =
                     mightymonitor_security::asynchronous::connect_transport(&endpoint).await?;
@@ -105,7 +127,7 @@ impl<D: Decoder> ViewerSession<D> {
                         proto_version: PROTOCOL_VERSION,
                         device_name: "mm-viewer".into(),
                         role: Role::Viewer,
-                        capabilities: vec!["h264".into()],
+                        capabilities: vec!["h264".into(), "input-v1".into()],
                     },
                 )
                 .await?;
@@ -114,7 +136,12 @@ impl<D: Decoder> ViewerSession<D> {
                     Message::HelloAck {
                         session_id,
                         accepted: true,
-                    } => Ok((t, session_id)),
+                    } => Ok((t, session_id, false)),
+                    Message::HelloAckV2 {
+                        session_id,
+                        accepted: true,
+                        control_available,
+                    } => Ok((t, session_id, control_available)),
                     _ => Err::<_, Error>("host rejected handshake".into()),
                 }
             })
@@ -138,6 +165,10 @@ impl<D: Decoder> ViewerSession<D> {
             }
             tokio::time::sleep(Duration::from_secs(1)).await;
         };
+        self.output
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .control_available = control_available;
         let mut session = ReconnectingSession::new(
             Dial {
                 endpoint,
@@ -149,6 +180,10 @@ impl<D: Decoder> ViewerSession<D> {
         );
         session.connect_initial().await?;
         let (mut reader, mut writer) = session.split();
+        self.output
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .control_epoch = writer.generation();
         let (tx, mut rx) = mpsc::channel(1);
         let task = tokio::spawn(async move {
             loop {
@@ -173,19 +208,21 @@ impl<D: Decoder> ViewerSession<D> {
             }
         }
         let _task = Abort(task);
-        let (controls, mut commands) = mpsc::channel(8);
+        let (controls, mut commands) = mpsc::channel(128);
         let output = self.output.clone();
         let writer_task = tokio::spawn(async move {
             let mut poll = tokio::time::interval(Duration::from_millis(25));
             loop {
                 tokio::select! {
                     command = commands.recv() => match command {
-                        Some(message) => { if let Err(e) = send(&mut writer, message).await { output.lock().unwrap_or_else(|p| p.into_inner()).error = Some(e.to_string()); } }
+                        Some((generation,message)) if generation==writer.generation() => { if let Err(e) = send(&mut writer, message).await { output.lock().unwrap_or_else(|p| p.into_inner()).error = Some(e.to_string()); } }
+                        Some(_)=>{},
                         None => break,
                     },
                     _ = poll.tick() => {
+                        {let mut out=output.lock().unwrap_or_else(|e|e.into_inner());if out.control_epoch!=writer.generation() {out.control_epoch=writer.generation();out.controlling=false;}}
                         if writer.state() != SessionState::Connected {
-                            output.lock().unwrap_or_else(|p| p.into_inner()).state = State::Reconnecting;
+                            let mut out=output.lock().unwrap_or_else(|p| p.into_inner()); out.state = State::Reconnecting; out.controlling=false;
                         }
                     }
                 }
@@ -206,10 +243,20 @@ impl<D: Decoder> ViewerSession<D> {
         let mut ping = None;
         loop {
             tokio::select! {
+                command=self.control_rx.recv() => {
+                    let Some(command)=command else {return Err("Viewer controls closed".into())};
+                    let (connected,controlling,epoch)={let out=self.output.lock().unwrap_or_else(|e|e.into_inner());(out.state==State::Connected,out.controlling,out.control_epoch)};
+                    if command.generation!=epoch {continue;}
+                    match command.action {
+                        ControlAction::Control(enabled) if connected && control_available => {controls.try_send((epoch,Message::ControlRequest {enabled}))?;},
+                        ControlAction::Input(event) if connected && controlling && event.validate()=>{controls.try_send((epoch,Message::Input(event)))?;},
+                        _=>{},
+                    }
+                }
                 result = rx.recv() => {
                     let f = result.ok_or("reader stopped")??;
                     match Message::from_frame_parts(f.kind,&f.payload)? {
-                        Message::HelloAck { accepted: true, session_id } if session_id == id => { acknowledged = true; dimensions = None; keyframe_needed = true; }
+                        Message::HelloAck { accepted: true, session_id } if session_id == id => { acknowledged = true; dimensions = None; keyframe_needed = true; self.output.lock().unwrap_or_else(|e|e.into_inner()).controlling=false; }
                         Message::VideoConfig { codec: Codec::H264, width, height, .. } if acknowledged && width > 0 && height > 0 && width <= 8192 && height <= 8192 && width % 2 == 0 && height % 2 == 0 => { dimensions = Some((width,height)); let mut o = self.output.lock().unwrap_or_else(|p| p.into_inner()); o.state = State::Connected; o.error = None; }
                         Message::VideoFrame { data, keyframe, .. } => {
                             let (width,height) = dimensions.ok_or("video before configuration")?;
@@ -220,10 +267,11 @@ impl<D: Decoder> ViewerSession<D> {
                             keyframe_needed = false; frames += 1;
                             self.output.lock().unwrap_or_else(|p| p.into_inner()).picture = Some(Picture { i420, width, height, decoded: Instant::now() });
                         }
-                        Message::Ping { nonce, t_send_us } => controls.try_send(Message::Pong { nonce,t_send_us })?,
+                        Message::Ping { nonce, t_send_us } => controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::Pong { nonce,t_send_us }))?,
                         Message::Pong { nonce: n, t_send_us } => {
                             if let Some((expected,stamp,start)) = ping { if n == expected && t_send_us == stamp { self.output.lock().unwrap_or_else(|p| p.into_inner()).stats.rtt_ms = tokio::time::Instant::now().duration_since(start).as_millis().min(u32::MAX as u128) as u32; ping = None; } }
                         }
+                        Message::ControlStatus {enabled} if control_available => {self.output.lock().unwrap_or_else(|e|e.into_inner()).controlling=enabled;},
                         Message::Bye { reason } => return Err(reason.into()),
                         _ => return Err("unexpected host message or unsupported video configuration".into()),
                     }
@@ -240,11 +288,11 @@ impl<D: Decoder> ViewerSession<D> {
                         };
                         bytes = 0; frames = 0;
                         if dimensions.is_some() {
-                            controls.try_send(Message::NetStats(NetStats { rtt_ms: stats.rtt_ms, loss_pct: 0.0, recv_kbps: stats.kbps }))?;
+                            controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::NetStats(NetStats { rtt_ms: stats.rtt_ms, loss_pct: 0.0, recv_kbps: stats.kbps })))?;
                             nonce = nonce.wrapping_add(1);
                             let t_send_us = clock.now_us();
                             ping = Some((nonce,t_send_us,tokio::time::Instant::now()));
-                            controls.try_send(Message::Ping { nonce,t_send_us })?;
+                            controls.try_send((self.output.lock().unwrap_or_else(|e|e.into_inner()).control_epoch,Message::Ping { nonce,t_send_us }))?;
                         }
                     }
                 }

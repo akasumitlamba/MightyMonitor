@@ -80,6 +80,18 @@ pub enum Message {
     Bye {
         reason: String,
     },
+    /// Sent only to viewers advertising input-v1. Original wire variants retain their indices.
+    HelloAckV2 {
+        session_id: u64,
+        accepted: bool,
+        control_available: bool,
+    },
+    ControlRequest {
+        enabled: bool,
+    },
+    ControlStatus {
+        enabled: bool,
+    },
 }
 
 /// Serialization or decoding failure.
@@ -107,7 +119,8 @@ fn options() -> impl Options {
 
 impl Message {
     /// Stable wire kinds: Hello=1, HelloAck=2, VideoConfig=3, VideoFrame=4,
-    /// Input=5, Ping=6, Pong=7, NetStats=8, Resume=9, Bye=10.
+    /// Input=5, Ping=6, Pong=7, NetStats=8, Resume=9, Bye=10,
+    /// HelloAckV2=11, ControlRequest=12, ControlStatus=13.
     pub fn kind(&self) -> u8 {
         match self {
             Self::Hello { .. } => 1,
@@ -120,6 +133,9 @@ impl Message {
             Self::NetStats(_) => 8,
             Self::Resume { .. } => 9,
             Self::Bye { .. } => 10,
+            Self::HelloAckV2 { .. } => 11,
+            Self::ControlRequest { .. } => 12,
+            Self::ControlStatus { .. } => 13,
         }
     }
 
@@ -132,7 +148,7 @@ impl Message {
     pub fn from_frame_parts(kind: u8, payload: &[u8]) -> Result<Self, MessageError> {
         match kind {
             KIND_RESERVED_FE | KIND_RESERVED_FF => return Err(MessageError::ReservedKind(kind)),
-            1..=10 => {}
+            1..=13 => {}
             _ => return Err(MessageError::UnknownKind(kind)),
         }
         let message = Self::from_bytes(payload)?;
@@ -214,6 +230,13 @@ mod tests {
             Message::Bye {
                 reason: "finished".into(),
             },
+            Message::HelloAckV2 {
+                session_id: 42,
+                accepted: true,
+                control_available: true,
+            },
+            Message::ControlRequest { enabled: true },
+            Message::ControlStatus { enabled: true },
         ];
         for (index, message) in messages.into_iter().enumerate() {
             let (kind, payload) = message.to_frame_parts().unwrap();
@@ -291,7 +314,7 @@ mod tests {
             );
             assert!(Message::from_frame_parts(kind, &[]).is_err());
         }
-        for kind in [0, 11, 253] {
+        for kind in [0, 14, 253] {
             assert!(
                 matches!(Message::from_frame_parts(kind, &payload), Err(MessageError::UnknownKind(k)) if k == kind)
             );

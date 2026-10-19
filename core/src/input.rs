@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Remote input. Mouse and touch coordinates are normalized to `0..=1`.
-/// Coordinate ranges are a caller contract, not validated during decoding.
+/// Hosts must call validate before dispatching. Keys use USB HID keyboard usages.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InputEvent {
     MouseMove {
@@ -28,6 +28,24 @@ pub enum InputEvent {
         x: f32,
         y: f32,
     },
+    /// Release every remotely held key/button, for focus loss or control revocation.
+    ReleaseAll,
+    Text(String),
+}
+impl InputEvent {
+    pub fn validate(&self) -> bool {
+        let coordinate = |x: f32| x.is_finite() && (0.0..=1.0).contains(&x);
+        match self {
+            Self::MouseMove { x, y } => coordinate(*x) && coordinate(*y),
+            Self::Touch { id, x, y, .. } => *id < 16 && coordinate(*x) && coordinate(*y),
+            Self::Scroll { dx, dy } => {
+                dx.is_finite() && dy.is_finite() && dx.abs() <= 120.0 && dy.abs() <= 120.0
+            }
+            Self::Key { code, .. } => (4..=0xe7).contains(code),
+            Self::Text(text) => !text.is_empty() && text.len() <= 4096 && !text.contains('\0'),
+            Self::MouseButton { .. } | Self::ReleaseAll => true,
+        }
+    }
 }
 
 /// A mouse button.
@@ -54,6 +72,27 @@ mod tests {
     use super::*;
     use crate::Message;
 
+    #[test]
+    fn rejects_unbounded_or_nonfinite_input() {
+        assert!(!InputEvent::MouseMove {
+            x: f32::NAN,
+            y: 0.0
+        }
+        .validate());
+        assert!(!InputEvent::Scroll {
+            dx: 0.0,
+            dy: f32::INFINITY
+        }
+        .validate());
+        assert!(!InputEvent::Key {
+            code: u32::MAX,
+            pressed: true
+        }
+        .validate());
+        assert!(!InputEvent::Text("x".repeat(4097)).validate());
+        assert!(InputEvent::MouseMove { x: 0.0, y: 1.0 }.validate());
+        assert!(InputEvent::ReleaseAll.validate());
+    }
     #[test]
     fn input_event_roundtrip() {
         let mut events = vec![

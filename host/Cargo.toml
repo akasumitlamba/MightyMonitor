@@ -24,6 +24,7 @@ host-linux = { path = "../host-linux" }
 
 [target.'cfg(any(target_os = "linux", target_os = "windows"))'.dependencies]
 codec-gst = { path = "../codec-gst" }
+enigo = { version = "=0.6.1", default-features = false, features = ["x11rb"] }
 
 [dev-dependencies]
 socket2 = "0.6"

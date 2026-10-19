@@ -232,3 +232,93 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostInvite(
         }
     }
 }
+
+fn dispatch_input(env: &mut JNIEnv, id: jlong, event: mightymonitor_core::InputEvent) -> jboolean {
+    let result = clients()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .ok_or_else(|| "Viewer disconnected".to_owned())
+        .and_then(|client| client.input(event).map_err(|e| e.to_string()));
+    match result {
+        Ok(()) => 1,
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_requestControl(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    enabled: jboolean,
+) -> jboolean {
+    let result = clients()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .ok_or_else(|| "Viewer disconnected".to_owned())
+        .and_then(|client| {
+            client
+                .request_control(enabled != 0)
+                .map_err(|e| e.to_string())
+        });
+    match result {
+        Ok(()) => 1,
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_pointer(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    x: jni::sys::jfloat,
+    y: jni::sys::jfloat,
+    phase: jint,
+) -> jboolean {
+    use mightymonitor_core::{InputEvent, TouchPhase};
+    let phase = match phase {
+        0 => TouchPhase::Start,
+        1 => TouchPhase::Move,
+        2 => TouchPhase::End,
+        3 => TouchPhase::Cancel,
+        _ => return 0,
+    };
+    dispatch_input(&mut env, id, InputEvent::Touch { id: 0, phase, x, y })
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_key(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    code: jint,
+    pressed: jboolean,
+) -> jboolean {
+    dispatch_input(
+        &mut env,
+        id,
+        mightymonitor_core::InputEvent::Key {
+            code: code as u32,
+            pressed: pressed != 0,
+        },
+    )
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_typeText(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    text: JString,
+) -> jboolean {
+    let Ok(text) = env.get_string(&text) else {
+        return 0;
+    };
+    let text: String = text.into();
+    dispatch_input(&mut env, id, mightymonitor_core::InputEvent::Text(text))
+}

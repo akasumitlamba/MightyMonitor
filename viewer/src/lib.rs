@@ -4,5 +4,7 @@
 pub mod app;
 #[cfg(feature = "gui")]
 pub mod host;
+#[cfg(feature = "gui")]
+pub mod input;
 pub mod net;
 pub mod render;
