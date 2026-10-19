@@ -13,6 +13,18 @@ import static org.junit.Assert.assertTrue;
 public final class ViewerSmokeTest {
     @org.junit.Before public void preserveAccessibilityService() {
         androidx.test.uiautomator.Configurator.getInstance().setUiAutomationFlags(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        android.app.UiAutomation automation = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+        if ("true".equals(InstrumentationRegistry.getArguments().getString("remoteControlTest"))) {
+            // Instrumentation restarts the target app. Rebind its test service afterwards;
+            // pre-launch grants can be marked crashed/suppressed by that process restart.
+            shell(automation, "settings put secure accessibility_enabled 0");
+            shell(automation, "settings put secure enabled_accessibility_services com.mightymonitor.app/.RemoteControlService");
+            shell(automation, "settings put secure accessibility_enabled 1");
+        }
+    }
+    private static void shell(android.app.UiAutomation automation, String command) {
+        try (java.io.InputStream output = new android.os.ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command))) {byte[] buffer = new byte[512]; while (output.read(buffer) >= 0) {}}
+        catch (java.io.IOException error) {throw new IllegalStateException("Test system grant failed", error);}
     }
     @Rule public ActivityTestRule<MainActivity> activity = new ActivityTestRule<>(MainActivity.class);
     @Test public void decodesRealDesktopH264ThroughRustProtocol() throws Exception {

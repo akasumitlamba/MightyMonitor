@@ -108,7 +108,7 @@ jobs:
             adb shell run-as com.mightymonitor.app mkdir -p files
             sed -n 's|^MM_INVITE mightymonitor://127.0.0.1:5000/|mightymonitor://10.0.2.2:5000/|p' /tmp/mm-pc-invitation-private | adb shell run-as com.mightymonitor.app tee files/pc-invitation > /dev/null
             (umask 077; for i in $(seq 1 900); do adb exec-out run-as com.mightymonitor.app cat files/share-invitation > /tmp/mm-phone-invitation-private 2>/dev/null; grep -q '^mightymonitor://' /tmp/mm-phone-invitation-private && break; sleep .2; done; ./target/release/examples/receive_smoke --invitation-file /tmp/mm-phone-invitation-private --via 127.0.0.1:5001 && adb shell run-as com.mightymonitor.app touch files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
-            adb shell am instrument -e desktopInterop true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb shell am instrument -e desktopInterop true -e remoteControlTest true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
             adb logcat -d > /tmp/mm-android-logcat.log
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
