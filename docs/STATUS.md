@@ -163,3 +163,17 @@ when built with its default PipeWire feature. A bounded shared latest-frame sour
 keeps one portal session across viewer reconnects, handles idle desktops and
 renegotiates resolution changes. Synthetic lifecycle/crop/resize tests supplement
 native builds; interactive compositor acceptance remains pending.
+
+
+2026-10-19: Remote-control milestone (development branch): optional desktop
+keyboard/mouse input, focused-viewer forwarding, and Android accessibility/IME
+input are implemented behind local and viewer grants. Wayland uses one system
+RemoteDesktop/ScreenCast consent session. Desktop sharing accepts up to four
+viewers with one controller at a time; disconnect/revocation releases held input.
+Full workspace tests and warning-free clippy passed locally, along with actual
+X11 input and two encrypted H.264 viewer sessions with controller handoff.
+Android APK builds pass; automated Android control acceptance is currently blocked
+by the test service not rebinding after instrumentation restarts the app. This
+is not an Android control acceptance pass. Physical Windows/Android, interactive
+Wayland input, virtual displays, discovery and production release signing remain
+unfinished. See REMOTE_CONTROL.md for permission and platform details.

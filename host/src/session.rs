@@ -143,9 +143,10 @@ pub async fn serve_with_input<E: HostEncoder>(
                         break;
                     }
                     if let Some(target) = input.as_mut() {
-                        target.0.release_all();
+                        target.0.deactivate();
                     }
-                    controlling = enabled && input.is_some();
+                    controlling =
+                        enabled && input.as_mut().is_some_and(|target| target.0.activate());
                     Message::ControlStatus {
                         enabled: controlling,
                     }

@@ -36,6 +36,7 @@ pub struct Output {
     pub control_available: bool,
     pub controlling: bool,
     pub control_epoch: u64,
+    pub control_response: Option<bool>,
 }
 impl Default for Output {
     fn default() -> Self {
@@ -47,6 +48,7 @@ impl Default for Output {
             control_available: false,
             controlling: false,
             control_epoch: 0,
+            control_response: None,
         }
     }
 }
@@ -249,7 +251,7 @@ impl<D: Decoder> ViewerSession<D> {
                     let (connected,controlling,epoch)={let out=self.output.lock().unwrap_or_else(|e|e.into_inner());(out.state==State::Connected,out.controlling,out.control_epoch)};
                     if command.generation!=epoch {continue;}
                     match command.action {
-                        ControlAction::Control(enabled) if connected && control_available => {if !enabled {self.output.lock().unwrap_or_else(|e|e.into_inner()).controlling=false;} controls.try_send((epoch,Message::ControlRequest {enabled}))?;},
+                        ControlAction::Control(enabled) if connected && control_available => {{let mut out=self.output.lock().unwrap_or_else(|e|e.into_inner());out.control_response=None;if !enabled {out.controlling=false;}} controls.try_send((epoch,Message::ControlRequest {enabled}))?;},
                         ControlAction::Input(event) if connected && (controlling || matches!(event,InputEvent::ReleaseAll)) && event.validate()=>{controls.try_send((epoch,Message::Input(event)))?;},
                         _=>{},
                     }
@@ -272,7 +274,7 @@ impl<D: Decoder> ViewerSession<D> {
                         Message::Pong { nonce: n, t_send_us } => {
                             if let Some((expected,stamp,start)) = ping { if n == expected && t_send_us == stamp { self.output.lock().unwrap_or_else(|p| p.into_inner()).stats.rtt_ms = tokio::time::Instant::now().duration_since(start).as_millis().min(u32::MAX as u128) as u32; ping = None; } }
                         }
-                        Message::ControlStatus {enabled} if control_available => {self.output.lock().unwrap_or_else(|e|e.into_inner()).controlling=enabled;},
+                        Message::ControlStatus {enabled} if control_available => {let mut out=self.output.lock().unwrap_or_else(|e|e.into_inner());out.controlling=enabled;out.control_response=Some(enabled);},
                         Message::Bye { reason } => return Err(reason.into()),
                         _ => return Err("unexpected host message or unsupported video configuration".into()),
                     }

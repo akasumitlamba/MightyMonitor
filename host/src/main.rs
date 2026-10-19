@@ -254,7 +254,9 @@ mod desktop {
         });
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure {
-            Some(mightymonitor_security::ShareIdentity::generate()?)
+            Some(std::sync::Arc::new(
+                mightymonitor_security::ShareIdentity::generate()?,
+            ))
         } else {
             None
         };
@@ -269,51 +271,32 @@ mod desktop {
             );
         }
         eprintln!("mm-host listening on {}", listener.local_addr()?);
-        // One logical host session survives sequential viewer reconnections.
-        let session_id = 1;
+        let factory = std::sync::Arc::new(factory);
+        let viewers = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
+        let controller = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
+        let mut tasks = tokio::task::JoinSet::new();
         loop {
-            let (stream, _) =
-                tokio::select! { _=&mut stop => return Ok(()), peer=listener.accept()=>peer? };
-            let transport: Box<dyn mightymonitor_core::Transport> =
-                if let Some(identity) = &identity {
-                    match mightymonitor_security::asynchronous::accept(stream, identity).await {
-                        Ok(tls) => Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),
-                        Err(error) => {
-                            eprintln!("Secure peer rejected: {error}");
-                            continue;
-                        }
-                    }
-                } else {
-                    Box::new(mightymonitor_core::TcpTransport::new(stream)?)
-                };
-            let (capture, width, height) = factory.capture(fps, monitor)?;
-            let encoder = Codec(GstEncoder::new(EncoderConfig {
-                width,
-                height,
-                fps,
-                bitrate_kbps: bitrate,
-                format: PixelFormat::Rgba,
-                ..Default::default()
-            })?);
-            let pipeline = Pipeline::new(capture, encoder, fps)?.with_bitrate(bitrate)?;
-            let config = SessionConfig {
-                session_id,
-                codec: mightymonitor_core::Codec::H264,
-                width,
-                height,
-                fps,
-                write_timeout: Duration::from_secs(2),
-                handshake_timeout: Duration::from_secs(5),
-                idle_timeout: Duration::from_secs(idle_timeout_secs),
-            };
-            let input = if allow_control {
-                factory.input(width, height)?
-            } else {
-                None
-            };
             tokio::select! {
-                _=&mut stop => return Ok(()),
-                result=serve_with_input(transport,pipeline,config,input) => if let Err(error)=result {eprintln!("viewer session ended: {error}");},
+                _=&mut stop=>{tasks.shutdown().await;return Ok(());},
+                finished=tasks.join_next(),if !tasks.is_empty()=>{match finished {Some(Ok(Err(error)))=>eprintln!("viewer session ended: {error}"),Some(Err(error))=>eprintln!("viewer task ended: {error}"),_=>{}}},
+                peer=listener.accept()=>{
+                    let(stream,_)=peer?;
+                    let Ok(permit)=viewers.clone().try_acquire_owned() else {drop(stream);continue;};
+                    let identity=identity.clone();let factory=factory.clone();let controller=controller.clone();
+                    tasks.spawn(async move {
+                        let _permit=permit;
+                        let transport:Box<dyn mightymonitor_core::Transport>=if let Some(identity)=identity {Box::new(mightymonitor_core::FramedTransport::from_stream(mightymonitor_security::asynchronous::accept(stream,&identity).await?))} else {Box::new(mightymonitor_core::TcpTransport::new(stream)?)};
+                        let (pipeline,config,input)=tokio::task::spawn_blocking(move ||->Result<_,Error>{
+                            let(capture,width,height)=factory.capture(fps,monitor)?;
+                            let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
+                            let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
+                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
+                            let config=SessionConfig{session_id:1,codec:mightymonitor_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
+                            Ok((pipeline,config,input))
+                        }).await??;
+                        serve_with_input(transport,pipeline,config,input).await
+                    });
+                }
             }
         }
     }

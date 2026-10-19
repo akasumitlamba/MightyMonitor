@@ -18,7 +18,7 @@ iOS are not currently targeted.
 - Automatic device discovery on the LAN (mDNS).
 
 ## Platform matrix
-| Platform | Host (shares screen) | Viewer (displays screen; control pending) |
+| Platform | Host (shares screen) | Viewer (displays screen) |
 |----------|----------------------|--------------------------------|
 | Linux    | implemented, desktop validation pending | implemented, desktop validation pending |
 | Windows  | implemented, physical-device validation pending | implemented, physical-device validation pending |
@@ -27,11 +27,11 @@ iOS are not currently targeted.
 
 ## Architecture (Cargo workspace)
 - `core`: protocol (serde + bincode, version byte first), framing, input events, platform traits (Capture, Encoder, Decoder, InputInjector), adaptive bitrate and reconnect logic.
-- `host-linux`: X11 capture and a PipeWire portal backend, selected automatically for the desktop session; input injection is planned.
-- Windows host: GStreamer DXGI desktop capture with shared H.264/TCP streaming; input injection is planned.
+- `host-linux`: X11 capture and a PipeWire portal backend, selected automatically for the desktop session; optional keyboard/mouse control is implemented.
+- Windows host: GStreamer DXGI desktop capture with shared H.264/TCP streaming; optional keyboard/mouse control is implemented.
 - `viewer`: egui/eframe viewer for Linux and Windows.
 - Browser streaming: planned; the static project website is not a streaming viewer.
-- `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture uses MediaProjection and surface H.264; remote input is planned. See [Android build/install instructions](android/README.md).
+- `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture uses MediaProjection and surface H.264; optional accessibility and keyboard control are implemented. See [Android build/install instructions](android/README.md).
 - Networking: TCP today. QUIC and mDNS discovery are planned.
 
 The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
@@ -41,7 +41,8 @@ real desktop and Wi-Fi acceptance is still pending. See [docs/HOST.md](docs/HOST
 
 The cross-device product requirements and acceptance gates are in
 [docs/CROSS_DEVICE.md](docs/CROSS_DEVICE.md). Mirroring, remote control, and
-extended displays are separate capabilities; the latter two are not implemented.
+extended displays are separate capabilities. Remote control is in alpha testing;
+virtual extended displays are not implemented. See [remote control](docs/REMOTE_CONTROL.md).
 
 ## Clean-room policy
 Our protocol and code are original. No code, protocols, drivers, or assets are
@@ -50,7 +51,7 @@ only where its license permits, with appropriate attribution in NOTICE.
 
 ## Known limits
 - Linux sharing supports X11 and system-authorized Wayland capture. Wayland requires a working desktop portal backend; physical-device validation is pending.
-- Android can view PC streams and explicitly share its own screen. Remote control is not implemented.
+- Android can view PC streams and explicitly share its own screen. Remote control requires explicit accessibility permission and a separate per-share grant; Android control acceptance testing is still in progress.
 - Virtual extended monitors need OS-specific drivers and stay optional.
 
 ## Status
@@ -59,7 +60,7 @@ Windows capture and H.264 decoding are implemented with GStreamer; physical-devi
 validation is pending. An Android viewer APK is built and real desktop video
 decoding passed on Android 10, 11, 14 and 16 emulators; physical phone tests
 remain pending. Desktop and Android sharing use private session links and pinned
-TLS 1.3; persistent device pairing is pending. Input forwarding, discovery and
+TLS 1.3; persistent device pairing is pending. Input forwarding is implemented and undergoing platform acceptance testing. Discovery and
 virtual displays remain future work. Legacy plaintext compatibility is opt-in in
 the viewer. See [secure connection instructions](docs/SECURE_CONNECTIONS.md). See [docs/STATUS.md](docs/STATUS.md).
 

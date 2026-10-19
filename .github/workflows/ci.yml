@@ -54,7 +54,7 @@ jobs:
           xvfb-run -a -s "-screen 0 1280x720x24" cargo test -p host-linux -- --ignored x11_capture_smoke
       - name: Isolated real X11 control and cleanup smoke
         if: runner.os == 'Linux'
-        run: MM_ALLOW_INPUT_SMOKE=1 xvfb-run -a -s "-screen 0 640x480x24" cargo test -p mightymonitor-host --test x11_input -- --ignored
+        run: MM_ALLOW_INPUT_SMOKE=1 xvfb-run -a -s "-screen 0 640x480x24" cargo test -p mightymonitor-host --test x11_input -- --ignored --test-threads=1
       - run: cargo run -p bench --release -- --frames 100 --size 65536 --max-p99-ms 50
 
   msrv:

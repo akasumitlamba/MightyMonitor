@@ -2,6 +2,12 @@
 use crate::Error;
 use mightymonitor_core::{InputEvent, MouseButton, TouchPhase};
 pub trait InputTarget: Send {
+    fn activate(&mut self) -> bool {
+        true
+    }
+    fn deactivate(&mut self) {
+        self.release_all();
+    }
     fn apply(&mut self, event: &InputEvent) -> Result<(), Error>;
     fn release_all(&mut self);
 }
@@ -9,7 +15,53 @@ pub trait InputTarget: Send {
 pub struct InputLease(pub Box<dyn InputTarget>);
 impl Drop for InputLease {
     fn drop(&mut self) {
-        self.0.release_all();
+        self.0.deactivate();
+    }
+}
+/// Several viewers may watch, but only one owns the keyboard/mouse at a time.
+pub struct ExclusiveInput {
+    backend: Box<dyn InputTarget>,
+    slot: std::sync::Arc<tokio::sync::Semaphore>,
+    permit: Option<tokio::sync::OwnedSemaphorePermit>,
+}
+impl ExclusiveInput {
+    pub fn new(
+        backend: Box<dyn InputTarget>,
+        slot: std::sync::Arc<tokio::sync::Semaphore>,
+    ) -> Self {
+        Self {
+            backend,
+            slot,
+            permit: None,
+        }
+    }
+}
+impl InputTarget for ExclusiveInput {
+    fn activate(&mut self) -> bool {
+        if self.permit.is_none() {
+            self.permit = self.slot.clone().try_acquire_owned().ok();
+        }
+        self.permit.is_some()
+    }
+    fn apply(&mut self, event: &InputEvent) -> Result<(), Error> {
+        if self.permit.is_none() {
+            return Err("Another viewer owns remote control".into());
+        }
+        self.backend.apply(event)
+    }
+    fn release_all(&mut self) {
+        if self.permit.is_some() {
+            self.backend.release_all();
+        }
+    }
+    fn deactivate(&mut self) {
+        self.release_all();
+        self.permit = None;
+    }
+}
+impl Drop for ExclusiveInput {
+    fn drop(&mut self) {
+        self.deactivate();
     }
 }
 #[cfg(any(target_os = "linux", target_os = "windows"))]
