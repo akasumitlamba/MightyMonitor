@@ -26,6 +26,15 @@ impl HostProcess {
         bitrate: u32,
         allow_control: bool,
     ) -> io::Result<Self> {
+        Self::start_with_options(address, fps, bitrate, allow_control, false)
+    }
+    pub fn start_with_options(
+        address: &str,
+        fps: u32,
+        bitrate: u32,
+        allow_control: bool,
+        extend: bool,
+    ) -> io::Result<Self> {
         if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
                 "Screen sharing currently requires Linux or Windows.",
@@ -54,6 +63,9 @@ impl HostProcess {
         ]);
         if allow_control {
             command.arg("--allow-control");
+        }
+        if extend {
+            command.arg("--extend");
         }
         Self::spawn(command)
     }
