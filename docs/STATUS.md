@@ -130,8 +130,19 @@ MediaProjection consent and a foreground capture service feed surface H.264 to
 an original Rust protocol server. Native queue bounds, overflow IDR gating,
 handshake, timed writes, keepalive, stop lifecycle and bitrate feedback are
 implemented. Capture-to-Rust-to-Android-decoder tests passed on Android 10, 11,
-14 and 16 emulators. A separate real desktop decoder interoperability check is
-being added. Desktop and Android now separate View/Share with a light neutral
+14 and 16 emulators. Real desktop H.264 decoding of Android capture also passed on
+all four emulator versions. Desktop and Android now separate View/Share with a light neutral
 and green palette; technical settings are collapsed. Physical devices, secure
 pairing, remote input, extended monitors, concurrent peers and production
 Windows packaging remain incomplete.
+
+2026-10-18: Windows desktop streaming implementation added: shared GStreamer H.264
+encode/decode enabled on Windows, DXGI capture via d3d11screencapturesrc with
+bounded appsink, validated/cropped packed RGBA, CLI monitor selection, and real
+viewer decoding/host launch instead of unsupported placeholders. Windows CI
+installs the pinned official 1.28.8 SDK with SHA256 validation and verifies codec
+plugins before running tests. Linux synthetic-capture and buffer-boundary tests
+exercise the common conversion path; a real Windows capture smoke is opt-in.
+This is implementation progress, not physical Windows acceptance. Remote input,
+secure pairing, virtual displays, and Windows installers remain separate milestones.
+Linux Debian alpha packaging is included from main.

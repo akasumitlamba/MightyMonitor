@@ -64,3 +64,7 @@ Secure connections use Rustls (Apache-2.0 OR ISC OR MIT), ring (ISC-style and
 permissive notices), rcgen (MIT OR Apache-2.0), SHA-2/base64/subtle/zeroize and
 getrandom (permissive licenses recorded in Cargo.lock/package metadata). TLS is
 used through their public APIs; certificate and viewing-token integration is original.
+
+Android JNI integration uses jni 0.21.1 (MIT OR Apache-2.0) and its permissively
+licensed dependencies. Android UI/MediaCodec glue and Rust networking code are
+original. AndroidX test libraries are used only for emulator instrumentation.
