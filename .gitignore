@@ -11,6 +11,5 @@ local.properties
 
 /android/app/build/
 /android/app/src/main/jniLibs/
-
 /output/
 __pycache__/

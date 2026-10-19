@@ -1,8 +1,8 @@
-# Android viewer alpha
+# Android sharing and viewer alpha
 
 Native Android UI/MediaCodec with the shared original Rust protocol via a narrow
-JNI bridge. This milestone views an existing PC screen; phone capture, remote
-input, secure pairing and virtual displays are not implemented here.
+JNI bridge. View an existing PC screen or explicitly share the phone screen.
+Remote input, secure pairing and virtual extended displays are not implemented.
 
 Build requirements: JDK 17, Gradle 8.9, Android SDK 35/build-tools 35.0.0, NDK,
 Rust Android targets and cargo-ndk 4.1.2. See the Android viewer workflow for the
@@ -36,3 +36,29 @@ Physical phone playback, rotation, Wi-Fi recovery and clean installation still
 need verification. Emulator smoke jobs check real PC H.264 to Android decoding on API 29, 30, 34,
 and 36 (Android 10, 11, 14, and 16). Native libraries use 16 KiB ELF alignment
 and AGP 8.7.3 APK packaging for newer Android page-size compatibility.
+
+## Share the phone screen
+
+Open Share, confirm a trusted Wi-Fi network and choose Share this screen.
+Approve Android's system capture prompt for this session. On a PC, open View
+and enter the address shown on the phone. End sharing in the app, its ongoing
+notification, or Android's screen-sharing controls. Denied permission never starts
+capture. A stopped or killed service does not restart capture automatically.
+
+MediaProjection supplies a surface to the device's H.264 MediaCodec encoder.
+Output uses a fixed canvas up to 1280 pixels on the longer edge, respecting
+encoder alignment; rotated content can be letterboxed. The service owns its
+projection callback, encoder, surface, virtual display and Rust host worker.
+Capture continues in a visible foreground service while the app is backgrounded.
+It shares video only; no microphone or audio is captured.
+
+Rust owns the original TCP/framing/message server. It handles Hello/Resume,
+configuration, sequence numbers, Ping/Pong, timed writes and bounded bitrate
+feedback. Only one viewer is served at a time. Queue overflow discards the old
+reference chain and requests a fresh keyframe, including SPS/PPS. A new viewer
+always starts on a keyframe. Sharing remains unauthenticated and unencrypted;
+use a trusted local network. Control is not enabled by this implementation.
+
+Both PC-to-phone playback and consent-based phone capture passed emulator tests
+on Android 10, 11, 14 and 16. The desktop decoder interoperability check is a
+separate acceptance step; physical Wi-Fi phone/PC verification remains pending.

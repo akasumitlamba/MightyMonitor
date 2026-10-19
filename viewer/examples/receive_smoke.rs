@@ -1,0 +1,41 @@
+//! Headless cross-platform receiver for real encoder/transport/decoder acceptance.
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    use std::time::Duration;
+    let address = std::env::args().nth(1).ok_or("Pass the sharing IP:port")?;
+    let session =
+        mightymonitor_viewer::net::ViewerSession::new(codec_gst::decoder::Decoder::new()?);
+    let output = session.output.clone();
+    let task = tokio::spawn(session.run(address));
+    let start = tokio::time::Instant::now();
+    let mut frames = 0;
+    while start.elapsed() < Duration::from_secs(120) {
+        if output
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .picture
+            .take()
+            .is_some()
+        {
+            frames += 1;
+        }
+        if frames >= 3 {
+            task.abort();
+            println!("OK: desktop decoded {frames} real video frames");
+            return Ok(());
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    task.abort();
+    let error = output
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .error
+        .clone();
+    Err(format!("No desktop video: {error:?}").into())
+}
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+fn main() {
+    panic!("This receiver requires a desktop video decoder");
+}

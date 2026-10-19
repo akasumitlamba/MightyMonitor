@@ -2,9 +2,13 @@ name: Build and test Android viewer
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/android-viewer']
+    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui']
+    paths: ['android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
     paths: ['android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -70,6 +74,7 @@ jobs:
           sudo apt-get install -y xvfb libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly gstreamer1.0-libav
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release --locked -p mightymonitor-host
+      - run: cargo build --release --locked -p mightymonitor-viewer --example receive_smoke --no-default-features
       - name: Start isolated test desktop and real H.264 host
         run: |
           Xvfb :99 -screen 0 640x480x24 > /tmp/mm-xvfb.log 2>&1 &
@@ -90,9 +95,14 @@ jobs:
           script: |
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
-            adb shell am instrument -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb forward tcp:5001 tcp:5000
+            (./target/release/examples/receive_smoke 127.0.0.1:5001 && adb shell run-as com.mightymonitor.app touch files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
+            adb shell am instrument -e desktopInterop true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
             adb logcat -d > /tmp/mm-android-logcat.log
-            grep -q 'OK (1 test)' /tmp/mm-android-test.log
+            adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
+            mkdir -p /tmp/mm-screenshots
+            tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
+            grep -q 'OK (2 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
         run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true
@@ -101,7 +111,9 @@ jobs:
         with:
           name: android-viewer-test-logs-api-${{ matrix.api }}
           path: |
+            /tmp/mm-desktop-video.log
             /tmp/mm-host.log
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
             /tmp/mm-android-logcat.log
+            /tmp/mm-screenshots

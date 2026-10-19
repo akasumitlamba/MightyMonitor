@@ -5,7 +5,16 @@ use crate::net::{Output, SharedOutput, State};
 use eframe::egui;
 use std::sync::{Arc, Mutex};
 
+#[derive(PartialEq)]
+enum Page {
+    View,
+    Share,
+}
+
 pub struct App {
+    page: Page,
+    themed: bool,
+    fullscreen: bool,
     address: String,
     share_address: String,
     share_fps: u32,
@@ -13,6 +22,7 @@ pub struct App {
     trusted_network: bool,
     host: Option<crate::host::HostProcess>,
     host_message: String,
+    host_error: bool,
     last_host_poll: std::time::Instant,
     output: SharedOutput,
     texture: Option<egui::TextureHandle>,
@@ -23,13 +33,17 @@ pub struct App {
 impl App {
     pub fn new() -> std::io::Result<Self> {
         Ok(Self {
-            address: "127.0.0.1:5000".into(),
-            share_address: "127.0.0.1:5000".into(),
+            page: Page::View,
+            themed: false,
+            fullscreen: false,
+            address: String::new(),
+            share_address: local_endpoint(),
             share_fps: 30,
             share_bitrate: 4000,
             trusted_network: false,
             host: None,
             host_message: String::new(),
+            host_error: false,
             last_host_poll: std::time::Instant::now(),
             output: Arc::new(Mutex::new(Output {
                 state: State::Closed,
@@ -96,10 +110,12 @@ impl eframe::App for App {
                             "Sharing stopped. {}",
                             host.diagnostics().unwrap_or_default()
                         );
+                        self.host_error = true;
                         self.host = None;
                     }
                     Err(error) => {
                         self.host_message = format!("Unable to check sharing: {error}");
+                        self.host_error = true;
                         self.host = None;
                     }
                     Ok(false) => {
@@ -113,54 +129,107 @@ impl eframe::App for App {
                 }
             }
         }
-        egui::TopBottomPanel::top("brand").show(ctx, |ui| {
+        if !self.themed {
+            let mut visuals = egui::Visuals::light();
+            visuals.panel_fill = egui::Color32::from_rgb(247, 248, 247);
+            visuals.window_fill = egui::Color32::WHITE;
+            visuals.override_text_color = Some(egui::Color32::from_rgb(30, 39, 35));
+            visuals.selection.bg_fill = egui::Color32::from_rgb(218, 237, 226);
+            visuals.selection.stroke.color = egui::Color32::from_rgb(31, 95, 63);
+            visuals.hyperlink_color = egui::Color32::from_rgb(38, 115, 77);
+            ctx.set_visuals(visuals);
+            let mut style = (*ctx.style()).clone();
+            style.spacing.item_spacing = egui::vec2(12.0, 12.0);
+            style.spacing.button_padding = egui::vec2(16.0, 10.0);
+            style.spacing.interact_size.y = 38.0;
+            style
+                .text_styles
+                .insert(egui::TextStyle::Heading, egui::FontId::proportional(26.0));
+            style
+                .text_styles
+                .insert(egui::TextStyle::Body, egui::FontId::proportional(16.0));
+            style
+                .text_styles
+                .insert(egui::TextStyle::Button, egui::FontId::proportional(16.0));
+            ctx.set_style(style);
+            self.themed = true;
+        }
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.fullscreen {
+            self.fullscreen = false;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+        }
+        egui::SidePanel::left("navigation")
+            .resizable(false)
+            .exact_width(174.0)
+            .show(ctx, |ui| {
+                ui.add_space(18.0);
+                ui.label(egui::RichText::new("MightyMonitor").size(20.0).strong());
+                ui.add_space(30.0);
+                ui.selectable_value(&mut self.page, Page::View, "View a screen");
+                ui.selectable_value(&mut self.page, Page::Share, "Share this screen");
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
+                    ui.add_space(12.0);
+                    ui.collapsing("About", |ui| {
+                        ui.small("Alpha · screen viewing");
+                        ui.small("Control and extended displays are in development.");
+                    });
+                });
+            });
+        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.add_space(8.0);
-            ui.heading("MightyMonitor");
-            ui.label("Your screens, connected.");
-            ui.add_space(8.0);
-        });
-        egui::SidePanel::left("controls").resizable(false).default_width(300.0).show(ctx, |ui| {
-            egui::ScrollArea::vertical().show(ui, |ui| {
-            ui.add_space(12.0);
-            ui.heading("View another screen");
-            ui.label("Enter the sharing device’s IP and port");
-            ui.text_edit_singleline(&mut self.address);
             ui.horizontal(|ui| {
-                if ui.button("Connect").clicked() { self.connect(); }
-                if ui.button("Disconnect").clicked() { self.disconnect(); }
-            });
-            ui.add_space(18.0);
-            ui.separator();
-            ui.add_space(12.0);
-            ui.heading("Share this screen");
-            if cfg!(any(target_os = "linux", target_os = "windows")) {
-                ui.label(if cfg!(target_os = "windows") { "Windows desktop • screen viewing only" } else { "Linux X11 • screen viewing only" });
-                ui.label("Local IP and port to listen on");
-                ui.add_enabled(self.host.is_none(), egui::TextEdit::singleline(&mut self.share_address));
-                ui.small("127.0.0.1 is this computer only. Use your LAN IP to share with another device.");
-                ui.add_enabled(self.host.is_none(), egui::Slider::new(&mut self.share_fps, 1..=60).text("fps"));
-                ui.add_enabled(self.host.is_none(), egui::Slider::new(&mut self.share_bitrate, 500..=20_000).text("kbit/s"));
-                ui.label("Connections are not encrypted or password protected. Only share on a network you trust.");
-                ui.add_enabled(self.host.is_none(), egui::Checkbox::new(&mut self.trusted_network, "I’m using a trusted network"));
-                if ui.add_enabled(self.host.is_none() && self.trusted_network, egui::Button::new("Start sharing")).clicked() {
-                    match crate::host::HostProcess::start(&self.share_address, self.share_fps, self.share_bitrate) {
-                        Ok(host) => { self.host = Some(host); self.host_message = "Starting sharing…".into(); }
-                        Err(error) => self.host_message = error.to_string(),
+                ui.label(if self.host.is_some() {
+                    "Sharing is on"
+                } else {
+                    "Sharing is off"
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if self.texture.is_some()
+                        && ui
+                            .button(if self.fullscreen {
+                                "Exit full screen"
+                            } else {
+                                "Full screen"
+                            })
+                            .clicked()
+                    {
+                        self.fullscreen = !self.fullscreen;
+                        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(self.fullscreen));
                     }
-                }
-                if ui.add_enabled(self.host.is_some(), egui::Button::new("Stop sharing")).clicked() {
-                    self.host = None;
-                    self.host_message = "Sharing stopped".into();
-                }
-                ui.label(&self.host_message);
-            } else {
-                ui.label("Screen sharing requires Linux or Windows.");
-            }
-            ui.add_space(18.0);
-            ui.separator();
-            ui.small("Remote control, extended displays and Android support are under development.");
+                });
             });
+            ui.add_space(8.0);
         });
+        egui::TopBottomPanel::top("connection_controls").show_animated(
+            ctx,
+            self.page == Page::View,
+            |ui| {
+                ui.add_space(16.0);
+                ui.heading("View a screen");
+                ui.horizontal(|ui| {
+                    ui.add_sized(
+                        [ui.available_width() - 130.0, 40.0],
+                        egui::TextEdit::singleline(&mut self.address)
+                            .hint_text("Device address (IP:port)"),
+                    );
+                    if self.task.is_some() {
+                        if ui.button("Disconnect").clicked() {
+                            self.disconnect();
+                        }
+                    } else if ui
+                        .add_enabled(
+                            !self.address.trim().is_empty(),
+                            egui::Button::new("Connect"),
+                        )
+                        .clicked()
+                    {
+                        self.address = self.address.trim().to_owned();
+                        self.connect();
+                    }
+                });
+                ui.add_space(12.0);
+            },
+        );
         let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(p) = out.picture.take() {
             if let Some(rgb) = crate::render::rgb(&p) {
@@ -176,38 +245,158 @@ impl eframe::App for App {
                 eprintln!("decode->present submission: {:.2} ms", out.stats.present_ms);
             }
         }
+        let state = out.state.clone();
+        let stats = out.stats.clone();
+        let error = out.error.clone();
+        drop(out);
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading(match out.state {
-                State::Connecting => "Connecting…",
-                State::Connected => "Connected",
-                State::Reconnecting => "Reconnecting…",
-                State::Closed => "Not connected",
-            });
-            if out.state == State::Connected {
-                ui.collapsing("Connection details", |ui| {
-                    ui.label(format!(
-                        "{:.1} fps · {} kbit/s · response {} ms",
-                        out.stats.fps, out.stats.kbps, out.stats.rtt_ms
-                    ));
+            if self.page == Page::Share {
+                ui.add_space(24.0);
+                ui.heading("Share this screen");
+                ui.add_space(10.0);
+                ui.label("Enter this address on your other device");
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&self.share_address).size(28.0).strong());
+                    if ui.button("Copy").clicked() {
+                        ctx.copy_text(self.share_address.clone());
+                    }
                 });
-            }
-            if let Some(e) = &out.error {
-                ui.colored_label(egui::Color32::RED, e);
-            }
-            if self.texture.is_none() {
-                ui.centered_and_justified(|ui| {
-                    ui.label("Connect to a sharing device to see its screen here.");
+                ui.add_space(18.0);
+                if self.host.is_some() {
+                    if ui.button("Stop sharing").clicked() {
+                        self.host = None;
+                        self.host_message = "Sharing stopped".into();
+                        self.host_error = false;
+                    }
+                } else {
+                    ui.checkbox(&mut self.trusted_network, "Trusted Wi-Fi (unencrypted)");
+                    if ui
+                        .add_enabled(
+                            self.trusted_network,
+                            egui::Button::new("Share this screen")
+                                .fill(egui::Color32::from_rgb(218, 237, 226)),
+                        )
+                        .clicked()
+                    {
+                        match crate::host::HostProcess::start(
+                            &self.share_address,
+                            self.share_fps,
+                            self.share_bitrate,
+                        ) {
+                            Ok(host) => {
+                                self.host = Some(host);
+                                self.host_message = "Starting sharing…".into();
+                                self.host_error = false;
+                            }
+                            Err(error) => {
+                                self.host_message = error.to_string();
+                                self.host_error = true;
+                            }
+                        }
+                    }
+                }
+                if self.host_error {
+                    ui.colored_label(
+                        egui::Color32::from_rgb(166, 48, 36),
+                        "Sharing could not continue. Open sharing details below.",
+                    );
+                }
+                ui.add_space(20.0);
+                ui.collapsing("Settings", |ui| {
+                    ui.add_enabled_ui(self.host.is_none(), |ui| {
+                        ui.label("Sharing address");
+                        ui.text_edit_singleline(&mut self.share_address);
+                        ui.add(
+                            egui::Slider::new(&mut self.share_fps, 1..=60)
+                                .text("Frames per second"),
+                        );
+                        ui.add(
+                            egui::Slider::new(&mut self.share_bitrate, 500..=20_000)
+                                .text("Video quality (kbit/s)"),
+                        );
+                    });
                 });
-            }
-            if let Some(t) = &self.texture {
-                ui.add(egui::Image::new(t).fit_to_exact_size({
-                    let size = t.size_vec2();
-                    size * (ui.available_width() / size.x)
+                if !self.host_message.is_empty() {
+                    ui.collapsing("Sharing details", |ui| {
+                        ui.label(&self.host_message);
+                    });
+                }
+            } else {
+                ui.horizontal(|ui| {
+                    ui.label(match state {
+                        State::Connecting => "Connecting…",
+                        State::Connected => "Connected",
+                        State::Reconnecting => "Reconnecting…",
+                        State::Closed => "Not connected",
+                    });
+                    if state == State::Connected {
+                        ui.collapsing("Details", |ui| {
+                            ui.label(format!(
+                                "{:.0} fps · {} kbit/s · {} ms",
+                                stats.fps, stats.kbps, stats.rtt_ms
+                            ));
+                        });
+                    }
+                });
+                if let Some(error) = error {
+                    ui.colored_label(egui::Color32::from_rgb(166, 48, 36), error);
+                }
+                if let Some(texture) = &self.texture {
+                    let size = texture.size_vec2();
+                    let scale = (ui.available_width() / size.x)
                         .min(ui.available_height() / size.y)
-                        .max(0.01)
-                }));
+                        .max(0.01);
+                    ui.add(egui::Image::new(texture).fit_to_exact_size(size * scale));
+                } else {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space((ui.available_height() * 0.42).max(20.0));
+                        let (response, painter) =
+                            ui.allocate_painter(egui::vec2(180.0, 96.0), egui::Sense::hover());
+                        let origin = response.rect.min;
+                        let ink = egui::Color32::from_rgb(128, 145, 135);
+                        for (x, y, w, h) in [(4.0, 4.0, 106.0, 66.0), (86.0, 30.0, 86.0, 54.0)] {
+                            let rect = egui::Rect::from_min_size(
+                                origin + egui::vec2(x, y),
+                                egui::vec2(w, h),
+                            );
+                            painter.rect_filled(rect, 5.0, egui::Color32::WHITE);
+                            painter.rect_stroke(
+                                rect,
+                                5.0,
+                                egui::Stroke::new(2.0_f32, ink),
+                                egui::StrokeKind::Inside,
+                            );
+                            painter.line_segment(
+                                [
+                                    rect.center_bottom(),
+                                    rect.center_bottom() + egui::vec2(0.0, 8.0),
+                                ],
+                                egui::Stroke::new(2.0_f32, ink),
+                            );
+                        }
+                        painter.circle_filled(
+                            origin + egui::vec2(105.0, 63.0),
+                            10.0,
+                            egui::Color32::from_rgb(38, 115, 77),
+                        );
+                        ui.add_space(10.0);
+                        ui.label("Your other screen will appear here");
+                    });
+                }
             }
         });
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
+}
+
+/// UDP connect selects a local route without sending packets or discovering peers.
+fn local_endpoint() -> String {
+    let ip = std::net::UdpSocket::bind("0.0.0.0:0")
+        .and_then(|socket| {
+            socket.connect("192.0.2.1:9")?;
+            socket.local_addr()
+        })
+        .map(|a| a.ip())
+        .unwrap_or(std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST));
+    format!("{ip}:5000")
 }

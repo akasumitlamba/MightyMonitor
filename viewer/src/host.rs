@@ -28,7 +28,7 @@ impl HostProcess {
         });
         if !binary.is_file() {
             return Err(io::Error::new(io::ErrorKind::NotFound,
-                "Sharing component missing. Install the Linux sharing component alongside this application."));
+                "Sharing component missing. Reinstall MightyMonitor with its screen-sharing component."));
         }
         let mut command = Command::new(binary);
         command.args([
@@ -42,6 +42,12 @@ impl HostProcess {
         Self::spawn(command)
     }
     fn spawn(mut command: Command) -> io::Result<Self> {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            // The CLI remains usable in a terminal; GUI-owned sharing has no console.
+            command.creation_flags(0x0800_0000); // CREATE_NO_WINDOW
+        }
         let stamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_err(io::Error::other)?

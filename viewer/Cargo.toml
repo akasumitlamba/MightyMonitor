@@ -25,3 +25,7 @@ codec-gst = { path = "../codec-gst" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["test-util"] }
+
+[[example]]
+name = "ui_snapshot"
+required-features = ["gui"]

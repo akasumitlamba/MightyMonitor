@@ -113,6 +113,7 @@ A capture backend that never returns can still retain its thread; idle timeout
 ends the session's wait, and in-progress writes remain bounded by write timeout.
 
 
+
 2026-10-18: Android viewer implementation added: native Android Activity and
 MediaCodec surface decoding, a JNI bridge into the shared Rust protocol, bounded
 ordered video queue, Hello/Resume reconnect, configuration/keyframe gating, and
@@ -123,6 +124,18 @@ playback passed on Android 10, 11, 14 and 16 emulators; physical phone
 acceptance remains pending. This milestone does not include phone capture,
 remote input, secure pairing, virtual displays or a production-signed release.
 
+
+2026-10-18: Android screen hosting and light interface milestone added. Android
+MediaProjection consent and a foreground capture service feed surface H.264 to
+an original Rust protocol server. Native queue bounds, overflow IDR gating,
+handshake, timed writes, keepalive, stop lifecycle and bitrate feedback are
+implemented. Capture-to-Rust-to-Android-decoder tests passed on Android 10, 11,
+14 and 16 emulators. Real desktop H.264 decoding of Android capture also passed on
+all four emulator versions. Desktop and Android now separate View/Share with a light neutral
+and green palette; technical settings are collapsed. Physical devices, secure
+pairing, remote input, extended monitors, concurrent peers and production
+Windows packaging remain incomplete.
+
 2026-10-18: Windows desktop streaming implementation added: shared GStreamer H.264
 encode/decode enabled on Windows, DXGI capture via d3d11screencapturesrc with
 bounded appsink, validated/cropped packed RGBA, CLI monitor selection, and real
@@ -132,4 +145,4 @@ plugins before running tests. Linux synthetic-capture and buffer-boundary tests
 exercise the common conversion path; a real Windows capture smoke is opt-in.
 This is implementation progress, not physical Windows acceptance. Remote input,
 secure pairing, virtual displays, and Windows installers remain separate milestones.
-The Linux Debian alpha packaging milestone is also included from main.
+Linux Debian alpha packaging is included from main.

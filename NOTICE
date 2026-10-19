@@ -53,12 +53,13 @@ Desktop viewer (egui/eframe)
   Cargo.lock and each package's license metadata. No GUI GPL/LGPL code is bundled.
   GStreamer system runtime licensing remains as described above.
 
-Android JNI integration uses jni 0.21.1 (MIT OR Apache-2.0) and its permissively
-licensed dependencies. Android UI/MediaCodec glue and Rust networking code are
-original. AndroidX test libraries are used only for emulator instrumentation.
 
 Windows desktop capture uses the LGPL-licensed GStreamer d3d11 plugin and
 Windows DXGI through its public pipeline API. The Rust adapter is original.
 GStreamer Windows SDK distribution, runtime DLLs and plugins retain their
 individual licenses; obtain them from the official GStreamer project. The
 pinned CI installer checksum is from the vendor's published .sha256sum file.
+
+Android JNI integration uses jni 0.21.1 (MIT OR Apache-2.0) and its permissively
+licensed dependencies. Android UI/MediaCodec glue and Rust networking code are
+original. AndroidX test libraries are used only for emulator instrumentation.

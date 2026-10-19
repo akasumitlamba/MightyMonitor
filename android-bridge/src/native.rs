@@ -81,3 +81,124 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_disconnect(
         .remove(&id);
     drop(client);
 }
+
+use crate::hosting::ScreenHost;
+use jni::objects::JByteArray;
+use jni::sys::{jboolean, jint, jstring};
+static HOSTS: OnceLock<Mutex<HashMap<i64, ScreenHost>>> = OnceLock::new();
+fn hosts() -> &'static Mutex<HashMap<i64, ScreenHost>> {
+    HOSTS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_startHost(
+    mut env: JNIEnv,
+    _: JClass,
+    address: JString,
+    width: jint,
+    height: jint,
+    fps: jint,
+) -> jlong {
+    let result = (|| -> Result<i64, String> {
+        let address: String = env.get_string(&address).map_err(|e| e.to_string())?.into();
+        let mut table = hosts().lock().unwrap_or_else(|e| e.into_inner());
+        if !table.is_empty() {
+            return Err("Screen sharing is already active".into());
+        }
+        let host = ScreenHost::start(&address, width as u32, height as u32, fps as u32)
+            .map_err(|e| e.to_string())?;
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        if id <= 0 {
+            return Err("Session handles exhausted".into());
+        }
+        table.insert(id, host);
+        Ok(id)
+    })();
+    match result {
+        Ok(id) => id,
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_publish(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    bytes: JByteArray,
+    timestamp: jlong,
+    keyframe: jboolean,
+) -> jboolean {
+    let length = env.get_array_length(&bytes).unwrap_or(0);
+    if length <= 0 || length > 8 * 1024 * 1024 || timestamp < 0 {
+        return 0;
+    }
+    match env.convert_byte_array(&bytes) {
+        Ok(data) => hosts()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&id)
+            .is_some_and(|host| host.publish(data, timestamp as u64, keyframe != 0))
+            as jboolean,
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error.to_string());
+            0
+        }
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostNeedsKeyframe(
+    _env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jboolean {
+    hosts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .is_some_and(ScreenHost::needs_keyframe) as jboolean
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostBitrate(
+    _env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jint {
+    hosts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .map_or(4_000_000, ScreenHost::bitrate) as jint
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_hostStatus(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jstring {
+    let text = hosts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .map_or_else(|| "Not sharing".into(), ScreenHost::status);
+    match env.new_string(text) {
+        Ok(s) => s.into_raw(),
+        Err(e) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", e.to_string());
+            std::ptr::null_mut()
+        }
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_stopHost(
+    _env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) {
+    let host = hosts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&id);
+    drop(host);
+}
