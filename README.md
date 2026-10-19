@@ -21,14 +21,14 @@ iOS are not currently targeted.
 | Platform | Host (shares screen) | Viewer (displays and controls) |
 |----------|----------------------|--------------------------------|
 | Linux    | implemented, desktop validation pending | implemented, desktop validation pending |
-| Windows  | planned | GUI exists; real decoder planned |
+| Windows  | implemented, physical-device validation pending | implemented, physical-device validation pending |
 | Android  | planned | planned |
 | Browser (ChromeOS, TVs, old laptops, Fire tablets) | - | planned |
 
 ## Architecture (Cargo workspace)
 - `core`: protocol (serde + bincode, version byte first), framing, input events, platform traits (Capture, Encoder, Decoder, InputInjector), adaptive bitrate and reconnect logic.
 - `host-linux`: PipeWire (ashpd) with X11 fallback, GStreamer H.264, uinput.
-- `host-windows`: Windows.Graphics.Capture / DXGI, H.264, SendInput.
+- Windows host: GStreamer DXGI desktop capture with shared H.264/TCP streaming; input injection is planned.
 - `viewer-desktop`: egui/eframe viewer for Linux and Windows.
 - `web-viewer`: static page served by the host (WebRTC/WebCodecs).
 - `android`: Rust library (cargo-ndk, uniffi) plus a thin Kotlin app (MediaProjection, MediaCodec, Accessibility or wireless adb for input).
@@ -37,7 +37,7 @@ iOS are not currently targeted.
 The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
 a desktop viewer, and latency tools. Linux host/viewer paths are implemented;
 real desktop and Wi-Fi acceptance is still pending. See [docs/HOST.md](docs/HOST.md),
-[docs/VIEWER.md](docs/VIEWER.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
+[docs/VIEWER.md](docs/VIEWER.md), [docs/WINDOWS.md](docs/WINDOWS.md), and [docs/ROADMAP.md](docs/ROADMAP.md).
 
 The cross-device product requirements and acceptance gates are in
 [docs/CROSS_DEVICE.md](docs/CROSS_DEVICE.md). Mirroring, remote control, and
@@ -55,7 +55,8 @@ only where its license permits, with appropriate attribution in NOTICE.
 
 ## Status
 Early development: core foundation complete; Linux streaming components exist.
-Windows capture/decoding, Android, input forwarding, and virtual displays remain
+Windows capture and H.264 decoding are implemented with GStreamer; physical-device
+validation is pending. Android, input forwarding, and virtual displays remain
 future work. Current streaming is unauthenticated and unencrypted; use a trusted
 LAN for development. See [docs/STATUS.md](docs/STATUS.md).
 
