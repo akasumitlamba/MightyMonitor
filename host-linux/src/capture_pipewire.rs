@@ -87,6 +87,11 @@ mod native {
             self.input.available().then(|| self.input.clone())
         }
         pub fn open_with_control(allow_control: bool) -> Result<Self, PipeWireError> {
+            Self::open_with_options(allow_control, false)
+        }
+        /// Request a real compositor-created monitor when `extend` is true.
+        /// Unsupported desktops fail before consent; never fall back to mirroring.
+        pub fn open_with_options(allow_control: bool, extend: bool) -> Result<Self, PipeWireError> {
             let input = crate::PortalInput::new();
             let worker_input = input.clone();
             let (ready_tx, ready_rx) = mpsc::sync_channel(1);
@@ -100,6 +105,10 @@ mod native {
                         .build()?;
                     runtime.block_on(async {
                         let portal = Screencast::new().await?;
+                        let source = if extend { SourceType::Virtual } else { SourceType::Monitor };
+                        if !portal.available_source_types().await?.contains(source) {
+                            return Err(if extend { "This desktop does not support creating an extended display through its screen-sharing portal" } else { "This desktop does not support monitor sharing" }.into());
+                        }
                         if allow_control {
                             use ashpd::desktop::remote_desktop::{RemoteDesktop,DeviceType};
                             let remote=RemoteDesktop::new().await?;
@@ -107,10 +116,11 @@ mod native {
                             let result=async {
                                 let closed=session.receive_closed().await?;let mut closed=std::pin::pin!(closed);
                                 let modes=portal.available_cursor_modes().await?;let cursor=if modes.contains(CursorMode::Embedded){CursorMode::Embedded}else{CursorMode::Hidden};
-                                portal.select_sources(&session,cursor,SourceType::Monitor.into(),false,None,PersistMode::DoNot).await?.response()?;
+                                portal.select_sources(&session,cursor,source.into(),false,None,PersistMode::DoNot).await?.response()?;
                                 remote.select_devices(&session,DeviceType::Keyboard|DeviceType::Pointer,None,PersistMode::DoNot).await?.response()?;
                                 let response=remote.start(&session,None).await?.response()?;
                                 let stream=response.streams().and_then(|streams|streams.first()).ok_or("portal returned no screen stream")?;
+                                if extend && stream.source_type()!=Some(SourceType::Virtual) { return Err("The desktop did not create the requested virtual monitor".into()); }
                                 let node=stream.pipe_wire_node_id();let size=stream.size();
                                 let allowed=response.devices().contains(DeviceType::Keyboard)&&response.devices().contains(DeviceType::Pointer)&&size.is_some_and(|(w,h)|w>1&&h>1);
                                 worker_input.authorize(allowed);
@@ -134,7 +144,7 @@ mod native {
                                 .select_sources(
                                     &session,
                                     cursor,
-                                    SourceType::Monitor.into(),
+                                    source.into(),
                                     false,
                                     None,
                                     PersistMode::DoNot,
@@ -142,11 +152,11 @@ mod native {
                                 .await?
                                 .response()?;
                             let response = portal.start(&session, None).await?.response()?;
-                            let node = response
-                                .streams()
-                                .first()
-                                .ok_or("portal returned no streams")?
-                                .pipe_wire_node_id();
+                            let stream = response.streams().first().ok_or("portal returned no streams")?;
+                            if extend && stream.source_type() != Some(SourceType::Virtual) {
+                                return Err("The desktop did not create the requested virtual monitor".into());
+                            }
+                            let node = stream.pipe_wire_node_id();
                             let fd = portal.open_pipe_wire_remote(&session).await?;
                             tokio::select! {
                                 result = receive(fd, node, frames_tx, &ready_tx, &worker_stop) => result,

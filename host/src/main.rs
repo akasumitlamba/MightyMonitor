@@ -64,7 +64,7 @@ mod desktop {
     }
     #[cfg(target_os = "linux")]
     impl CaptureFactory {
-        fn open(mode: &str, allow_control: bool) -> Result<Self, Error> {
+        fn open(mode: &str, allow_control: bool, extend: bool) -> Result<Self, Error> {
             #[cfg(not(feature = "pipewire"))]
             let _ = allow_control;
             let wayland = match mode {
@@ -77,12 +77,16 @@ mod desktop {
                 _ => return Err("--capture must be auto, x11 or wayland".into()),
             };
             if !wayland {
+                if extend {
+                    return Err("Extended displays currently require a Wayland desktop with virtual-monitor portal support".into());
+                }
                 return Ok(Self::X11);
             }
             #[cfg(feature = "pipewire")]
             {
                 eprintln!("Choose a screen in the system sharing dialog.");
-                let mut portal = host_linux::PipeWireCapture::open_with_control(allow_control)?;
+                let mut portal =
+                    host_linux::PipeWireCapture::open_with_options(allow_control, extend)?;
                 let input = portal.input();
                 let shared = host_linux::SharedCapture::start(move |timeout| {
                     portal.poll_captured(timeout).map_err(std::io::Error::other)
@@ -138,7 +142,10 @@ mod desktop {
     struct CaptureFactory;
     #[cfg(target_os = "windows")]
     impl CaptureFactory {
-        fn open(mode: &str, _allow_control: bool) -> Result<Self, Error> {
+        fn open(mode: &str, _allow_control: bool, extend: bool) -> Result<Self, Error> {
+            if extend {
+                return Err("Windows extended displays require a virtual display driver, which is not included yet".into());
+            }
             if mode != "auto" {
                 return Err("Windows uses DXGI capture; --capture must be auto".into());
             }
@@ -189,6 +196,7 @@ mod desktop {
         let _ = enigo::set_dpi_awareness();
         let mut secure = false;
         let mut allow_control = false;
+        let mut extend = false;
         let mut managed = false;
         let mut capture_mode = "auto".to_string();
         let mut bind = "127.0.0.1:5000".to_string();
@@ -206,12 +214,16 @@ mod desktop {
                 allow_control = true;
                 continue;
             }
+            if flag == "--extend" {
+                extend = true;
+                continue;
+            }
             if flag == "--managed" {
                 managed = true;
                 continue;
             }
             if flag == "--help" {
-                println!("mm-host [--secure] [--allow-control] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -237,7 +249,7 @@ mod desktop {
         if allow_control && (!secure || monitor != -1) {
             return Err("Remote control requires --secure and the primary/default screen".into());
         }
-        let factory = CaptureFactory::open(&capture_mode, allow_control)?;
+        let factory = CaptureFactory::open(&capture_mode, allow_control, extend)?;
         let mut stop = Box::pin(async move {
             if managed {
                 let (tx, rx) = tokio::sync::oneshot::channel();

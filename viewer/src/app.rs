@@ -21,6 +21,7 @@ pub struct App {
     share_bitrate: u32,
     allow_legacy: bool,
     allow_control: bool,
+    extend: bool,
     commands: Option<tokio::sync::mpsc::Sender<crate::net::Command>>,
     input_focused: bool,
     input_modifiers: egui::Modifiers,
@@ -47,6 +48,7 @@ impl App {
             share_bitrate: 4000,
             allow_legacy: false,
             allow_control: false,
+            extend: false,
             commands: None,
             input_focused: false,
             input_modifiers: egui::Modifiers::NONE,
@@ -367,6 +369,13 @@ impl eframe::App for App {
                     }
                 }
                 ui.add_space(18.0);
+                ui.add_enabled_ui(self.host.is_none(), |ui| {
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(&mut self.extend, false, "Mirror");
+                        let available = cfg!(target_os = "linux") && (std::env::var_os("WAYLAND_DISPLAY").is_some() || std::env::var("XDG_SESSION_TYPE").is_ok_and(|value| value == "wayland"));
+                        ui.add_enabled_ui(available, |ui| {ui.selectable_value(&mut self.extend, true, "Extend");}).response.on_hover_text("Create an extra desktop display. Requires a Wayland desktop with virtual-monitor support.");
+                    });
+                });
                 ui.add_enabled(
                     self.host.is_none(),
                     egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
@@ -382,16 +391,17 @@ impl eframe::App for App {
                     if ui
                         .add_enabled(
                             true,
-                            egui::Button::new("Share this screen")
+                            egui::Button::new(if self.extend { "Share extra display" } else { "Share this screen" })
                                 .fill(egui::Color32::from_rgb(218, 237, 226)),
                         )
                         .clicked()
                     {
-                        match crate::host::HostProcess::start_with_control(
+                        match crate::host::HostProcess::start_with_options(
                             &self.share_address,
                             self.share_fps,
                             self.share_bitrate,
                             self.allow_control,
+                            self.extend,
                         ) {
                             Ok(host) => {
                                 self.host = Some(host);

@@ -188,3 +188,21 @@ and waits for the actual target editor's input connection. Shipped app permissio
 behavior is unchanged. Both desktop installer builds passed, including Windows
 installation/runtime/uninstallation checks. Physical devices and interactive
 Wayland input remain unverified. PR #44 is the remote-control review milestone.
+
+2026-10-19: Experimental Wayland extension is implemented on the separate
+`codex/virtual-display` branch after the remote-control milestone. It requests
+the portal's Virtual source, checks advertised support and the returned stream
+type, reuses encrypted H.264 viewing/control, and exposes Mirror/Extend in Share.
+Unsupported X11/Windows extension fails before publishing a viewing invitation.
+Local Linux build, clippy, rejection integration test and Windows cross-check pass.
+This Linux desktop advertises virtual-monitor support, but actual creation,
+streaming and removal require interactive system consent and remain unverified.
+No Windows display driver or X11 extension has been added.
+
+
+2026-10-19: Live KDE Wayland extension acceptance passed after the user granted
+system consent: a new virtual monitor appeared in KScreen, a secure desktop viewer
+decoded three real H.264 frames, managed-host Stop exited with status zero, and
+the virtual monitor disappeared with the original active display set restored.
+This test used loopback and view-only sharing. Layout/window movement, virtual
+monitor input, other compositors and physical cross-device Wi-Fi remain unverified.
