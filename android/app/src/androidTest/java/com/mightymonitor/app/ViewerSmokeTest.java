@@ -78,6 +78,62 @@ public final class ViewerSmokeTest {
             app.stopService(new android.content.Intent(app, ScreenShareService.class));
         }
     }
+    @Test public void controlsPhoneOnlyAfterBothGrantsAndStopsOnRevocation() throws Exception {
+        MainActivity app = activity.getActivity();
+        long deadline = System.currentTimeMillis() + 60000;
+        while (!RemoteControlService.available() && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Test accessibility grant did not start the service", RemoteControlService.available());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            app.findViewById(MainActivity.SHARE_TAB_ID).performClick();
+            ((CheckBox) app.findViewById(MainActivity.SHARE_CONTROL_ID)).setChecked(true);
+            app.findViewById(MainActivity.SHARE_ID).performClick();
+        });
+        androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        androidx.test.uiautomator.UiObject2 confirm = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android", "button1")), 20000);
+        assertTrue("Capture consent did not appear", confirm != null); confirm.click();
+        while (ScreenShareService.invitation.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Phone did not start sharing", !ScreenShareService.invitation.isEmpty());
+        long client = NativeBridge.connect(ScreenShareService.invitation.replaceFirst("mightymonitor://[^/]+/", "mightymonitor://127.0.0.1:5000/"));
+        java.util.concurrent.atomic.AtomicBoolean running = new java.util.concurrent.atomic.AtomicBoolean(true), available = new java.util.concurrent.atomic.AtomicBoolean(), controlling = new java.util.concurrent.atomic.AtomicBoolean();
+        Thread pump = new Thread(() -> {while (running.get()) {byte[] event = NativeBridge.poll(client); if (event != null && event.length == 3 && event[0] == 6) {available.set(event[1] != 0); controlling.set(event[2] != 0);} try {Thread.sleep(5);} catch (InterruptedException stop) {return;}}}); pump.start();
+        android.app.Activity target = null;
+        try {
+            while (!available.get() && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Phone did not advertise the locally enabled control grant", available.get());
+            NativeBridge.requestControl(client, true);
+            while (!controlling.get() && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Phone rejected control", controlling.get());
+            target = InstrumentationRegistry.getInstrumentation().startActivitySync(new android.content.Intent(app, InputTestActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+            android.widget.Button button = target.findViewById(InputTestActivity.TAP_ID);
+            tap(client, button);
+            while (InputTestActivity.taps.get() < 1 && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Remote gesture did not click the actual Android button", InputTestActivity.taps.get() >= 1);
+            android.widget.EditText editor = target.findViewById(InputTestActivity.EDITOR_ID); tap(client, editor);
+            while (!RemoteKeyboardService.ready() && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Test remote keyboard did not obtain an input connection", RemoteKeyboardService.ready());
+            NativeBridge.typeText(client, "MightyMonitor");
+            java.util.concurrent.atomic.AtomicReference<String> text = new java.util.concurrent.atomic.AtomicReference<>("");
+            while (!"MightyMonitor".equals(text.get()) && System.currentTimeMillis() < deadline) {InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> text.set(editor.getText().toString())); Thread.sleep(20);}
+            assertTrue("Remote keyboard did not type into the actual Android editor", "MightyMonitor".equals(text.get()));
+            ScreenShareService.revokeControl();
+            while (controlling.get() && System.currentTimeMillis() < deadline) Thread.sleep(20);
+            assertTrue("Revoked phone control stayed active", !controlling.get());
+            boolean rejected = false; try {NativeBridge.typeText(client, "forbidden");} catch (IllegalStateException expected) {rejected = true;}
+            assertTrue("Native client accepted typing after control revocation", rejected);
+        } finally {
+            running.set(false); pump.join(1000); NativeBridge.disconnect(client);
+            app.stopService(new android.content.Intent(app, ScreenShareService.class));
+            if (target != null) {android.app.Activity closing = target; InstrumentationRegistry.getInstrumentation().runOnMainSync(closing::finish);}
+        }
+    }
+    private void tap(long client, android.view.View view) {
+        int[] location = new int[2]; java.util.concurrent.atomic.AtomicReference<float[]> point = new java.util.concurrent.atomic.AtomicReference<>();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
+            view.getLocationOnScreen(location); android.util.DisplayMetrics metrics = new android.util.DisplayMetrics(); activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+            point.set(new float[]{(location[0] + view.getWidth() / 2f) / metrics.widthPixels, (location[1] + view.getHeight() / 2f) / metrics.heightPixels});
+        });
+        NativeBridge.pointer(client, point.get()[0], point.get()[1], 0); NativeBridge.pointer(client, point.get()[0], point.get()[1], 2);
+    }
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();

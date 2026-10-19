@@ -96,6 +96,12 @@ jobs:
           script: |
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
+            # Isolated emulator acceptance: preauthorize only our test service/IME.
+            # The shipped app never writes these settings and always requires the user's system grant.
+            adb shell settings put secure enabled_accessibility_services com.mightymonitor.app/.RemoteControlService
+            adb shell settings put secure accessibility_enabled 1
+            adb shell ime enable com.mightymonitor.app/.RemoteKeyboardService
+            adb shell ime set com.mightymonitor.app/.RemoteKeyboardService
             adb forward tcp:5001 tcp:5000
             adb shell run-as com.mightymonitor.app mkdir -p files
             sed -n 's|^MM_INVITE mightymonitor://127.0.0.1:5000/|mightymonitor://10.0.2.2:5000/|p' /tmp/mm-pc-invitation-private | adb shell run-as com.mightymonitor.app tee files/pc-invitation > /dev/null
@@ -105,7 +111,7 @@ jobs:
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
             tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
-            grep -q 'OK (2 tests)' /tmp/mm-android-test.log
+            grep -q 'OK (3 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
         run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true

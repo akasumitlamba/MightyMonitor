@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Platform UI and video decoding only. The screen-sharing protocol lives in Rust. */
 public final class MainActivity extends Activity implements SurfaceHolder.Callback {
-    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106;
+    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106, CONTROL_ID = 107, SHARE_CONTROL_ID = 108, VIDEO_ID = 109;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService cleanup = Executors.newSingleThreadExecutor();
     private final AtomicInteger renderedFrames = new AtomicInteger();
@@ -112,7 +112,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
         viewPage.addView(buttons);
         LinearLayout controlBar = new LinearLayout(this);
-        viewControl = new CheckBox(this); viewControl.setText("Control"); viewControl.setVisibility(View.GONE); controlBar.addView(viewControl);
+        viewControl = new CheckBox(this); viewControl.setId(CONTROL_ID); viewControl.setText("Control"); viewControl.setVisibility(View.GONE); controlBar.addView(viewControl);
         keyboard = new Button(this); keyboard.setText("Keyboard"); styleButton(keyboard, false); keyboard.setVisibility(View.GONE); controlBar.addView(keyboard); viewPage.addView(controlBar);
         viewControl.setOnCheckedChangeListener((v, enabled) -> { if (!updatingControl && handle != 0) { try { NativeBridge.requestControl(handle, enabled); } catch (Exception error) { disconnect(error.getMessage()); } } });
         keyboard.setOnClickListener(v -> {
@@ -122,7 +122,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             }).setNeutralButton("Enter", (dialog, which) -> { try { if (handle != 0) {NativeBridge.key(handle,40,true);NativeBridge.key(handle,40,false);} } catch (Exception error) {disconnect(error.getMessage());} }).setNegativeButton("Cancel", null).show();
         });
         status = text("Not connected", 14, Color.rgb(61, 91, 77)); status.setPadding(0, dp(8), 0, dp(8)); viewPage.addView(status);
-        video = new SurfaceView(this); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
+        video = new SurfaceView(this); video.setId(VIDEO_ID); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
         video.setFocusableInTouchMode(true);
         video.setOnTouchListener((v, event) -> {
             if (handle == 0 || !viewControl.isChecked()) return false;
@@ -160,7 +160,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
             shareStatus.setText("Link copied");
         });
-        shareControl = new CheckBox(this); shareControl.setText("Allow remote control"); sharePage.addView(shareControl);
+        shareControl = new CheckBox(this); shareControl.setId(SHARE_CONTROL_ID); shareControl.setText("Allow remote control"); sharePage.addView(shareControl);
         shareControl.setOnCheckedChangeListener((v, enabled) -> {
             if (!enabled && ScreenShareService.sharing) ScreenShareService.revokeControl();
             if (enabled && !RemoteControlService.available()) {
