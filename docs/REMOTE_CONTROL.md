@@ -31,9 +31,9 @@ current controller relinquishes control or disconnects.
   Android keyboard settings. No permission or keyboard is enabled automatically.
   You can revoke control while sharing without stopping the video.
 
-Android control code and APK compilation are complete for this milestone, but
-real touch/typing/revocation acceptance tests are still being fixed. Do not treat
-that as validated support on physical phones yet. Android hosts currently accept
+Android control APK builds and automated real touch/typing/revocation tests passed
+on Android 10, 11, 14 and 16 emulators. Physical-phone acceptance is still required.
+Android hosts currently accept
 one viewer. Protected screen content and Android security dialogs remain subject
 to Android's restrictions.
 
