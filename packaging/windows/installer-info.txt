@@ -1,0 +1,9 @@
+MightyMonitor alpha for Windows 10/11 (64-bit)
+
+Setup installs the app for your Windows account. On the first installation it also downloads the official GStreamer 1.28.8 video runtime from gstreamer.freedesktop.org and verifies its pinned SHA-256 checksum. Internet access and additional disk space are required. The runtime retains its own licenses and uninstall entry.
+
+Open MightyMonitor from the Start menu. Sharing starts only when you choose Share in the app. Installation does not start a listener, add a firewall exception, install a display driver, or enable remote control. View and share use private session links over encrypted local connections.
+
+This is an unsigned development installer. Physical Windows 11 testing remains required. Remote control and independent extended displays are still being developed.
+
+Uninstall MightyMonitor from Windows Settings. The separately installed GStreamer runtime remains available to other installations; remove it separately if no longer needed.

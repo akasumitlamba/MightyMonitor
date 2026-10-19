@@ -51,3 +51,24 @@ After device testing, maintainers can attach the .deb to a GitHub release. The
 static project website discovers installable assets from the latest stable
 release; an unpublished/prerelease CI artifact does not appear as a stable download.
 No source archive is substituted for an installer.
+
+## Windows installer development milestone
+
+The `Build Windows installer` workflow creates a per-user x64 Setup executable
+using the runner's Inno Setup 6 compiler. It installs the host, viewer, launcher,
+Start menu entry, optional desktop shortcut, icon and an uninstaller. The first
+installation downloads the pinned official GStreamer 1.28.8 package over HTTPS,
+verifies its SHA-256, and installs it under the current user's local app folder.
+An internet connection and additional disk space are required. No runtime DLLs
+are redistributed inside our Setup executable.
+
+Use the Start menu shortcut: its Rust launcher configures the dedicated runtime
+for the viewer and its owned host without editing the system PATH. Setup enables
+no service, firewall exception, driver or network listener. The runtime is a
+separately installed prerequisite and remains after app removal; its own Windows
+uninstall entry can remove it when no longer needed.
+
+The workflow exercises silent install, installed decoder initialization with the
+build SDK removed from PATH, and app uninstall. An installer artifact is not a
+signed stable release or proof of physical Windows 11 screen capture. Clean-device
+installation, firewall approval and real Wi-Fi use still require acceptance.

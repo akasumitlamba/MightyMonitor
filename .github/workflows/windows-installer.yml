@@ -1,0 +1,54 @@
+name: Build Windows installer
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/wayland-sharing', 'codex/windows-installer', main]
+    paths: ['packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
+permissions:
+  contents: read
+jobs:
+  installer:
+    timeout-minutes: 30
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install verified build SDK
+        shell: pwsh
+        run: ./scripts/windows/install-gstreamer.ps1
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
+      - name: Build per-user setup executable
+        shell: pwsh
+        run: |
+          $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          if (-not (Test-Path $compiler)) { throw 'The runner must provide Inno Setup 6; refusing an unverified compiler download.' }
+          & $compiler packaging/windows/mightymonitor.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
+      - name: Install, verify the private runtime, and uninstall
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $setup = (Get-ChildItem output/installers/*-windows-x64-setup.exe).FullName
+          $app = Join-Path $env:RUNNER_TEMP 'MightyMonitor app smoke'
+          $process = Start-Process $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=`"$env:RUNNER_TEMP\mm-setup.log`"") -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw "Setup failed: $($process.ExitCode)" }
+          foreach ($file in @('mm-host.exe', 'mm-viewer.exe', 'mm-launcher.exe', 'unins000.exe')) {
+            if (-not (Test-Path (Join-Path $app $file))) { throw "Missing installed file: $file" }
+          }
+          $env:PATH = (($env:PATH -split ';') | Where-Object { $_ -notmatch 'gstreamer' }) -join ';'
+          Remove-Item Env:GST_PLUGIN_PATH, Env:GST_PLUGIN_PATH_1_0, Env:GST_PLUGIN_SYSTEM_PATH_1_0, Env:GSTREAMER_1_0_ROOT_MSVC_X86_64 -ErrorAction SilentlyContinue
+          $check = Start-Process (Join-Path $app 'mm-launcher.exe') -ArgumentList '--check-runtime' -Wait -PassThru
+          if ($check.ExitCode -ne 0) { throw "Installed video decoder check failed: $($check.ExitCode)" }
+          $uninstall = Start-Process (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0 -or (Test-Path (Join-Path $app 'mm-viewer.exe'))) { throw 'App uninstall failed' }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mightymonitor-windows-installer
+          path: output/installers/*-windows-x64-setup.exe
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: windows-installer-diagnostics
+          path: ${{ runner.temp }}/mm-setup.log
