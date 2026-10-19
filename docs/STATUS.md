@@ -177,3 +177,14 @@ by the test service not rebinding after instrumentation restarts the app. This
 is not an Android control acceptance pass. Physical Windows/Android, interactive
 Wayland input, virtual displays, discovery and production release signing remain
 unfinished. See REMOTE_CONTROL.md for permission and platform details.
+
+
+2026-10-19: Experimental Wayland extension is implemented on the separate
+`codex/virtual-display` branch after the remote-control milestone. It requests
+the portal's Virtual source, checks advertised support and the returned stream
+type, reuses encrypted H.264 viewing/control, and exposes Mirror/Extend in Share.
+Unsupported X11/Windows extension fails before publishing a viewing invitation.
+Local Linux build, clippy, rejection integration test and Windows cross-check pass.
+This Linux desktop advertises virtual-monitor support, but actual creation,
+streaming and removal require interactive system consent and remain unverified.
+No Windows display driver or X11 extension has been added.

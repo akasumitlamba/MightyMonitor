@@ -42,7 +42,9 @@ real desktop and Wi-Fi acceptance is still pending. See [docs/HOST.md](docs/HOST
 The cross-device product requirements and acceptance gates are in
 [docs/CROSS_DEVICE.md](docs/CROSS_DEVICE.md). Mirroring, remote control, and
 extended displays are separate capabilities. Remote control is in alpha testing;
-virtual extended displays are not implemented. See [remote control](docs/REMOTE_CONTROL.md).
+experimental Wayland virtual displays are implemented on supported desktops and
+await interactive acceptance. Windows and X11 extension are not implemented. See
+[remote control](docs/REMOTE_CONTROL.md) and [extended displays](docs/EXTENDED_DISPLAYS.md).
 
 ## Clean-room policy
 Our protocol and code are original. No code, protocols, drivers, or assets are
@@ -52,7 +54,7 @@ only where its license permits, with appropriate attribution in NOTICE.
 ## Known limits
 - Linux sharing supports X11 and system-authorized Wayland capture. Wayland requires a working desktop portal backend; physical-device validation is pending.
 - Android can view PC streams and explicitly share its own screen. Remote control requires explicit accessibility permission and a separate per-share grant; Android control acceptance testing is still in progress.
-- Virtual extended monitors need OS-specific drivers and stay optional.
+- Experimental Linux Wayland extension needs a compositor that supports virtual monitors. Windows virtual displays require a separate display driver.
 
 ## Status
 Early development: core foundation complete; Linux streaming components exist.
@@ -61,7 +63,7 @@ validation is pending. An Android viewer APK is built and real desktop video
 decoding passed on Android 10, 11, 14 and 16 emulators; physical phone tests
 remain pending. Desktop and Android sharing use private session links and pinned
 TLS 1.3; persistent device pairing is pending. Input forwarding is implemented and undergoing platform acceptance testing. Discovery and
-virtual displays remain future work. Legacy plaintext compatibility is opt-in in
+Windows/X11 virtual displays remain future work. Wayland extension is experimental. Legacy plaintext compatibility is opt-in in
 the viewer. See [secure connection instructions](docs/SECURE_CONNECTIONS.md). See [docs/STATUS.md](docs/STATUS.md).
 
 ## License
