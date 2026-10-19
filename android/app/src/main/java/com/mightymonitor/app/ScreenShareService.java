@@ -19,10 +19,12 @@ import java.util.Collections;
 /** Android consent/capture/codec adapter. Rust owns the screen-sharing server. */
 public final class ScreenShareService extends Service {
     public static final String STOP = "com.mightymonitor.STOP_SHARING";
-    public static volatile boolean sharing;
+    public static volatile boolean sharing, allowControl;
+    public static volatile int captureWidth, captureHeight;
     public static volatile String invitation = "";
     public static volatile String summary = "Not sharing";
     public static volatile long capturedFrames;
+    private static volatile ScreenShareService current;
     private HandlerThread thread;
     private Handler worker;
     private MediaProjection projection;
@@ -35,7 +37,7 @@ public final class ScreenShareService extends Service {
     private int bitrate = 4_000_000;
     private long lastKeyRequest;
     private MediaProjection.Callback projectionCallback;
-    @Override public void onCreate() { super.onCreate(); thread = new HandlerThread("mm-screen-capture"); thread.start(); worker = new Handler(thread.getLooper()); }
+    @Override public void onCreate() { super.onCreate(); current = this; thread = new HandlerThread("mm-screen-capture"); thread.start(); worker = new Handler(thread.getLooper()); }
     @Override public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || STOP.equals(intent.getAction())) { stopSelf(); return START_NOT_STICKY; }
         if (sharing) return START_NOT_STICKY;
@@ -45,6 +47,7 @@ public final class ScreenShareService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ScreenShareService.class).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, "sharing").setSmallIcon(android.R.drawable.presence_video_online).setContentTitle("Sharing your screen").setContentText("Tap Stop to end sharing").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION); else startForeground(1, notification);
+        allowControl = intent.getBooleanExtra("allowControl", false) && RemoteControlService.available();
         sharing = true; summary = "Starting sharing…"; capturedFrames = 0;
         int resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED);
         Intent permission = intent.getParcelableExtra("permission");
@@ -70,8 +73,11 @@ public final class ScreenShareService extends Service {
         // Honor available rate limits; configure() is the final compatibility check.
         if (capabilities.isSizeSupported(width, height)) fps = Math.max(1, Math.min(30, (int)Math.floor(capabilities.getSupportedFrameRatesFor(width, height).getUpper())));
         android.util.Log.i("MightyMonitor", "Capture " + width + "x" + height + " at " + fps + " fps");
+        captureWidth = width; captureHeight = height;
         host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
         invitation = NativeBridge.hostInvite(host, localAddress());
+        NativeBridge.allowHostControl(host, allowControl);
+        worker.post(drainInput);
         encoder.setCallback(new MediaCodec.Callback() {
             @Override public void onInputBufferAvailable(MediaCodec codec, int index) { }
             @Override public void onOutputBufferAvailable(MediaCodec codec, int index, MediaCodec.BufferInfo info) {
@@ -142,14 +148,28 @@ public final class ScreenShareService extends Service {
         }
         return output.toByteArray();
     }
+    public static void revokeControl() {
+        allowControl = false; RemoteControlService.stopInput();
+        ScreenShareService service = current;
+        if (service != null) service.worker.post(() -> {if (service.host != 0) NativeBridge.allowHostControl(service.host, false);});
+    }
+    private final Runnable drainInput = new Runnable() {
+        @Override public void run() {
+            if (closed || host == 0) return;
+            if (allowControl && !RemoteControlService.available()) {allowControl = false; NativeBridge.allowHostControl(host, false);}
+            for (int i = 0; i < 32; i++) {byte[] input = NativeBridge.pollHostInput(host); if (input == null) break; RemoteControlService.accept(input);}
+            worker.postDelayed(this, 16);
+        }
+    };
     public static String localAddress() {
         try { for (NetworkInterface network : Collections.list(NetworkInterface.getNetworkInterfaces())) for (InetAddress address : Collections.list(network.getInetAddresses())) if (address instanceof Inet4Address && address.isSiteLocalAddress() && !address.isLoopbackAddress()) return address.getHostAddress() + ":5000"; } catch (Exception ignored) { }
         return "Connect to Wi-Fi to see your address";
     }
     @Override public void onDestroy() {
-        sharing = false; invitation = "";
+        if (current == this) current = null;
+        sharing = false; allowControl = false; invitation = ""; RemoteControlService.stopInput();
         worker.post(() -> {
-            closed = true; worker.removeCallbacks(update);
+            closed = true; worker.removeCallbacks(update); worker.removeCallbacks(drainInput);
             if (projection != null && projectionCallback != null) projection.unregisterCallback(projectionCallback);
             if (display != null) display.release();
             if (encoder != null) { try { encoder.stop(); } catch (Exception ignored) {} encoder.release(); }

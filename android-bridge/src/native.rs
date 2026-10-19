@@ -322,3 +322,85 @@ pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_typeText(
     let text: String = text.into();
     dispatch_input(&mut env, id, mightymonitor_core::InputEvent::Text(text))
 }
+
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_allowHostControl(
+    _env: JNIEnv,
+    _: JClass,
+    id: jlong,
+    allowed: jboolean,
+) {
+    if let Some(host) = hosts().lock().unwrap_or_else(|e| e.into_inner()).get(&id) {
+        host.set_control_allowed(allowed != 0);
+    }
+}
+#[no_mangle]
+pub extern "system" fn Java_com_mightymonitor_app_NativeBridge_pollHostInput(
+    mut env: JNIEnv,
+    _: JClass,
+    id: jlong,
+) -> jbyteArray {
+    use mightymonitor_core::{InputEvent, MouseButton, TouchPhase};
+    let event = hosts()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(&id)
+        .and_then(ScreenHost::poll_input);
+    let Some(event) = event else {
+        return std::ptr::null_mut();
+    };
+    let mut data = Vec::new();
+    match event {
+        InputEvent::MouseMove { x, y } => {
+            data.push(1);
+            data.extend_from_slice(&x.to_le_bytes());
+            data.extend_from_slice(&y.to_le_bytes());
+        }
+        InputEvent::MouseButton { button, pressed } => data.extend_from_slice(&[
+            2,
+            match button {
+                MouseButton::Left => 0,
+                MouseButton::Right => 1,
+                MouseButton::Middle => 2,
+                MouseButton::Back => 3,
+                MouseButton::Forward => 4,
+            },
+            u8::from(pressed),
+        ]),
+        InputEvent::Touch { phase, x, y, .. } => {
+            data.extend_from_slice(&[
+                3,
+                match phase {
+                    TouchPhase::Start => 0,
+                    TouchPhase::Move => 1,
+                    TouchPhase::End => 2,
+                    TouchPhase::Cancel => 3,
+                },
+            ]);
+            data.extend_from_slice(&x.to_le_bytes());
+            data.extend_from_slice(&y.to_le_bytes());
+        }
+        InputEvent::Key { code, pressed } => {
+            data.push(4);
+            data.extend_from_slice(&code.to_le_bytes());
+            data.push(u8::from(pressed));
+        }
+        InputEvent::Text(text) => {
+            data.push(5);
+            data.extend_from_slice(text.as_bytes());
+        }
+        InputEvent::Scroll { dx, dy } => {
+            data.push(6);
+            data.extend_from_slice(&dx.to_le_bytes());
+            data.extend_from_slice(&dy.to_le_bytes());
+        }
+        InputEvent::ReleaseAll => data.push(7),
+    }
+    match env.byte_array_from_slice(&data) {
+        Ok(array) => array.into_raw(),
+        Err(error) => {
+            let _ = env.throw_new("java/lang/IllegalStateException", error.to_string());
+            std::ptr::null_mut()
+        }
+    }
+}

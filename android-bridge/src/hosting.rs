@@ -3,7 +3,7 @@ use crate::{
     socket::{Connection, FrameWriter},
     Error, FrameDecoder, Message, Role, PROTOCOL_VERSION,
 };
-use mightymonitor_core::{encode_stream_frame, Codec};
+use mightymonitor_core::{encode_stream_frame, Codec, InputEvent};
 use mightymonitor_security::{blocking, Invitation, ShareIdentity};
 use std::{
     collections::VecDeque,
@@ -25,6 +25,8 @@ struct Shared {
     queue: Mutex<VecDeque<Frame>>,
     stopped: Arc<AtomicBool>,
     connected: AtomicBool,
+    control_allowed: AtomicBool,
+    inputs: Mutex<VecDeque<InputEvent>>,
     need_keyframe: AtomicBool,
     bitrate: AtomicU32,
     status: Mutex<String>,
@@ -57,6 +59,8 @@ impl ScreenHost {
             queue: Mutex::new(VecDeque::new()),
             stopped: Arc::new(AtomicBool::new(false)),
             connected: AtomicBool::new(false),
+            control_allowed: AtomicBool::new(false),
+            inputs: Mutex::new(VecDeque::new()),
             need_keyframe: AtomicBool::new(true),
             bitrate: AtomicU32::new(4_000_000),
             status: Mutex::new("Ready to connect".into()),
@@ -90,6 +94,7 @@ impl ScreenHost {
                             .map_err(|e| -> Error { e.into() })
                             .and_then(|stream| serve(&state, stream, id, width, height, fps));
                             state.connected.store(false, Ordering::Relaxed);
+                            release_input(&state);
                             state
                                 .queue
                                 .lock()
@@ -150,6 +155,21 @@ impl ScreenHost {
         });
         true
     }
+    pub fn set_control_allowed(&self, allowed: bool) {
+        self.shared
+            .control_allowed
+            .store(allowed, Ordering::Release);
+        if !allowed {
+            release_input(&self.shared);
+        }
+    }
+    pub fn poll_input(&self) -> Option<InputEvent> {
+        self.shared
+            .inputs
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .pop_front()
+    }
     pub fn needs_keyframe(&self) -> bool {
         self.shared.connected.load(Ordering::Relaxed)
             && self.shared.need_keyframe.load(Ordering::Relaxed)
@@ -173,6 +193,11 @@ impl Drop for ScreenHost {
         }
     }
 }
+fn release_input(shared: &Shared) {
+    let mut inputs = shared.inputs.lock().unwrap_or_else(|e| e.into_inner());
+    inputs.clear();
+    inputs.push_back(InputEvent::ReleaseAll);
+}
 fn write_message(stream: &mut impl FrameWriter, message: Message) -> Result<(), Error> {
     let (kind, payload) = message.to_frame_parts()?;
     stream.write_frame(
@@ -195,6 +220,7 @@ fn serve(
     let start = Instant::now();
     let mut last_control = start;
     let mut acknowledged = false;
+    let mut controlling = false;
     let mut seq = 0_u64;
     let mut last_adjustment = start;
     while !shared.stopped.load(Ordering::Relaxed) {
@@ -214,6 +240,7 @@ fn serve(
                     let message = Message::from_frame_parts(frame.kind, &frame.payload)?;
                     last_control = Instant::now();
                     if !acknowledged {
+                        let supports_input = matches!(&message,Message::Hello{capabilities,..} if capabilities.iter().any(|c|c=="input-v1"));
                         let accepted = match message {
                             Message::Hello {
                                 proto_version: PROTOCOL_VERSION,
@@ -231,9 +258,19 @@ fn serve(
                         };
                         write_message(
                             &mut stream,
-                            Message::HelloAck {
-                                session_id: id,
-                                accepted,
+                            if supports_input {
+                                Message::HelloAckV2 {
+                                    session_id: id,
+                                    accepted,
+                                    control_available: shared
+                                        .control_allowed
+                                        .load(Ordering::Acquire),
+                                }
+                            } else {
+                                Message::HelloAck {
+                                    session_id: id,
+                                    accepted,
+                                }
                             },
                         )?;
                         if !accepted {
@@ -257,6 +294,38 @@ fn serve(
                         match message {
                             Message::Ping { nonce, t_send_us } => {
                                 write_message(&mut stream, Message::Pong { nonce, t_send_us })?
+                            }
+                            Message::ControlRequest { enabled } => {
+                                release_input(shared);
+                                controlling =
+                                    enabled && shared.control_allowed.load(Ordering::Acquire);
+                                write_message(
+                                    &mut stream,
+                                    Message::ControlStatus {
+                                        enabled: controlling,
+                                    },
+                                )?;
+                            }
+                            Message::Input(InputEvent::ReleaseAll) => release_input(shared),
+                            Message::Input(event)
+                                if controlling
+                                    && shared.control_allowed.load(Ordering::Acquire)
+                                    && event.validate() =>
+                            {
+                                let mut inputs =
+                                    shared.inputs.lock().unwrap_or_else(|e| e.into_inner());
+                                if matches!(event, InputEvent::ReleaseAll) {
+                                    inputs.clear();
+                                }
+                                if inputs.len() >= 64 {
+                                    drop(inputs);
+                                    release_input(shared);
+                                    return Err("Remote input queue is full".into());
+                                }
+                                inputs.push_back(event);
+                            }
+                            Message::Input(_) => {
+                                return Err("Remote input not authorized or invalid".into())
                             }
                             Message::Bye { .. } => return Ok(()),
                             Message::NetStats(stats) => {
@@ -290,6 +359,11 @@ fn serve(
                         | io::ErrorKind::Interrupted
                 ) => {}
             Err(e) => return Err(e.into()),
+        }
+        if controlling && !shared.control_allowed.load(Ordering::Acquire) {
+            controlling = false;
+            release_input(shared);
+            write_message(&mut stream, Message::ControlStatus { enabled: false })?;
         }
         if acknowledged {
             let frame = shared
@@ -365,6 +439,59 @@ mod tests {
         let start = Instant::now();
         drop(host);
         assert!(start.elapsed() < Duration::from_secs(1));
+    }
+    #[test]
+    fn phone_control_requires_consent_and_releases_on_revocation() {
+        let host = ScreenHost::start("127.0.0.1:0", 640, 480, 30).unwrap();
+        host.set_control_allowed(true);
+        let client =
+            crate::Client::connect(&host.invitation(host.address()).unwrap().to_link()).unwrap();
+        let deadline = Instant::now() + Duration::from_secs(3);
+        loop {
+            assert!(Instant::now() < deadline);
+            if let Some(event) = client.poll() {
+                if event == [6, 1, 0] {
+                    break;
+                }
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        client.request_control(true).unwrap();
+        loop {
+            assert!(Instant::now() < deadline);
+            if let Some(event) = client.poll() {
+                if event == [6, 1, 1] {
+                    break;
+                }
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        client.input(InputEvent::Text("test".into())).unwrap();
+        loop {
+            assert!(Instant::now() < deadline);
+            if let Some(InputEvent::Text(text)) = host.poll_input() {
+                assert_eq!(text, "test");
+                break;
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        host.set_control_allowed(false);
+        assert_eq!(host.poll_input(), Some(InputEvent::ReleaseAll));
+        loop {
+            assert!(Instant::now() < deadline);
+            if let Some(event) = client.poll() {
+                if event == [6, 1, 0] {
+                    break;
+                }
+            }
+            thread::sleep(Duration::from_millis(5));
+        }
+        assert!(client
+            .input(InputEvent::Key {
+                code: 4,
+                pressed: true
+            })
+            .is_err());
     }
     #[test]
     fn viewer_receives_config_keyframe_and_pong() {

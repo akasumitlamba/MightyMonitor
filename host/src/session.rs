@@ -113,6 +113,15 @@ pub async fn serve_with_input<E: HostEncoder>(
                 break;
             };
             let message = match message {
+                Message::Input(mightymonitor_core::InputEvent::ReleaseAll) => {
+                    if !reader_handshake.load(std::sync::atomic::Ordering::Acquire) {
+                        break;
+                    }
+                    if let Some(target) = input.as_mut() {
+                        target.0.release_all();
+                    }
+                    continue;
+                }
                 Message::Input(event) => {
                     if !reader_handshake.load(std::sync::atomic::Ordering::Acquire)
                         || !controlling

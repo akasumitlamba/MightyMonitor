@@ -34,9 +34,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private TextView status;
     private TextView emptyPreview;
     private EditText address;
-    private CheckBox trusted, viewControl;
+    private CheckBox trusted, viewControl, shareControl;
     private Button keyboard;
-    private boolean updatingControl;
+    private boolean updatingControl, remoteControlActive;
+    public boolean isRemoteControlActive() {return remoteControlActive;}
     private Button connect;
     private MediaCodec codec;
     private long handle;
@@ -73,6 +74,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         @Override public void run() {
             share.setText(ScreenShareService.sharing ? "Stop sharing" : "Share this screen");
             shareStatus.setText(ScreenShareService.summary);
+            shareControl.setEnabled(!ScreenShareService.sharing || ScreenShareService.allowControl);
+            if (ScreenShareService.sharing && !ScreenShareService.allowControl) shareControl.setChecked(false);
             handler.postDelayed(this, 500);
         }
     };
@@ -157,6 +160,16 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
             shareStatus.setText("Link copied");
         });
+        shareControl = new CheckBox(this); shareControl.setText("Allow remote control"); sharePage.addView(shareControl);
+        shareControl.setOnCheckedChangeListener((v, enabled) -> {
+            if (!enabled && ScreenShareService.sharing) ScreenShareService.revokeControl();
+            if (enabled && !RemoteControlService.available()) {
+                shareControl.setChecked(false);
+                new android.app.AlertDialog.Builder(this).setTitle("Enable phone control").setMessage("Enable MightyMonitor control in Android Accessibility settings. Control works only while you share your screen and allow it here.").setPositiveButton("Open settings", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))).setNegativeButton("Cancel", null).show();
+            }
+        });
+        Button keyboardSettings = new Button(this); keyboardSettings.setText("Remote keyboard"); styleButton(keyboardSettings, false); sharePage.addView(keyboardSettings);
+        keyboardSettings.setOnClickListener(v -> new android.app.AlertDialog.Builder(this).setTitle("Remote keyboard").setMessage("Optional: enable and select the MightyMonitor remote keyboard for full typing, shortcuts and password fields. You can switch back at any time.").setPositiveButton("Enable", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))).setNeutralButton("Select", (dialog, which) -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()).setNegativeButton("Cancel", null).show());
         share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
@@ -192,7 +205,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 200 && result == RESULT_OK && data != null) {
-            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data);
+            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked());
             startForegroundService(service);
         } else if (request == 200) shareStatus.setText("Sharing cancelled");
     }
@@ -221,7 +234,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         if (event.length == 0) throw new IllegalArgumentException("Empty network event");
         if (event[0] == 6) {
             if (event.length != 3) throw new IllegalArgumentException("Invalid control status");
-            updatingControl = true; viewControl.setVisibility(event[1] != 0 ? View.VISIBLE : View.GONE); viewControl.setChecked(event[2] != 0); keyboard.setVisibility(event[2] != 0 ? View.VISIBLE : View.GONE); updatingControl = false; return;
+            remoteControlActive = event[2] != 0; updatingControl = true; viewControl.setVisibility(event[1] != 0 ? View.VISIBLE : View.GONE); viewControl.setChecked(event[2] != 0); keyboard.setVisibility(event[2] != 0 ? View.VISIBLE : View.GONE); updatingControl = false; return;
         }
         if (event[0] == 5) { disconnect(new String(event, 1, event.length - 1, StandardCharsets.UTF_8)); return; }
         if (event[0] == 1 || event[0] == 4) {
@@ -281,6 +294,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         if (codec != null) { try { codec.stop(); } catch (IllegalStateException ignored) {} codec.release(); codec = null; }
     }
     private void disconnect(String message) {
+        remoteControlActive = false;
         if (viewControl != null) {updatingControl = true; viewControl.setChecked(false); viewControl.setVisibility(View.GONE); keyboard.setVisibility(View.GONE); updatingControl = false;}
         handler.removeCallbacks(pump);
         long previous = handle; handle = 0;

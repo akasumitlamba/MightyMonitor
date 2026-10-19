@@ -248,8 +248,8 @@ impl<D: Decoder> ViewerSession<D> {
                     let (connected,controlling,epoch)={let out=self.output.lock().unwrap_or_else(|e|e.into_inner());(out.state==State::Connected,out.controlling,out.control_epoch)};
                     if command.generation!=epoch {continue;}
                     match command.action {
-                        ControlAction::Control(enabled) if connected && control_available => {controls.try_send((epoch,Message::ControlRequest {enabled}))?;},
-                        ControlAction::Input(event) if connected && controlling && event.validate()=>{controls.try_send((epoch,Message::Input(event)))?;},
+                        ControlAction::Control(enabled) if connected && control_available => {if !enabled {self.output.lock().unwrap_or_else(|e|e.into_inner()).controlling=false;} controls.try_send((epoch,Message::ControlRequest {enabled}))?;},
+                        ControlAction::Input(event) if connected && (controlling || matches!(event,InputEvent::ReleaseAll)) && event.validate()=>{controls.try_send((epoch,Message::Input(event)))?;},
                         _=>{},
                     }
                 }

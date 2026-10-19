@@ -358,7 +358,14 @@ fn connection(
                     }
                     configured = true;
                     need_keyframe = true;
-                    if !shared.text(1, "Connected — view only") {
+                    if !shared.text(
+                        1,
+                        if shared.control_available.load(Ordering::Acquire) {
+                            "Connected"
+                        } else {
+                            "Connected — view only"
+                        },
+                    ) {
                         break;
                     }
                 }
