@@ -100,8 +100,10 @@ jobs:
             # The shipped app never writes these settings and always requires the user's system grant.
             adb shell settings put secure enabled_accessibility_services com.mightymonitor.app/.RemoteControlService
             adb shell settings put secure accessibility_enabled 1
-            adb shell ime enable com.mightymonitor.app/.RemoteKeyboardService
-            adb shell ime set com.mightymonitor.app/.RemoteKeyboardService
+            adb logcat -d > /tmp/mm-ime-install-logcat.log
+            for i in $(seq 1 60); do adb shell ime list -a -s | grep -F RemoteKeyboardService && break; sleep 1; done
+            adb shell dumpsys input_method > /tmp/mm-input-methods.log
+            component=$(adb shell ime list -a -s | tr -d '\r' | grep -F RemoteKeyboardService | head -n 1); test -n "$component" && adb shell ime enable "$component" && adb shell ime set "$component"
             adb forward tcp:5001 tcp:5000
             adb shell run-as com.mightymonitor.app mkdir -p files
             sed -n 's|^MM_INVITE mightymonitor://127.0.0.1:5000/|mightymonitor://10.0.2.2:5000/|p' /tmp/mm-pc-invitation-private | adb shell run-as com.mightymonitor.app tee files/pc-invitation > /dev/null
@@ -125,4 +127,6 @@ jobs:
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
             /tmp/mm-android-logcat.log
+            /tmp/mm-ime-install-logcat.log
+            /tmp/mm-input-methods.log
             /tmp/mm-screenshots
