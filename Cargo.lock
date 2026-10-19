@@ -2114,6 +2114,7 @@ dependencies = [
  "mightymonitor-viewer",
  "socket2",
  "tokio",
+ "x11rb",
 ]
 
 [[package]]

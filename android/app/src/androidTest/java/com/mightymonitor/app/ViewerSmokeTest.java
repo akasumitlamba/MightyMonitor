@@ -11,6 +11,9 @@ import org.junit.runner.RunWith;
 import static org.junit.Assert.assertTrue;
 @RunWith(AndroidJUnit4.class)
 public final class ViewerSmokeTest {
+    @org.junit.Before public void preserveAccessibilityService() {
+        androidx.test.uiautomator.Configurator.getInstance().setUiAutomationFlags(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES);
+    }
     @Rule public ActivityTestRule<MainActivity> activity = new ActivityTestRule<>(MainActivity.class);
     @Test public void decodesRealDesktopH264ThroughRustProtocol() throws Exception {
         MainActivity app = activity.getActivity();
@@ -136,7 +139,7 @@ public final class ViewerSmokeTest {
     }
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
+        android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();
         java.io.File directory = new java.io.File(activity.getActivity().getFilesDir(), "screenshots"); directory.mkdirs();
         try (java.io.FileOutputStream output = new java.io.FileOutputStream(new java.io.File(directory, name + ".png"))) { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output); }
         bitmap.recycle();
