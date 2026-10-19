@@ -68,9 +68,21 @@ pub async fn serve<E: HostEncoder>(
 /// before capture/session creation. This does not authorize remote input.
 pub async fn serve_transport<E: HostEncoder>(
     transport: Box<dyn Transport>,
-    mut pipeline: Pipeline<E>,
+    pipeline: Pipeline<E>,
     config: SessionConfig,
 ) -> Result<(), Error> {
+    serve_with_input(transport, pipeline, config, None).await
+}
+/// The caller must authenticate the peer and obtain local control consent before
+/// supplying an input target. Each connection starts without an input grant.
+pub async fn serve_with_input<E: HostEncoder>(
+    transport: Box<dyn Transport>,
+    mut pipeline: Pipeline<E>,
+    config: SessionConfig,
+    input: Option<Box<dyn crate::input::InputTarget>>,
+) -> Result<(), Error> {
+    let control_available = input.is_some();
+    let input = input.map(crate::input::InputLease);
     let mut session = ReconnectingSession::new(
         Accepted(Some(transport)),
         config.session_id,
@@ -79,13 +91,68 @@ pub async fn serve_transport<E: HostEncoder>(
     );
     session.connect_initial().await?;
     let (mut reader, mut writer) = session.split();
-    let (tx, mut controls) = mpsc::channel(8);
+    let (tx, mut controls) = mpsc::channel(128);
     let activity = Arc::new(Mutex::new(tokio::time::Instant::now()));
     let reader_activity = activity.clone();
+    let handshake = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let reader_handshake = handshake.clone();
+    let disconnected = Arc::new(tokio::sync::Notify::new());
+    let reader_closed = disconnected.clone();
     let _reader_task = ReaderTask(tokio::spawn(async move {
+        struct Closed(Arc<tokio::sync::Notify>);
+        impl Drop for Closed {
+            fn drop(&mut self) {
+                self.0.notify_one();
+            }
+        }
+        let _closed = Closed(reader_closed);
+        let mut input = input;
+        let mut controlling = false;
         while let Ok(frame) = reader.recv().await {
             let Ok(message) = Message::from_frame_parts(frame.kind, &frame.payload) else {
                 break;
+            };
+            let message = match message {
+                Message::Input(mightymonitor_core::InputEvent::ReleaseAll) => {
+                    if !reader_handshake.load(std::sync::atomic::Ordering::Acquire) {
+                        break;
+                    }
+                    if let Some(target) = input.as_mut() {
+                        target.0.release_all();
+                    }
+                    continue;
+                }
+                Message::Input(event) => {
+                    if !reader_handshake.load(std::sync::atomic::Ordering::Acquire)
+                        || !controlling
+                        || !event.validate()
+                    {
+                        break;
+                    }
+                    if input
+                        .as_mut()
+                        .is_none_or(|target| target.0.apply(&event).is_err())
+                    {
+                        break;
+                    }
+                    tokio::task::yield_now().await;
+                    continue;
+                }
+                Message::ControlRequest { enabled } => {
+                    if !reader_handshake.load(std::sync::atomic::Ordering::Acquire) {
+                        break;
+                    }
+                    if let Some(target) = input.as_mut() {
+                        target.0.deactivate();
+                    }
+                    controlling =
+                        enabled && input.as_mut().is_some_and(|target| target.0.activate());
+                    Message::ControlStatus {
+                        enabled: controlling,
+                    }
+                }
+                Message::ControlStatus { .. } => break,
+                other => other,
             };
             *reader_activity.lock().unwrap_or_else(|e| e.into_inner()) =
                 tokio::time::Instant::now();
@@ -100,6 +167,7 @@ pub async fn serve_transport<E: HostEncoder>(
         .await?
         .ok_or("viewer closed during handshake")?;
     let mut seq = 0;
+    let supports_input = matches!(&first, Message::Hello {capabilities,..} if capabilities.iter().any(|c| c == "input-v1"));
     let accepted = match first {
         Message::Hello {
             proto_version,
@@ -117,9 +185,17 @@ pub async fn serve_transport<E: HostEncoder>(
     };
     send(
         &mut writer,
-        Message::HelloAck {
-            session_id: config.session_id,
-            accepted,
+        if supports_input {
+            Message::HelloAckV2 {
+                session_id: config.session_id,
+                accepted,
+                control_available,
+            }
+        } else {
+            Message::HelloAck {
+                session_id: config.session_id,
+                accepted,
+            }
         },
         config.write_timeout,
     )
@@ -138,10 +214,14 @@ pub async fn serve_transport<E: HostEncoder>(
         config.write_timeout,
     )
     .await?;
+    handshake.store(true, std::sync::atomic::Ordering::Release);
     let mut force = true;
     *activity.lock().unwrap_or_else(|e| e.into_inner()) = tokio::time::Instant::now();
     loop {
-        while let Ok(message) = controls.try_recv() {
+        for _ in 0..64 {
+            let Ok(message) = controls.try_recv() else {
+                break;
+            };
             match message {
                 Message::Ping { nonce, t_send_us } => {
                     send(
@@ -160,6 +240,14 @@ pub async fn serve_transport<E: HostEncoder>(
                     if let Err(error) = pipeline.on_stats(&stats) {
                         eprintln!("mm-host: {error}");
                     }
+                }
+                Message::ControlStatus { enabled } => {
+                    send(
+                        &mut writer,
+                        Message::ControlStatus { enabled },
+                        config.write_timeout,
+                    )
+                    .await?
                 }
                 Message::Bye { .. } => return Ok(()),
                 Message::Pong { .. } => {}
@@ -180,7 +268,8 @@ pub async fn serve_transport<E: HostEncoder>(
                 if tokio::time::Instant::now() >= deadline {
                     return Err("viewer idle timeout".into());
                 }
-                match tokio::time::timeout_at(deadline, &mut next).await {
+                let result = tokio::select! { _=disconnected.notified()=>return Err("viewer disconnected".into()), result=tokio::time::timeout_at(deadline,&mut next)=>result };
+                match result {
                     Ok(result) => break result?,
                     Err(_) => continue, // Reader may have renewed the deadline.
                 }

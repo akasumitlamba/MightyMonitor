@@ -2,7 +2,7 @@ name: Build Windows installer
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/wayland-sharing', 'codex/windows-installer', main]
+    branches: ['codex/wayland-sharing', 'codex/windows-installer', 'codex/remote-control', main]
     paths: ['packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
 permissions:
   contents: read

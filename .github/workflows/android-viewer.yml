@@ -2,7 +2,7 @@ name: Build and test Android viewer
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing']
+    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control']
     paths: ['security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
     paths: ['security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
@@ -96,16 +96,24 @@ jobs:
           script: |
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
+            # Isolated emulator acceptance: preauthorize only our test service/IME.
+            # The shipped app never writes these settings and always requires the user's system grant.
+            # Grant accessibility inside instrumentation after its process restart.
+            # Prebinding here makes Android 10/11 mark the service crashed.
+            adb logcat -d > /tmp/mm-ime-install-logcat.log
+            for i in $(seq 1 60); do adb shell ime list -a -s | grep -F RemoteKeyboardService && break; sleep 1; done
+            adb shell dumpsys input_method > /tmp/mm-input-methods.log
+            component=$(adb shell ime list -a -s | tr -d '\r' | grep -F RemoteKeyboardService | head -n 1); test -n "$component" && adb shell ime enable "$component" && adb shell ime set "$component"
             adb forward tcp:5001 tcp:5000
             adb shell run-as com.mightymonitor.app mkdir -p files
             sed -n 's|^MM_INVITE mightymonitor://127.0.0.1:5000/|mightymonitor://10.0.2.2:5000/|p' /tmp/mm-pc-invitation-private | adb shell run-as com.mightymonitor.app tee files/pc-invitation > /dev/null
             (umask 077; for i in $(seq 1 900); do adb exec-out run-as com.mightymonitor.app cat files/share-invitation > /tmp/mm-phone-invitation-private 2>/dev/null; grep -q '^mightymonitor://' /tmp/mm-phone-invitation-private && break; sleep .2; done; ./target/release/examples/receive_smoke --invitation-file /tmp/mm-phone-invitation-private --via 127.0.0.1:5001 && adb shell run-as com.mightymonitor.app touch files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
-            adb shell am instrument -e desktopInterop true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
+            adb shell am instrument -e desktopInterop true -e remoteControlTest true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
             adb logcat -d > /tmp/mm-android-logcat.log
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
             tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
-            grep -q 'OK (2 tests)' /tmp/mm-android-test.log
+            grep -q 'OK (3 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
         run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true
@@ -119,4 +127,6 @@ jobs:
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
             /tmp/mm-android-logcat.log
+            /tmp/mm-ime-install-logcat.log
+            /tmp/mm-input-methods.log
             /tmp/mm-screenshots

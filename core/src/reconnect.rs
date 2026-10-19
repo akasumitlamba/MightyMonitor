@@ -610,6 +610,10 @@ impl<C: Connector, J: JitterSource> SessionReader<C, J> {
     }
 }
 impl SessionWriter {
+    /// Changes on reconnect; applications can discard stale interactive commands.
+    pub fn generation(&self) -> u64 {
+        self.shared.lock().unwrap().generation
+    }
     /// Inspect the shared connection lifecycle.
     pub fn state(&self) -> SessionState {
         self.shared.lock().unwrap().state

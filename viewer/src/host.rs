@@ -1,7 +1,7 @@
 //! Lifecycle for the optional sibling host executable. Never invokes a shell.
 use std::{
     fs::{File, OpenOptions},
-    io::{self, BufRead, BufReader, Read, Seek, SeekFrom},
+    io::{self, BufRead, BufReader, Read, Seek, SeekFrom, Write},
     net::SocketAddr,
     path::PathBuf,
     process::{Child, Command, Stdio},
@@ -18,6 +18,14 @@ pub struct HostProcess {
 }
 impl HostProcess {
     pub fn start(address: &str, fps: u32, bitrate: u32) -> io::Result<Self> {
+        Self::start_with_control(address, fps, bitrate, false)
+    }
+    pub fn start_with_control(
+        address: &str,
+        fps: u32,
+        bitrate: u32,
+        allow_control: bool,
+    ) -> io::Result<Self> {
         if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
                 "Screen sharing currently requires Linux or Windows.",
@@ -36,6 +44,7 @@ impl HostProcess {
         let mut command = Command::new(binary);
         command.args([
             "--secure",
+            "--managed",
             "--bind",
             address,
             "--fps",
@@ -43,6 +52,9 @@ impl HostProcess {
             "--bitrate",
             &bitrate.to_string(),
         ]);
+        if allow_control {
+            command.arg("--allow-control");
+        }
         Self::spawn(command)
     }
     fn spawn(mut command: Command) -> io::Result<Self> {
@@ -67,7 +79,7 @@ impl HostProcess {
         }
         let log = options.open(&log_path)?;
         let spawned = command
-            .stdin(Stdio::null())
+            .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(OpenOptions::new().append(true).open(&log_path)?)
             .spawn();
@@ -140,6 +152,14 @@ impl HostProcess {
 }
 impl Drop for HostProcess {
     fn drop(&mut self) {
+        if let Some(mut input) = self.child.stdin.take() {
+            let _ = input.write_all(b"STOP\n");
+        }
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+        while self.child.try_wait().ok().flatten().is_none() && std::time::Instant::now() < deadline
+        {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         let _ = self.child.kill();
         let _ = self.child.wait();
         if let Some(worker) = self.invitation_worker.take() {

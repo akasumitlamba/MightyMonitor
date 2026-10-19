@@ -2,7 +2,7 @@
 //! Java is limited to platform UI/MediaCodec; no screen protocol is reimplemented there.
 #![deny(unsafe_op_in_unsafe_fn)]
 use mightymonitor_core::{
-    encode_stream_frame, Codec, FrameDecoder, Message, NetStats, Role, PROTOCOL_VERSION,
+    encode_stream_frame, Codec, FrameDecoder, InputEvent, Message, NetStats, Role, PROTOCOL_VERSION,
 };
 use std::{
     collections::VecDeque,
@@ -27,6 +27,9 @@ const QUEUE_CAPACITY: usize = 3;
 struct Shared {
     events: Mutex<VecDeque<Vec<u8>>>,
     stopped: Arc<AtomicBool>,
+    commands: Mutex<VecDeque<Message>>,
+    control_available: AtomicBool,
+    controlling: AtomicBool,
 }
 impl Shared {
     fn emit(&self, mut event: Vec<u8>) -> bool {
@@ -65,6 +68,9 @@ impl Client {
         let shared = Arc::new(Shared {
             events: Mutex::new(VecDeque::new()),
             stopped: Arc::new(AtomicBool::new(false)),
+            commands: Mutex::new(VecDeque::new()),
+            control_available: AtomicBool::new(false),
+            controlling: AtomicBool::new(false),
         });
         let worker_shared = shared.clone();
         let worker = thread::Builder::new()
@@ -77,6 +83,39 @@ impl Client {
     }
     /// Events: 1=UTF-8 status, 2=width/height/fps LE u32, 3=pts LE u64,
     /// keyframe byte and Annex-B H.264; 4=UTF-8 recoverable error, 5=fatal authentication error. Video order is preserved.
+    fn command(&self, message: Message) -> io::Result<()> {
+        let mut commands = self
+            .shared
+            .commands
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if commands.len() >= 64 {
+            return Err(io::Error::new(
+                io::ErrorKind::WouldBlock,
+                "Remote input queue is full",
+            ));
+        }
+        commands.push_back(message);
+        Ok(())
+    }
+    pub fn request_control(&self, enabled: bool) -> io::Result<()> {
+        if !self.shared.control_available.load(Ordering::Acquire) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "The sharing device has not allowed control",
+            ));
+        }
+        self.command(Message::ControlRequest { enabled })
+    }
+    pub fn input(&self, event: InputEvent) -> io::Result<()> {
+        if !event.validate() || !self.shared.controlling.load(Ordering::Acquire) {
+            return Err(io::Error::new(
+                io::ErrorKind::PermissionDenied,
+                "Remote control is not active",
+            ));
+        }
+        self.command(Message::Input(event))
+    }
     pub fn poll(&self) -> Option<Vec<u8>> {
         self.shared
             .events
@@ -134,12 +173,23 @@ fn run(shared: Arc<Shared>, address: Endpoint) {
                 );
                 return;
             }
+            shared.controlling.store(false, Ordering::Release);
+            shared
+                .commands
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clear();
             // A replacement stream always starts from a fresh config + IDR.
             shared
                 .events
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .clear();
+            shared.emit(vec![
+                6,
+                u8::from(shared.control_available.load(Ordering::Acquire)),
+                0,
+            ]);
             shared.text(4, &format!("{error}. Retrying…"));
         }
         for _ in 0..50 {
@@ -156,6 +206,15 @@ fn connection(
     session_id: &mut Option<u64>,
     last_seq: &mut u64,
 ) -> Result<(), Error> {
+    let resumed_control = shared.control_available.load(Ordering::Acquire);
+    shared.control_available.store(false, Ordering::Release);
+    shared.controlling.store(false, Ordering::Release);
+    shared
+        .commands
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+    shared.emit(vec![6, 0, 0]);
     let stream = TcpStream::connect_timeout(&address.address(), Duration::from_secs(2))?;
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(Duration::from_millis(100)))?;
@@ -177,7 +236,7 @@ fn connection(
             proto_version: PROTOCOL_VERSION,
             device_name: "MightyMonitor Android".into(),
             role: Role::Viewer,
-            capabilities: vec!["h264".into()],
+            capabilities: vec!["h264".into(), "input-v1".into()],
         },
     };
     send(&mut stream, first)?;
@@ -194,6 +253,19 @@ fn connection(
     let mut pending_ping = None;
     let mut rtt_ms = 0;
     while !shared.stopped.load(Ordering::Relaxed) {
+        for _ in 0..32 {
+            let command = shared
+                .commands
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .pop_front();
+            let Some(command) = command else { break };
+            // Do not replay commands that were queued for a revoked connection.
+            if matches!(command, Message::Input(_)) && !shared.controlling.load(Ordering::Acquire) {
+                continue;
+            }
+            send(&mut stream, command)?;
+        }
         if (!configured && start.elapsed() > Duration::from_secs(5))
             || last_message.elapsed() > Duration::from_secs(15)
         {
@@ -231,6 +303,29 @@ fn connection(
                 } if !acknowledged => {
                     *session_id = Some(id);
                     acknowledged = true;
+                    shared
+                        .control_available
+                        .store(resumed_control, Ordering::Release);
+                    shared.emit(vec![6, u8::from(resumed_control), 0]);
+                }
+                Message::HelloAckV2 {
+                    accepted: true,
+                    session_id: id,
+                    control_available,
+                } if !acknowledged => {
+                    *session_id = Some(id);
+                    acknowledged = true;
+                    let control_available = control_available && address.is_secure();
+                    shared
+                        .control_available
+                        .store(control_available, Ordering::Release);
+                    shared.emit(vec![6, u8::from(control_available), 0]);
+                }
+                Message::ControlStatus { enabled }
+                    if acknowledged && shared.control_available.load(Ordering::Acquire) =>
+                {
+                    shared.controlling.store(enabled, Ordering::Release);
+                    shared.emit(vec![6, 1, u8::from(enabled)]);
                 }
                 Message::HelloAck {
                     accepted: false, ..
@@ -264,7 +359,14 @@ fn connection(
                     }
                     configured = true;
                     need_keyframe = true;
-                    if !shared.text(1, "Connected — view only") {
+                    if !shared.text(
+                        1,
+                        if shared.control_available.load(Ordering::Acquire) {
+                            "Connected"
+                        } else {
+                            "Connected — view only"
+                        },
+                    ) {
                         break;
                     }
                 }
@@ -342,6 +444,9 @@ mod tests {
         let shared = Arc::new(Shared {
             events: Mutex::new(VecDeque::from([vec![1], vec![1], vec![1]])),
             stopped: Arc::new(AtomicBool::new(false)),
+            commands: Mutex::new(VecDeque::new()),
+            control_available: AtomicBool::new(false),
+            controlling: AtomicBool::new(false),
         });
         let worker_shared = shared.clone();
         let worker = thread::spawn(move || worker_shared.emit(vec![3; 1024]));

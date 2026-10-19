@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Platform UI and video decoding only. The screen-sharing protocol lives in Rust. */
 public final class MainActivity extends Activity implements SurfaceHolder.Callback {
-    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106;
+    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106, CONTROL_ID = 107, SHARE_CONTROL_ID = 108, VIDEO_ID = 109;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService cleanup = Executors.newSingleThreadExecutor();
     private final AtomicInteger renderedFrames = new AtomicInteger();
@@ -34,7 +34,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private TextView status;
     private TextView emptyPreview;
     private EditText address;
-    private CheckBox trusted;
+    private CheckBox trusted, viewControl, shareControl;
+    private Button keyboard;
+    private boolean updatingControl, remoteControlActive;
+    public boolean isRemoteControlActive() {return remoteControlActive;}
     private Button connect;
     private MediaCodec codec;
     private long handle;
@@ -71,6 +74,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         @Override public void run() {
             share.setText(ScreenShareService.sharing ? "Stop sharing" : "Share this screen");
             shareStatus.setText(ScreenShareService.summary);
+            shareControl.setEnabled(!ScreenShareService.sharing || ScreenShareService.allowControl);
+            if (ScreenShareService.sharing && !ScreenShareService.allowControl) shareControl.setChecked(false);
             handler.postDelayed(this, 500);
         }
     };
@@ -106,8 +111,39 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         connect = new Button(this); connect.setId(CONNECT_ID); connect.setText("Connect"); connect.setEnabled(false); styleButton(connect, true); connect.setOnClickListener(v -> { if (handle != 0) disconnect("Not connected"); else startViewing(); });
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
         viewPage.addView(buttons);
+        LinearLayout controlBar = new LinearLayout(this);
+        viewControl = new CheckBox(this); viewControl.setId(CONTROL_ID); viewControl.setText("Control"); viewControl.setVisibility(View.GONE); controlBar.addView(viewControl);
+        keyboard = new Button(this); keyboard.setText("Keyboard"); styleButton(keyboard, false); keyboard.setVisibility(View.GONE); controlBar.addView(keyboard); viewPage.addView(controlBar);
+        viewControl.setOnCheckedChangeListener((v, enabled) -> { if (!updatingControl && handle != 0) { try { NativeBridge.requestControl(handle, enabled); } catch (Exception error) { disconnect(error.getMessage()); } } });
+        keyboard.setOnClickListener(v -> {
+            EditText text = new EditText(this); text.setHint("Type on the other device"); text.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(1024)});
+            new android.app.AlertDialog.Builder(this).setTitle("Keyboard").setView(text).setPositiveButton("Type", (dialog, which) -> {
+                try { if (handle != 0 && text.length() > 0) NativeBridge.typeText(handle, text.getText().toString()); } catch (Exception error) { disconnect(error.getMessage()); }
+            }).setNeutralButton("Enter", (dialog, which) -> { try { if (handle != 0) {NativeBridge.key(handle,40,true);NativeBridge.key(handle,40,false);} } catch (Exception error) {disconnect(error.getMessage());} }).setNegativeButton("Cancel", null).show();
+        });
         status = text("Not connected", 14, Color.rgb(61, 91, 77)); status.setPadding(0, dp(8), 0, dp(8)); viewPage.addView(status);
-        video = new SurfaceView(this); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
+        video = new SurfaceView(this); video.setId(VIDEO_ID); video.getHolder().addCallback(this); video.setBackgroundColor(Color.BLACK);
+        video.setFocusableInTouchMode(true);
+        video.setOnFocusChangeListener((v, focused) -> {if (!focused && handle != 0 && remoteControlActive) {try {NativeBridge.releaseInput(handle);} catch (Exception error) {disconnect(error.getMessage());}}});
+        video.setOnTouchListener((v, event) -> {
+            if (handle == 0 || !viewControl.isChecked()) return false;
+            int action = event.getActionMasked(); int phase;
+            if (action == android.view.MotionEvent.ACTION_DOWN) {phase = 0; video.requestFocus();}
+            else if (action == android.view.MotionEvent.ACTION_MOVE) phase = 1;
+            else if (action == android.view.MotionEvent.ACTION_UP) phase = 2;
+            else if (action == android.view.MotionEvent.ACTION_CANCEL) phase = 3;
+            else return true;
+            try { NativeBridge.pointer(handle, Math.max(0, Math.min(1, event.getX() / Math.max(1, video.getWidth()))), Math.max(0, Math.min(1, event.getY() / Math.max(1, video.getHeight()))), phase); }
+            catch (Exception error) { disconnect(error.getMessage()); }
+            if (action == android.view.MotionEvent.ACTION_UP) v.performClick();
+            return true;
+        });
+        video.setOnKeyListener((v, code, event) -> {
+            if (handle == 0 || !viewControl.isChecked()) return false;
+            int hid = androidKey(code); if (hid == 0) return false;
+            try { NativeBridge.key(handle, hid, event.getAction() == android.view.KeyEvent.ACTION_DOWN); } catch (Exception error) {disconnect(error.getMessage());}
+            return true;
+        });
         video.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fitVideo());
         android.widget.FrameLayout viewport = new android.widget.FrameLayout(this);
         viewport.addView(video, new android.widget.FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
@@ -125,6 +161,16 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             getSystemService(android.content.ClipboardManager.class).setPrimaryClip(clip);
             shareStatus.setText("Link copied");
         });
+        shareControl = new CheckBox(this); shareControl.setId(SHARE_CONTROL_ID); shareControl.setText("Allow remote control"); sharePage.addView(shareControl);
+        shareControl.setOnCheckedChangeListener((v, enabled) -> {
+            if (!enabled && ScreenShareService.sharing) ScreenShareService.revokeControl();
+            if (enabled && !RemoteControlService.available()) {
+                shareControl.setChecked(false);
+                new android.app.AlertDialog.Builder(this).setTitle("Enable phone control").setMessage("Enable MightyMonitor control in Android Accessibility settings. Control works only while you share your screen and allow it here.").setPositiveButton("Open settings", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))).setNegativeButton("Cancel", null).show();
+            }
+        });
+        Button keyboardSettings = new Button(this); keyboardSettings.setText("Remote keyboard"); styleButton(keyboardSettings, false); sharePage.addView(keyboardSettings);
+        keyboardSettings.setOnClickListener(v -> new android.app.AlertDialog.Builder(this).setTitle("Remote keyboard").setMessage("Optional: enable and select the MightyMonitor remote keyboard for full typing, shortcuts and password fields. You can switch back at any time.").setPositiveButton("Enable", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))).setNeutralButton("Select", (dialog, which) -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()).setNegativeButton("Cancel", null).show());
         share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
@@ -160,7 +206,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 200 && result == RESULT_OK && data != null) {
-            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data);
+            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked());
             startForegroundService(service);
         } else if (request == 200) shareStatus.setText("Sharing cancelled");
     }
@@ -180,8 +226,17 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             handler.post(pump);
         } catch (Exception | UnsatisfiedLinkError error) { disconnect("Cannot connect: " + error.getMessage()); }
     }
+    private static int androidKey(int code) {
+        if (code >= 29 && code <= 54) return code - 29 + 4;
+        if (code == 7) return 39; if (code >= 8 && code <= 16) return code - 8 + 30;
+        switch (code) { case 66:return 40;case 111:return 41;case 67:return 42;case 61:return 43;case 62:return 44;case 19:return 82;case 20:return 81;case 21:return 80;case 22:return 79;case 113:case 114:return 224;case 59:case 60:return 225;case 57:case 58:return 226;case 117:case 118:return 227;default:return 0;}
+    }
     private void consume(byte[] event) throws Exception {
         if (event.length == 0) throw new IllegalArgumentException("Empty network event");
+        if (event[0] == 6) {
+            if (event.length != 3) throw new IllegalArgumentException("Invalid control status");
+            remoteControlActive = event[2] != 0; updatingControl = true; viewControl.setVisibility(event[1] != 0 ? View.VISIBLE : View.GONE); viewControl.setChecked(event[2] != 0); keyboard.setVisibility(event[2] != 0 ? View.VISIBLE : View.GONE); updatingControl = false; return;
+        }
         if (event[0] == 5) { disconnect(new String(event, 1, event.length - 1, StandardCharsets.UTF_8)); return; }
         if (event[0] == 1 || event[0] == 4) {
             status.setText(new String(event, 1, event.length - 1, StandardCharsets.UTF_8));
@@ -240,6 +295,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         if (codec != null) { try { codec.stop(); } catch (IllegalStateException ignored) {} codec.release(); codec = null; }
     }
     private void disconnect(String message) {
+        remoteControlActive = false;
+        if (viewControl != null) {updatingControl = true; viewControl.setChecked(false); viewControl.setVisibility(View.GONE); keyboard.setVisibility(View.GONE); updatingControl = false;}
         handler.removeCallbacks(pump);
         long previous = handle; handle = 0;
         if (previous != 0) cleanup.execute(() -> NativeBridge.disconnect(previous));

@@ -12,3 +12,8 @@ pub use capture_pipewire::{PipeWireCapture, PipeWireError};
 
 pub mod shared_capture;
 pub use shared_capture::{SharedCapture, SharedViewer};
+
+#[cfg(any(feature = "pipewire", test))]
+pub mod portal_input;
+#[cfg(feature = "pipewire")]
+pub use portal_input::PortalInput;

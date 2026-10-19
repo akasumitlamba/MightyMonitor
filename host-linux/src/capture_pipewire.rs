@@ -75,11 +75,20 @@ mod native {
         frames: mpsc::Receiver<CapturedFrame>,
         stop: Arc<AtomicBool>,
         worker: Option<JoinHandle<()>>,
+        input: crate::PortalInput,
     }
 
     impl PipeWireCapture {
         /// Blocks for the portal consent dialog. Call outside UI/async executor threads.
         pub fn open() -> Result<Self, PipeWireError> {
+            Self::open_with_control(false)
+        }
+        pub fn input(&self) -> Option<crate::PortalInput> {
+            self.input.available().then(|| self.input.clone())
+        }
+        pub fn open_with_control(allow_control: bool) -> Result<Self, PipeWireError> {
+            let input = crate::PortalInput::new();
+            let worker_input = input.clone();
             let (ready_tx, ready_rx) = mpsc::sync_channel(1);
             let (frames_tx, frames) = mpsc::sync_channel(1);
             let stop = Arc::new(AtomicBool::new(false));
@@ -91,6 +100,30 @@ mod native {
                         .build()?;
                     runtime.block_on(async {
                         let portal = Screencast::new().await?;
+                        if allow_control {
+                            use ashpd::desktop::remote_desktop::{RemoteDesktop,DeviceType};
+                            let remote=RemoteDesktop::new().await?;
+                            let session=remote.create_session().await?;
+                            let result=async {
+                                let closed=session.receive_closed().await?;let mut closed=std::pin::pin!(closed);
+                                let modes=portal.available_cursor_modes().await?;let cursor=if modes.contains(CursorMode::Embedded){CursorMode::Embedded}else{CursorMode::Hidden};
+                                portal.select_sources(&session,cursor,SourceType::Monitor.into(),false,None,PersistMode::DoNot).await?.response()?;
+                                remote.select_devices(&session,DeviceType::Keyboard|DeviceType::Pointer,None,PersistMode::DoNot).await?.response()?;
+                                let response=remote.start(&session,None).await?.response()?;
+                                let stream=response.streams().and_then(|streams|streams.first()).ok_or("portal returned no screen stream")?;
+                                let node=stream.pipe_wire_node_id();let size=stream.size();
+                                let allowed=response.devices().contains(DeviceType::Keyboard)&&response.devices().contains(DeviceType::Pointer)&&size.is_some_and(|(w,h)|w>1&&h>1);
+                                worker_input.authorize(allowed);
+                                let fd=portal.open_pipe_wire_remote(&session).await?;
+                                tokio::select! {
+                                    result=receive(fd,node,frames_tx,&ready_tx,&worker_stop)=>result,
+                                    result=crate::portal_input::drive(&remote,&session,node,size.unwrap_or((1,1)),&worker_input)=>result,
+                                    _=closed.next()=>Err("portal session closed".into()),
+                                }
+                            }.await;
+                            worker_input.authorize(false);
+                            let _=session.close().await;return result;
+                        }
                         let session = portal.create_session().await?;
                         let result = async {
                             let closed = session.receive_closed().await?;
@@ -134,6 +167,7 @@ mod native {
                     frames,
                     stop,
                     worker: Some(worker),
+                    input,
                 }),
                 Ok(Err(error)) => {
                     let _ = worker.join();
@@ -174,6 +208,7 @@ mod native {
 
     impl Drop for PipeWireCapture {
         fn drop(&mut self) {
+            self.input.authorize(false);
             self.stop.store(true, Ordering::Relaxed);
             if let Some(worker) = self.worker.take() {
                 let _ = worker.join();

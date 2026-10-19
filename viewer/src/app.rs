@@ -20,6 +20,10 @@ pub struct App {
     share_fps: u32,
     share_bitrate: u32,
     allow_legacy: bool,
+    allow_control: bool,
+    commands: Option<tokio::sync::mpsc::Sender<crate::net::Command>>,
+    input_focused: bool,
+    input_modifiers: egui::Modifiers,
     host: Option<crate::host::HostProcess>,
     host_message: String,
     share_qr: Option<(String, qrcode::QrCode)>,
@@ -42,6 +46,10 @@ impl App {
             share_fps: 30,
             share_bitrate: 4000,
             allow_legacy: false,
+            allow_control: false,
+            commands: None,
+            input_focused: false,
+            input_modifiers: egui::Modifiers::NONE,
             host: None,
             host_message: String::new(),
             share_qr: None,
@@ -61,6 +69,9 @@ impl App {
         })
     }
     fn disconnect(&mut self) {
+        self.commands = None;
+        self.input_focused = false;
+        self.input_modifiers = egui::Modifiers::NONE;
         if let Some(task) = self.task.take() {
             task.abort();
         }
@@ -69,6 +80,23 @@ impl App {
             state: State::Closed,
             ..Default::default()
         }));
+    }
+    fn command(&mut self, action: crate::net::ControlAction) {
+        let command = crate::net::Command {
+            generation: self
+                .output
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .control_epoch,
+            action,
+        };
+        if self
+            .commands
+            .as_ref()
+            .is_some_and(|sender| sender.try_send(command).is_err())
+        {
+            self.disconnect();
+        }
     }
     fn connect(&mut self) {
         self.disconnect();
@@ -83,6 +111,7 @@ impl App {
             Ok(decoder) => {
                 let session = ViewerSession::new(decoder);
                 self.output = session.output.clone();
+                self.commands = Some(session.commands.clone());
                 self.task = Some(self.runtime.spawn(session.run(self.address.clone())));
             }
             Err(e) => {
@@ -181,8 +210,8 @@ impl eframe::App for App {
                 ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                     ui.add_space(12.0);
                     ui.collapsing("About", |ui| {
-                        ui.small("Alpha · screen viewing");
-                        ui.small("Control and extended displays are in development.");
+                        ui.small("Alpha · viewing and control");
+                        ui.small("Extended displays are in development.");
                     });
                 });
             });
@@ -247,6 +276,13 @@ impl eframe::App for App {
                 ui.add_space(12.0);
             },
         );
+        if self.page != Page::View && self.input_focused {
+            self.command(crate::net::ControlAction::Input(
+                mightymonitor_core::InputEvent::ReleaseAll,
+            ));
+            self.input_focused = false;
+            self.input_modifiers = egui::Modifiers::NONE;
+        }
         let mut out = self.output.lock().unwrap_or_else(|p| p.into_inner());
         if let Some(p) = out.picture.take() {
             if let Some(rgb) = crate::render::rgb(&p) {
@@ -262,6 +298,8 @@ impl eframe::App for App {
                 eprintln!("decode->present submission: {:.2} ms", out.stats.present_ms);
             }
         }
+        let control_available = out.control_available;
+        let controlling = out.controlling;
         let state = out.state.clone();
         let stats = out.stats.clone();
         let error = out.error.clone();
@@ -329,6 +367,10 @@ impl eframe::App for App {
                     }
                 }
                 ui.add_space(18.0);
+                ui.add_enabled(
+                    self.host.is_none(),
+                    egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
+                );
                 if self.host.is_some() {
                     if ui.button("Stop sharing").clicked() {
                         self.host = None;
@@ -345,10 +387,11 @@ impl eframe::App for App {
                         )
                         .clicked()
                     {
-                        match crate::host::HostProcess::start(
+                        match crate::host::HostProcess::start_with_control(
                             &self.share_address,
                             self.share_fps,
                             self.share_bitrate,
+                            self.allow_control,
                         ) {
                             Ok(host) => {
                                 self.host = Some(host);
@@ -396,6 +439,12 @@ impl eframe::App for App {
                         State::Reconnecting => "Reconnecting…",
                         State::Closed => "Not connected",
                     });
+                    if state == State::Connected && control_available {
+                        let mut enabled = controlling;
+                        if ui.checkbox(&mut enabled, "Control").changed() {
+                            self.command(crate::net::ControlAction::Control(enabled));
+                        }
+                    }
                     if state == State::Connected {
                         ui.collapsing("Details", |ui| {
                             ui.label(format!(
@@ -413,7 +462,45 @@ impl eframe::App for App {
                     let scale = (ui.available_width() / size.x)
                         .min(ui.available_height() / size.y)
                         .max(0.01);
-                    ui.add(egui::Image::new(texture).fit_to_exact_size(size * scale));
+                    let response = ui.add(
+                        egui::Image::new(texture)
+                            .fit_to_exact_size(size * scale)
+                            .sense(if controlling {
+                                egui::Sense::click_and_drag()
+                            } else {
+                                egui::Sense::hover()
+                            }),
+                    );
+                    if controlling
+                        && (response.clicked()
+                            || response.drag_started()
+                            || (response.hovered() && ctx.input(|i| i.pointer.any_pressed())))
+                    {
+                        response.request_focus();
+                    }
+                    let focused = controlling && response.has_focus() && ctx.input(|i| i.focused);
+                    if focused {
+                        let (mut events, modifiers) =
+                            ctx.input(|i| (i.events.clone(), i.modifiers));
+                        if !response.hovered() {
+                            events.retain(|event| !matches!(event, egui::Event::MouseWheel { .. }));
+                        }
+                        let events = crate::input::translate(
+                            &events,
+                            response.rect,
+                            &mut self.input_modifiers,
+                            modifiers,
+                        );
+                        for event in events {
+                            self.command(crate::net::ControlAction::Input(event));
+                        }
+                    } else if self.input_focused {
+                        self.command(crate::net::ControlAction::Input(
+                            mightymonitor_core::InputEvent::ReleaseAll,
+                        ));
+                        self.input_modifiers = egui::Modifiers::NONE;
+                    }
+                    self.input_focused = focused;
                 } else {
                     ui.vertical_centered(|ui| {
                         ui.add_space((ui.available_height() * 0.42).max(20.0));

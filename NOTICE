@@ -71,3 +71,8 @@ original. AndroidX test libraries are used only for emulator instrumentation.
 
 Desktop connection QR codes use qrcode 0.14.1 (MIT OR Apache-2.0), without its
 optional image/rendering dependencies. The app paints the module matrix directly.
+
+Desktop remote input uses Enigo 0.6.1 (MIT), through its public keyboard/mouse
+API on Windows and X11. Wayland input uses the existing ashpd dependency and
+the system RemoteDesktop portal. Android accessibility/IME integration is original.
+https://github.com/enigo-rs/enigo

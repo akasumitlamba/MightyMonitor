@@ -10,7 +10,7 @@ mod desktop {
     use mightymonitor_core::{Bytes, CodecError, Encoder};
     use mightymonitor_host::{
         pipeline::{HostEncoder, Pipeline},
-        session::{serve_transport, SessionConfig},
+        session::{serve_with_input, SessionConfig},
         Error,
     };
     use std::time::Duration;
@@ -49,7 +49,10 @@ mod desktop {
     enum CaptureFactory {
         X11,
         #[cfg(feature = "pipewire")]
-        Wayland(host_linux::SharedCapture),
+        Wayland {
+            capture: host_linux::SharedCapture,
+            input: Option<host_linux::PortalInput>,
+        },
     }
     #[cfg(target_os = "linux")]
     struct DesktopCapture(Box<dyn Capture + Send>);
@@ -61,7 +64,9 @@ mod desktop {
     }
     #[cfg(target_os = "linux")]
     impl CaptureFactory {
-        fn open(mode: &str) -> Result<Self, Error> {
+        fn open(mode: &str, allow_control: bool) -> Result<Self, Error> {
+            #[cfg(not(feature = "pipewire"))]
+            let _ = allow_control;
             let wayland = match mode {
                 "auto" => {
                     std::env::var_os("WAYLAND_DISPLAY").is_some()
@@ -77,15 +82,34 @@ mod desktop {
             #[cfg(feature = "pipewire")]
             {
                 eprintln!("Choose a screen in the system sharing dialog.");
-                let mut portal = host_linux::PipeWireCapture::open()?;
+                let mut portal = host_linux::PipeWireCapture::open_with_control(allow_control)?;
+                let input = portal.input();
                 let shared = host_linux::SharedCapture::start(move |timeout| {
                     portal.poll_captured(timeout).map_err(std::io::Error::other)
                 })?;
-                Ok(Self::Wayland(shared))
+                Ok(Self::Wayland {
+                    capture: shared,
+                    input,
+                })
             }
             #[cfg(not(feature = "pipewire"))]
             {
                 Err("This build has no Wayland capture. Install a PipeWire-enabled build, or use --capture x11 in an X11 session.".into())
+            }
+        }
+        fn input(
+            &self,
+            width: u32,
+            height: u32,
+        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+            match self {
+                Self::X11 => Ok(Some(Box::new(
+                    mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+                ))),
+                #[cfg(feature = "pipewire")]
+                Self::Wayland { input, .. } => Ok(input.clone().map(|input| {
+                    Box::new(input) as Box<dyn mightymonitor_host::input::InputTarget>
+                })),
             }
         }
         fn capture(&self, _fps: u32, monitor: i32) -> Result<(DesktopCapture, u32, u32), Error> {
@@ -101,7 +125,9 @@ mod desktop {
                     Ok((DesktopCapture(Box::new(capture)), w, h))
                 }
                 #[cfg(feature = "pipewire")]
-                Self::Wayland(shared) => {
+                Self::Wayland {
+                    capture: shared, ..
+                } => {
                     let (capture, w, h) = shared.viewer()?;
                     Ok((DesktopCapture(Box::new(capture)), w, h))
                 }
@@ -112,11 +138,20 @@ mod desktop {
     struct CaptureFactory;
     #[cfg(target_os = "windows")]
     impl CaptureFactory {
-        fn open(mode: &str) -> Result<Self, Error> {
+        fn open(mode: &str, _allow_control: bool) -> Result<Self, Error> {
             if mode != "auto" {
                 return Err("Windows uses DXGI capture; --capture must be auto".into());
             }
             Ok(Self)
+        }
+        fn input(
+            &self,
+            width: u32,
+            height: u32,
+        ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
+            Ok(Some(Box::new(
+                mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
+            )))
         }
         fn capture(
             &self,
@@ -150,7 +185,11 @@ mod desktop {
         }
     }
     pub async fn run() -> Result<(), Error> {
+        #[cfg(target_os = "windows")]
+        let _ = enigo::set_dpi_awareness();
         let mut secure = false;
+        let mut allow_control = false;
+        let mut managed = false;
         let mut capture_mode = "auto".to_string();
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
@@ -163,8 +202,16 @@ mod desktop {
                 secure = true;
                 continue;
             }
+            if flag == "--allow-control" {
+                allow_control = true;
+                continue;
+            }
+            if flag == "--managed" {
+                managed = true;
+                continue;
+            }
             if flag == "--help" {
-                println!("mm-host [--secure] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--allow-control] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -187,10 +234,29 @@ mod desktop {
         }
         // Obtain Wayland system consent before publishing an invitation or starting
         // network handshake deadlines. The portal lives for this sharing lifetime.
-        let factory = CaptureFactory::open(&capture_mode)?;
+        if allow_control && (!secure || monitor != -1) {
+            return Err("Remote control requires --secure and the primary/default screen".into());
+        }
+        let factory = CaptureFactory::open(&capture_mode, allow_control)?;
+        let mut stop = Box::pin(async move {
+            if managed {
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                std::thread::spawn(move || {
+                    use std::io::BufRead;
+                    let mut line = String::new();
+                    let _ = std::io::stdin().lock().read_line(&mut line);
+                    let _ = tx.send(());
+                });
+                let _ = rx.await;
+            } else {
+                std::future::pending::<()>().await;
+            }
+        });
         let listener = tokio::net::TcpListener::bind(&bind).await?;
         let identity = if secure {
-            Some(mightymonitor_security::ShareIdentity::generate()?)
+            Some(std::sync::Arc::new(
+                mightymonitor_security::ShareIdentity::generate()?,
+            ))
         } else {
             None
         };
@@ -205,44 +271,32 @@ mod desktop {
             );
         }
         eprintln!("mm-host listening on {}", listener.local_addr()?);
-        // One logical host session survives sequential viewer reconnections.
-        let session_id = 1;
+        let factory = std::sync::Arc::new(factory);
+        let viewers = std::sync::Arc::new(tokio::sync::Semaphore::new(4));
+        let controller = std::sync::Arc::new(tokio::sync::Semaphore::new(1));
+        let mut tasks = tokio::task::JoinSet::new();
         loop {
-            let (stream, _) = listener.accept().await?;
-            let transport: Box<dyn mightymonitor_core::Transport> =
-                if let Some(identity) = &identity {
-                    match mightymonitor_security::asynchronous::accept(stream, identity).await {
-                        Ok(tls) => Box::new(mightymonitor_core::FramedTransport::from_stream(tls)),
-                        Err(error) => {
-                            eprintln!("Secure peer rejected: {error}");
-                            continue;
-                        }
-                    }
-                } else {
-                    Box::new(mightymonitor_core::TcpTransport::new(stream)?)
-                };
-            let (capture, width, height) = factory.capture(fps, monitor)?;
-            let encoder = Codec(GstEncoder::new(EncoderConfig {
-                width,
-                height,
-                fps,
-                bitrate_kbps: bitrate,
-                format: PixelFormat::Rgba,
-                ..Default::default()
-            })?);
-            let pipeline = Pipeline::new(capture, encoder, fps)?.with_bitrate(bitrate)?;
-            let config = SessionConfig {
-                session_id,
-                codec: mightymonitor_core::Codec::H264,
-                width,
-                height,
-                fps,
-                write_timeout: Duration::from_secs(2),
-                handshake_timeout: Duration::from_secs(5),
-                idle_timeout: Duration::from_secs(idle_timeout_secs),
-            };
-            if let Err(error) = serve_transport(transport, pipeline, config).await {
-                eprintln!("viewer session ended: {error}");
+            tokio::select! {
+                _=&mut stop=>{tasks.shutdown().await;return Ok(());},
+                finished=tasks.join_next(),if !tasks.is_empty()=>{match finished {Some(Ok(Err(error)))=>eprintln!("viewer session ended: {error}"),Some(Err(error))=>eprintln!("viewer task ended: {error}"),_=>{}}},
+                peer=listener.accept()=>{
+                    let(stream,_)=peer?;
+                    let Ok(permit)=viewers.clone().try_acquire_owned() else {drop(stream);continue;};
+                    let identity=identity.clone();let factory=factory.clone();let controller=controller.clone();
+                    tasks.spawn(async move {
+                        let _permit=permit;
+                        let transport:Box<dyn mightymonitor_core::Transport>=if let Some(identity)=identity {Box::new(mightymonitor_core::FramedTransport::from_stream(mightymonitor_security::asynchronous::accept(stream,&identity).await?))} else {Box::new(mightymonitor_core::TcpTransport::new(stream)?)};
+                        let (pipeline,config,input)=tokio::task::spawn_blocking(move ||->Result<_,Error>{
+                            let(capture,width,height)=factory.capture(fps,monitor)?;
+                            let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
+                            let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
+                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
+                            let config=SessionConfig{session_id:1,codec:mightymonitor_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
+                            Ok((pipeline,config,input))
+                        }).await??;
+                        serve_with_input(transport,pipeline,config,input).await
+                    });
+                }
             }
         }
     }
