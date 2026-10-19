@@ -9,5 +9,8 @@ local.properties
 /android/build/
 /android/.gradle/
 
+/android/app/build/
+/android/app/src/main/jniLibs/
+
 /output/
 __pycache__/
