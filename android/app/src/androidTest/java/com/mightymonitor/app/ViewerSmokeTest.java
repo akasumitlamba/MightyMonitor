@@ -17,7 +17,10 @@ public final class ViewerSmokeTest {
         if ("true".equals(InstrumentationRegistry.getArguments().getString("remoteControlTest"))) {
             // Instrumentation restarts the target app. Rebind its test service afterwards;
             // pre-launch grants can be marked crashed/suppressed by that process restart.
-            shell(automation, "settings put secure accessibility_enabled 0");
+            shell(automation, "settings put secure enabled_accessibility_services null");
+            // The enabled-service observer must see a real removal to clear the
+            // crashed-service entry left by am instrument restarting this process.
+            android.os.SystemClock.sleep(1500);
             shell(automation, "settings put secure enabled_accessibility_services com.mightymonitor.app/.RemoteControlService");
             shell(automation, "settings put secure accessibility_enabled 1");
         }
