@@ -8,3 +8,6 @@
 local.properties
 /android/build/
 /android/.gradle/
+
+/output/
+__pycache__/
