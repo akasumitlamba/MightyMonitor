@@ -96,11 +96,12 @@ jobs:
             adb install $(find /tmp/mightymonitor-apks -name app-debug.apk)
             adb install $(find /tmp/mightymonitor-apks -name app-debug-androidTest.apk)
             adb forward tcp:5001 tcp:5000
-            adb shell mkdir -p /sdcard/Android/data/com.mightymonitor.app/files
-            (./target/release/examples/receive_smoke 127.0.0.1:5001 && adb shell touch /sdcard/Android/data/com.mightymonitor.app/files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
+            (./target/release/examples/receive_smoke 127.0.0.1:5001 && adb shell run-as com.mightymonitor.app touch files/desktop-video-ok) > /tmp/mm-desktop-video.log 2>&1 &
             adb shell am instrument -e desktopInterop true -w com.mightymonitor.app.test/androidx.test.runner.AndroidJUnitRunner | tee /tmp/mm-android-test.log
-            adb pull /sdcard/Android/data/com.mightymonitor.app/files/screenshots /tmp/mm-screenshots
             adb logcat -d > /tmp/mm-android-logcat.log
+            adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
+            mkdir -p /tmp/mm-screenshots
+            tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
             grep -q 'OK (2 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()

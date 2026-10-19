@@ -28,6 +28,8 @@ public final class ViewerSmokeTest {
 
     @Test public void capturesPhoneScreenAndDecodesThroughRustHost() throws Exception {
         MainActivity app = activity.getActivity();
+        java.io.File desktopMarker = new java.io.File(app.getFilesDir(), "desktop-video-ok");
+        desktopMarker.delete();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
             app.findViewById(MainActivity.SHARE_TAB_ID).performClick();
             ((CheckBox) app.findViewById(MainActivity.SHARE_TRUST_ID)).setChecked(true);
@@ -65,7 +67,7 @@ public final class ViewerSmokeTest {
             assertTrue("Android capture -> Rust host -> Rust viewer -> decoder produced no video", decoded >= 3);
             NativeBridge.disconnect(client); client = 0;
             if ("true".equals(InstrumentationRegistry.getArguments().getString("desktopInterop"))) {
-                java.io.File marker = new java.io.File(app.getExternalFilesDir(null), "desktop-video-ok");
+                java.io.File marker = new java.io.File(app.getFilesDir(), "desktop-video-ok");
                 long until = System.currentTimeMillis() + 60000;
                 while (!marker.isFile() && System.currentTimeMillis() < until) Thread.sleep(100);
                 assertTrue("Desktop GStreamer viewer did not decode the phone stream", marker.isFile());
@@ -79,7 +81,7 @@ public final class ViewerSmokeTest {
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation().takeScreenshot();
-        java.io.File directory = new java.io.File(activity.getActivity().getExternalFilesDir(null), "screenshots"); directory.mkdirs();
+        java.io.File directory = new java.io.File(activity.getActivity().getFilesDir(), "screenshots"); directory.mkdirs();
         try (java.io.FileOutputStream output = new java.io.FileOutputStream(new java.io.File(directory, name + ".png"))) { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, output); }
         bitmap.recycle();
     }
