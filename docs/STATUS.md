@@ -177,3 +177,14 @@ by the test service not rebinding after instrumentation restarts the app. This
 is not an Android control acceptance pass. Physical Windows/Android, interactive
 Wayland input, virtual displays, discovery and production release signing remain
 unfinished. See REMOTE_CONTROL.md for permission and platform details.
+
+
+2026-10-19: Remote-control acceptance follow-up: secure phone control, real
+Android button gestures, text entry through the selected optional keyboard, and
+revocation passed on Android 10/11/14/16 emulators. Existing PC-to-phone video
+and phone-to-desktop H.264 acceptance tests also passed on these versions. Test
+setup now grants accessibility after instrumentation restarts the target process
+and waits for the actual target editor's input connection. Shipped app permission
+behavior is unchanged. Both desktop installer builds passed, including Windows
+installation/runtime/uninstallation checks. Physical devices and interactive
+Wayland input remain unverified. PR #44 is the remote-control review milestone.
