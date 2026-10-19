@@ -42,8 +42,8 @@ real desktop and Wi-Fi acceptance is still pending. See [docs/HOST.md](docs/HOST
 The cross-device product requirements and acceptance gates are in
 [docs/CROSS_DEVICE.md](docs/CROSS_DEVICE.md). Mirroring, remote control, and
 extended displays are separate capabilities. Remote control is in alpha testing;
-experimental Wayland virtual displays are implemented on supported desktops and
-await interactive acceptance. Windows and X11 extension are not implemented. See
+experimental Wayland virtual displays are implemented on supported desktops. KDE
+creation, video streaming and cleanup passed a live local test. Windows and X11 extension are not implemented. See
 [remote control](docs/REMOTE_CONTROL.md) and [extended displays](docs/EXTENDED_DISPLAYS.md).
 
 ## Clean-room policy

@@ -198,3 +198,11 @@ Local Linux build, clippy, rejection integration test and Windows cross-check pa
 This Linux desktop advertises virtual-monitor support, but actual creation,
 streaming and removal require interactive system consent and remain unverified.
 No Windows display driver or X11 extension has been added.
+
+
+2026-10-19: Live KDE Wayland extension acceptance passed after the user granted
+system consent: a new virtual monitor appeared in KScreen, a secure desktop viewer
+decoded three real H.264 frames, managed-host Stop exited with status zero, and
+the virtual monitor disappeared with the original active display set restored.
+This test used loopback and view-only sharing. Layout/window movement, virtual
+monitor input, other compositors and physical cross-device Wi-Fi remain unverified.

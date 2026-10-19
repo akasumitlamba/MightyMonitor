@@ -17,8 +17,20 @@ This uses the standard ScreenCast portal's VIRTUAL source type. The app checks
 that the compositor advertises virtual-monitor support and verifies that its
 response identifies a virtual stream. It fails clearly instead of silently
 mirroring when unsupported. Resolution and display creation are controlled by the
-compositor. This experimental implementation still needs interactive creation,
-viewing, layout and cleanup acceptance testing.
+compositor.
+
+## Verified locally
+
+On 2026-10-19, a real KDE Wayland session passed system-approved virtual-monitor
+creation, private TLS/H.264 streaming to the desktop decoder, and cleanup. KScreen
+reported a new enabled virtual output; the decoder received three real video
+frames. Normal managed-host Stop exited successfully, removed the virtual output,
+and restored the original active display set. The test used loopback networking
+and did not save screen images or publish the viewing credential.
+
+Moving application windows between displays, other compositor implementations,
+resolution/layout changes, virtual-monitor remote input and physical cross-device
+Wi-Fi acceptance still need testing.
 
 Windows virtual-monitor creation and Linux X11 extension are not implemented.
 They cannot be enabled by changing the video transport. A Windows display driver
