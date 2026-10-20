@@ -355,3 +355,10 @@ frames. Java test compilation passes; confirming execution is pending.
 The current native Linux viewer was also launched using its developer-only idle
 snapshot example. It rendered its normal View page successfully and exited without
 starting capture or sending input. This is normal-window UI evidence only.
+
+
+2026-10-20: Added two independent extra control-test executions on API 29/36,
+the versions with intermittent failures. Each runs the real grant/gesture/Unicode/
+revocation test in a fresh instrumentation launch on the same isolated emulator;
+a failed execution fails the job, rather than being retried until green. The
+script refuses non-emulator devices and preserves logs. Execution is pending.
