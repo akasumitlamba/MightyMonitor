@@ -101,14 +101,16 @@ ANDROID instructions in `android/README.md` before changing their features.
    OS permission dialogs require the user; do independent work while waiting.
 2. **Discovery and pairing UX:** opt-in desktop/Android presence discovery is
    implemented on the current development branch. A real local Rust advertise/
-   resolve/remove test passed and confirmed no TCP connection. Android 11/14/16 NSD tests passed; Android 10 failed before app installation due
-   to a corrupt SDK download and is being retried. Physical cross-device discovery
+   resolve/remove test passed and confirmed no TCP connection. Android 10/11/14/16 NSD/video/control tests passed after bounded SDK-download
+   retry; the control test now includes Hindi and a check mark. Physical cross-device discovery
    remains unverified. Continue toward smooth
    pairing without broadcasting tokens
    or treating nearby peers as trusted. Preserve explicit sharing/control consent.
    Plan certificate identity, pairing confirmation, revocation and persistence
    before replacing private links. Android discovery needs lifecycle/network tests.
-3. **Windows extended display:** implement/integrate a license-compatible virtual
+3. **Windows extended display:** read WINDOWS_EXTENSION_PLAN.md first. It records
+   capture/input targeting and an unsafe stale-monitor-list race in a candidate
+   driver protocol; no driver dependency has been added. Implement/integrate a license-compatible virtual
    display driver and monitor/input mapping. Research driver signing/distribution.
    Do not automatically install a third-party root certificate or disable driver
    signature enforcement. Production signing/account/certificate access is an
@@ -207,3 +209,11 @@ The current development branch also adds desktop Keyboard text entry for Unicode
 composition, with held-input release and dialog text/undo cleanup. Its text path
 uses the existing bounded Unicode protocol. The Android control acceptance test
 now includes non-ASCII text. Do not claim its new test result until it completes.
+
+Latest validated checkpoint: discovery, network selection, private-link startup
+and Unicode Keyboard compile/tests passed; Windows install/runtime/uninstall plus
+URI registration cleanup passed and the Linux alpha.7 installer built. New work
+after that checkpoint fixes Android stale pointer clicks in rotation letterboxes,
+normal Stop status, unavailable selected-network failure and remote-IME fullscreen
+behavior, and keeps an active visible Android viewer awake. Regression tests are
+being rerun. Check current results before upgrading these claims to acceptance.

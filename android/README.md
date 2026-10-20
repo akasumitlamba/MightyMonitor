@@ -67,3 +67,10 @@ Both PC-to-phone playback and consent-based phone capture passed emulator tests
 on Android 10, 11, 14 and 16. Desktop decoder interoperability also passed for the capture milestone; the
 secure transport upgrade reruns that check. Physical Wi-Fi phone/PC verification
 remains pending. See [connection security](../docs/SECURE_CONNECTIONS.md).
+
+
+Active visible viewing keeps the phone display awake and releases that request
+on disconnect/backgrounding. It does not bypass manual locking. The optional
+remote keyboard stays out of fullscreen extract mode. Network selection and
+nearby-device discovery are described in [NETWORK_SETUP.md](../docs/NETWORK_SETUP.md)
+and [DISCOVERY.md](../docs/DISCOVERY.md); private links are still required.

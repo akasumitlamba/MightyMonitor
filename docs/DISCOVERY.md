@@ -42,7 +42,7 @@ MM_ALLOW_DISCOVERY_SMOKE=1 cargo test -p mightymonitor-discovery --test mdns_pre
 
 Android source/resources compile locally. Android NSD discovery/removal acceptance
 has been added to the emulator workflow alongside existing video/control tests;
-Android 11/14/16 emulator discovery, video and control tests passed. Android 10
-failed during its SDK platform download before the app ran, so it is being
-retested with bounded SDK-download retries. Physical Windows/Linux/Android discovery,
+Android 10/11/14/16 emulator discovery, video and control tests passed after
+retrying a corrupt SDK download. The updated test also typed Hindi and a check
+mark through the actual remote keyboard. Physical Windows/Linux/Android discovery,
 network changes and multicast-restricted networks still need device testing.

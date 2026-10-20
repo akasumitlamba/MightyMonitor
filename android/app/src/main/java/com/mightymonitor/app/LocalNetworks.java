@@ -16,5 +16,5 @@ final class LocalNetworks {
         return result;
     }
     static String defaultAddress(){Collection<String> addresses=addresses().values();return addresses.isEmpty()?"Connect to a local network":addresses.iterator().next();}
-    static String validate(String selected){return addresses().containsValue(selected)?selected:defaultAddress();}
+    static String validate(String selected){if(selected==null)return defaultAddress();if(addresses().containsValue(selected))return selected;throw new IllegalArgumentException("Selected network is unavailable. Choose Network and try again.");}
 }

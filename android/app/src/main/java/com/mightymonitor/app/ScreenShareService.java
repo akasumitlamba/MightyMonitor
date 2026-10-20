@@ -33,6 +33,7 @@ public final class ScreenShareService extends Service {
     private long host;
     private byte[] codecHeaders = new byte[0];
     private boolean closed, discoverable;
+    private volatile boolean failed;
     private NearbyDevices.Advertisement advertisement;
     private int bitrate = 4_000_000;
     private long lastKeyRequest;
@@ -47,7 +48,8 @@ public final class ScreenShareService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ScreenShareService.class).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, "sharing").setSmallIcon(android.R.drawable.presence_video_online).setContentTitle("Sharing your screen").setContentText("Tap Stop to end sharing").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION); else startForeground(1, notification);
-        sharingAddress = LocalNetworks.validate(intent.getStringExtra("sharingAddress"));
+        try {sharingAddress = LocalNetworks.validate(intent.getStringExtra("sharingAddress"));}
+        catch(IllegalArgumentException unavailable){failed=true;summary=unavailable.getMessage();stopSelf();return START_NOT_STICKY;}
         discoverable = intent.getBooleanExtra("discoverable",false);
         allowControl = intent.getBooleanExtra("allowControl", false) && RemoteControlService.available();
         sharing = true; summary = "Starting sharing…"; capturedFrames = 0;
@@ -139,7 +141,7 @@ public final class ScreenShareService extends Service {
             } catch (Exception error) { fail(error); }
         }
     };
-    private void fail(Throwable error) { summary = "Sharing stopped: " + error.getMessage(); stopSelf(); }
+    private void fail(Throwable error) { failed=true; summary = "Sharing stopped: " + error.getMessage(); stopSelf(); }
     static byte[] annexB(byte[] bytes) throws Exception {
         if (bytes.length >= 4 && bytes[0] == 0 && bytes[1] == 0 && (bytes[2] == 1 || (bytes[2] == 0 && bytes[3] == 1))) return bytes;
         ByteArrayOutputStream output = new ByteArrayOutputStream(); int offset = 0;
@@ -167,7 +169,7 @@ public final class ScreenShareService extends Service {
     public static String localAddress() { return LocalNetworks.defaultAddress(); }
     @Override public void onDestroy() {
         if (current == this) current = null;
-        sharing = false; allowControl = false; invitation = ""; sharingAddress = ""; RemoteControlService.stopInput();
+        sharing = false; if(!failed)summary="Sharing stopped"; allowControl = false; invitation = ""; sharingAddress = ""; RemoteControlService.stopInput();
         worker.post(() -> {
             closed = true; if(advertisement!=null){advertisement.close();advertisement=null;} worker.removeCallbacks(update); worker.removeCallbacks(drainInput);
             if (projection != null && projectionCallback != null) projection.unregisterCallback(projectionCallback);
@@ -176,6 +178,7 @@ public final class ScreenShareService extends Service {
             if (input != null) input.release();
             if (projection != null) projection.stop();
             if (host != 0) { NativeBridge.stopHost(host); host = 0; }
+            if(!failed)summary="Sharing stopped";
             thread.quitSafely();
         });
         stopForeground(true); super.onDestroy();

@@ -9,6 +9,7 @@ public final class RemoteKeyboardService extends InputMethodService {
     private static volatile RemoteKeyboardService current;
     @Override public void onCreate() {super.onCreate(); current = this;}
     @Override public void onDestroy() {if (current == this) current = null; super.onDestroy();}
+    @Override public boolean onEvaluateFullscreenMode() {return false;}
     @Override public android.view.View onCreateInputView() {
         android.widget.Button change = new android.widget.Button(this); change.setText("Switch keyboard"); change.setAllCaps(false); change.setBackgroundColor(android.graphics.Color.WHITE); change.setTextColor(android.graphics.Color.rgb(38,115,77));
         change.setOnClickListener(v -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()); return change;

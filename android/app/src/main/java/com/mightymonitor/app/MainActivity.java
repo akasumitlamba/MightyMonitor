@@ -240,6 +240,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             String endpoint = address.getText().toString().trim();
             handle = NativeBridge.connect(endpoint);
             if (handle == 0) throw new IllegalStateException("Could not start the network client");
+            video.setKeepScreenOn(true);
             renderedFrames.set(0); connect.setText("Disconnect");
             handler.post(pump);
         } catch (Exception | UnsatisfiedLinkError error) { disconnect("Cannot connect: " + error.getMessage()); }
@@ -313,6 +314,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         if (codec != null) { try { codec.stop(); } catch (IllegalStateException ignored) {} codec.release(); codec = null; }
     }
     private void disconnect(String message) {
+        if(video!=null)video.setKeepScreenOn(false);
         remoteControlActive = false;
         if (viewControl != null) {updatingControl = true; viewControl.setChecked(false); viewControl.setVisibility(View.GONE); keyboard.setVisibility(View.GONE); updatingControl = false;}
         handler.removeCallbacks(pump);

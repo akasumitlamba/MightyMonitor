@@ -230,3 +230,12 @@ downloading its SDK platform (invalid archive), not in an app assertion. Bounded
 SDK-download retry/preflight was added. Continued work adds a desktop Keyboard
 panel for Unicode/composed text; the next Android control run includes Hindi and
 a check mark in its real editor assertion. Updated tests are pending.
+
+
+2026-10-20: Development checkpoint f10545d passed all native/MSRV/PipeWire checks,
+Windows installer/runtime/uninstall/URI cleanup, Linux alpha.7 packaging and all
+four Android emulator versions, including NSD removal and real Unicode text entry.
+Further changes fix Android letterbox clicks reusing a stale pointer, remote IME
+fullscreen, Stop status and unavailable selected-network handling; active visible
+Android viewing now keeps the display awake. Expanded rotation/click/cleanup
+regressions are awaiting fresh runs. No new PR was opened per the user request.

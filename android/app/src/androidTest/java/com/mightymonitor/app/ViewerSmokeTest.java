@@ -146,6 +146,25 @@ public final class ViewerSmokeTest {
             tap(client, button);
             while (InputTestActivity.taps.get() < 1 && System.currentTimeMillis() < deadline) Thread.sleep(20);
             assertTrue("Remote gesture did not click the actual Android button", InputTestActivity.taps.get() >= 1);
+            android.app.Activity testTarget=target;
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+            awaitRotation(true);
+            float[] buttonPoint=capturePoint(button);
+            RemoteControlService.accept(mouseMove(buttonPoint[0],buttonPoint[1]));
+            // The fixed portrait capture has top/bottom bars after display rotation.
+            // A click in a bar must not re-use the last valid pointer position.
+            int taps=InputTestActivity.taps.get();
+            RemoteControlService.accept(mouseMove(.5f,.01f));
+            RemoteControlService.accept(new byte[]{2,0,1});RemoteControlService.accept(new byte[]{2,0,0});
+            Thread.sleep(500);
+            assertTrue("Letterbox click hit the stale last-valid Android location",InputTestActivity.taps.get()==taps);
+            RemoteControlService.accept(mouseMove(buttonPoint[0],buttonPoint[1]));
+            RemoteControlService.accept(new byte[]{2,0,1});RemoteControlService.accept(new byte[]{2,0,0});
+            long tapDeadline=System.currentTimeMillis()+10000;
+            while(InputTestActivity.taps.get()==taps && System.currentTimeMillis()<tapDeadline)Thread.sleep(20);
+            assertTrue("A valid rotated pointer click stopped working",InputTestActivity.taps.get()==taps+1);
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+            awaitRotation(false);deadline=System.currentTimeMillis()+60000;
             android.widget.EditText editor = target.findViewById(InputTestActivity.EDITOR_ID); tap(client, editor);
             // A prior activity can still have an input connection while the remote
             // tap is in flight. Wait for this actual editor, not just any IME client.
@@ -161,20 +180,32 @@ public final class ViewerSmokeTest {
             assertTrue("Revoked phone control stayed active", !controlling.get());
             boolean rejected = false; try {NativeBridge.typeText(client, "forbidden");} catch (IllegalStateException expected) {rejected = true;}
             assertTrue("Native client accepted typing after control revocation", rejected);
+            app.stopService(new android.content.Intent(app,ScreenShareService.class));
+            long stopDeadline=System.currentTimeMillis()+5000;
+            while((ScreenShareService.sharing || !"Sharing stopped".equals(ScreenShareService.summary)) && System.currentTimeMillis()<stopDeadline)Thread.sleep(20);
+            assertTrue("Stopped sharing retained a live-session status",!ScreenShareService.sharing && "Sharing stopped".equals(ScreenShareService.summary));
         } finally {
             running.set(false); pump.join(1000); NativeBridge.disconnect(client);
             app.stopService(new android.content.Intent(app, ScreenShareService.class));
             if (target != null) {android.app.Activity closing = target; InstrumentationRegistry.getInstrumentation().runOnMainSync(closing::finish);}
         }
     }
-    private void tap(long client, android.view.View view) {
-        int[] location = new int[2]; java.util.concurrent.atomic.AtomicReference<float[]> point = new java.util.concurrent.atomic.AtomicReference<>();
-        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> {
-            view.getLocationOnScreen(location); android.util.DisplayMetrics metrics = new android.util.DisplayMetrics(); activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
-            point.set(new float[]{(location[0] + view.getWidth() / 2f) / metrics.widthPixels, (location[1] + view.getHeight() / 2f) / metrics.heightPixels});
-        });
-        NativeBridge.pointer(client, point.get()[0], point.get()[1], 0); NativeBridge.pointer(client, point.get()[0], point.get()[1], 2);
+    private static byte[] mouseMove(float x,float y){return java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)1).putFloat(x).putFloat(y).array();}
+    private void awaitRotation(boolean landscape)throws Exception{
+        long deadline=System.currentTimeMillis()+15000;
+        java.util.concurrent.atomic.AtomicBoolean ready=new java.util.concurrent.atomic.AtomicBoolean();
+        while(!ready.get() && System.currentTimeMillis()<deadline){InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);ready.set((metrics.widthPixels>metrics.heightPixels)==landscape);});Thread.sleep(100);}
+        assertTrue("Test display did not rotate",ready.get());InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
+    private float[] capturePoint(android.view.View view){
+        int[] location=new int[2];java.util.concurrent.atomic.AtomicReference<float[]> point=new java.util.concurrent.atomic.AtomicReference<>();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            view.getLocationOnScreen(location);android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+            float cw=ScreenShareService.captureWidth,ch=ScreenShareService.captureHeight,scale=Math.min(cw/metrics.widthPixels,ch/metrics.heightPixels);
+            point.set(new float[]{((location[0]+view.getWidth()/2f)*scale+(cw-metrics.widthPixels*scale)/2)/cw,((location[1]+view.getHeight()/2f)*scale+(ch-metrics.heightPixels*scale)/2)/ch});
+        });return point.get();
+    }
+    private void tap(long client, android.view.View view) {float[] point=capturePoint(view);NativeBridge.pointer(client,point[0],point[1],0);NativeBridge.pointer(client,point[0],point[1],2);}
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();

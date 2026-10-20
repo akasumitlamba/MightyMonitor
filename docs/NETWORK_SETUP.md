@@ -8,6 +8,9 @@ On desktop Share, open **Settings → Choose network**, select the interface/add
 used by the other device, and start sharing. **Refresh networks** re-enumerates
 addresses after plugging in a cable. A manually entered port is preserved when
 changing the address. On Android Share, **Network** lists current IPv4 addresses.
+An unavailable explicitly selected Android network now fails instead of silently
+switching to another interface. On Android the picker selects the invitation
+address; the existing authenticated phone listener still uses all local interfaces.
 The selection is fixed for that sharing session; stop and restart Share after
 changing networks, and transfer the new private viewing link.
 
