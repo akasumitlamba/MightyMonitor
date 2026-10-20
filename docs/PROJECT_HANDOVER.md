@@ -244,8 +244,14 @@ tests on API 29/30/34/36. Linux package install/reinstall/runtime/purge passed i
 The matching e468edb installer artifacts were downloaded and checksum-verified
 locally. They remain development builds, not a published stable release.
 
-A small subsequent desktop follow-up keeps reconnecting status visible in full
-screen. Its local warning-free Clippy check passes; fresh builds are pending.
+The desktop reconnect-status follow-up passed native CI and both installers at
+9fe1716. Its repeated Android suite failed the initial control tap on API 29 and
+editor focus after rotation on API 36; API 30/34 passed. This intermittency remains
+unresolved. A new test change waits for stable focused target bounds before each
+single remote gesture, and extends Android viewer playback across landscape/
+portrait rotation. Java compilation passes; confirming runs are pending.
+The native Linux idle UI snapshot rendered successfully without sharing/input;
+full-screen physical-device UI acceptance is still unverified.
 Android workflow filters now cover headless interop/capture dependencies and
 leave GUI-only verification to desktop CI.
 

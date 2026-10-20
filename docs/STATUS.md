@@ -341,3 +341,17 @@ lifecycle (39378671793), and Linux package lifecycle (39378671812) passed. Match
 Windows/Linux/Android artifacts were retrieved locally and independently checked
 against SHA256SUMS and BUILD_INFO.json; each reported clean tracked sources.
 The small later reconnect-status/filter follow-up awaits its fresh builds.
+
+
+2026-10-20: Repeat checkpoint 9fe1716 passed native CI and both installers, but
+Android control assertions failed intermittently on 10 (initial tap) and 16
+(editor focus after rotation); 11/14 passed. Earlier four-version passes remain
+historical evidence, not proof this intermittency is solved. Instrumentation now
+waits for shown/focused/stable non-pending target bounds before computing a single
+remote gesture; it does not retry clicks or bypass actual control assertions.
+Expanded viewer playback checks rotate to landscape and back while requiring new
+frames. Java test compilation passes; confirming execution is pending.
+
+The current native Linux viewer was also launched using its developer-only idle
+snapshot example. It rendered its normal View page successfully and exited without
+starting capture or sending input. This is normal-window UI evidence only.

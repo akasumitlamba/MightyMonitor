@@ -62,6 +62,8 @@ public final class ViewerSmokeTest {
         });
         while (app.getRenderedFrames() < 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Android MediaCodec never presented desktop H.264 frames", app.getRenderedFrames() >= 3);
+        androidx.test.uiautomator.UiDevice rotationDevice=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        try {
         int before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.findViewById(MainActivity.FULLSCREEN_ID).performClick());
         deadline = System.currentTimeMillis() + 15000;
@@ -69,10 +71,27 @@ public final class ViewerSmokeTest {
         assertTrue("Video stopped entering full screen", app.getRenderedFrames() >= before + 3);
         assertTrue("Full screen exit is not available", app.findViewById(MainActivity.EXIT_FULLSCREEN_ID).getVisibility() == android.view.View.VISIBLE);
         before = app.getRenderedFrames();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+        rotationDevice.setOrientationLeft();awaitRotation(true);
+        deadline = System.currentTimeMillis() + 15000;
+        while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Video stopped rotating the full-screen viewer to landscape", app.getRenderedFrames() >= before + 3);
+        saveScreenshot("view-fullscreen-landscape");
+        before = app.getRenderedFrames();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        rotationDevice.setOrientationNatural();awaitRotation(false);
+        deadline = System.currentTimeMillis() + 15000;
+        while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Video stopped rotating the viewer back to portrait", app.getRenderedFrames() >= before + 3);
+        before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.findViewById(MainActivity.EXIT_FULLSCREEN_ID).performClick());
         deadline = System.currentTimeMillis() + 15000;
         while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Video stopped leaving full screen", app.getRenderedFrames() >= before + 3);
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED));
+            rotationDevice.setOrientationNatural();rotationDevice.unfreezeRotation();
+        }
     }
 
     @Test public void capturesPhoneScreenAndDecodesThroughRustHost() throws Exception {
@@ -225,7 +244,29 @@ public final class ViewerSmokeTest {
         while(!ready.get() && System.currentTimeMillis()<deadline){ready.set((device.getDisplayWidth()>device.getDisplayHeight())==landscape);Thread.sleep(100);}
         assertTrue("Test display did not rotate",ready.get());InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
-    private float[] capturePoint(android.view.View view){
+    private void awaitTarget(android.view.View view) throws Exception {
+        long deadline=System.currentTimeMillis()+15000;
+        int stable=0;String previous="";
+        androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        while(System.currentTimeMillis()<deadline) {
+            final boolean landscape=device.getDisplayWidth()>device.getDisplayHeight();
+            java.util.concurrent.atomic.AtomicReference<String> bounds=new java.util.concurrent.atomic.AtomicReference<>("");
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+                android.view.View root=view.getRootView();
+                if(view.isShown() && view.hasWindowFocus() && view.getWidth()>0 && view.getHeight()>0 && !view.isLayoutRequested() && !root.isLayoutRequested() && ((root.getWidth()>root.getHeight())==landscape)) {
+                    int[] xy=new int[2];view.getLocationOnScreen(xy);
+                    bounds.set(xy[0]+":"+xy[1]+":"+view.getWidth()+":"+view.getHeight()+":"+root.getWidth()+":"+root.getHeight());
+                }
+            });
+            String current=bounds.get();
+            stable=!current.isEmpty() && current.equals(previous)?stable+1:0;
+            if(stable>=2)return;
+            previous=current;Thread.sleep(100);
+        }
+        throw new AssertionError("Test target did not obtain stable focused display bounds");
+    }
+    private float[] capturePoint(android.view.View view) throws Exception {
+        awaitTarget(view);
         int[] location=new int[2];java.util.concurrent.atomic.AtomicReference<float[]> point=new java.util.concurrent.atomic.AtomicReference<>();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
             view.getLocationOnScreen(location);
@@ -235,7 +276,7 @@ public final class ViewerSmokeTest {
             point.set(new float[]{((location[0]+view.getWidth()/2f)*scale+(cw-metrics.widthPixels*scale)/2)/cw,((location[1]+view.getHeight()/2f)*scale+(ch-metrics.heightPixels*scale)/2)/ch});
         });return point.get();
     }
-    private void tap(long client, android.view.View view) {float[] point=capturePoint(view);NativeBridge.pointer(client,point[0],point[1],0);NativeBridge.pointer(client,point[0],point[1],2);}
+    private void tap(long client, android.view.View view) throws Exception {float[] point=capturePoint(view);NativeBridge.pointer(client,point[0],point[1],0);NativeBridge.pointer(client,point[0],point[1],2);}
     private void saveScreenshot(String name) throws Exception {
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         android.graphics.Bitmap bitmap = InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).takeScreenshot();
