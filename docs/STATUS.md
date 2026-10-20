@@ -311,3 +311,10 @@ superseded pending claims. Website FAQ reflects development viewing/discovery.
 zipalign checks for 16 KiB pages. The new readelf-based checker accepted a real
 16 KiB-linked ELF and rejected a 4 KiB-linked ELF locally. Actual Android-library
 and APK checks await CI; physical 16 KiB-page hardware is unverified.
+
+
+2026-10-20: Android a696298 APK job passed unsigned-release refusal, disposable
+release signing/apksigner verification and artifact manifests. Android 16 also
+passed the actual optional-notification-denial/video/control/discovery suite;
+other emulator results are still running. Related viewer documentation was
+updated to remove stale single-viewer/X11-only/no-discovery statements.

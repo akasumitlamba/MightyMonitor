@@ -40,7 +40,8 @@ NetStats and Ping are sent approximately once per second once configured. TCP
 loss is not observable here, so loss_pct is zero; throughput excludes framing.
 UI frames use a latest-frame slot; encoded input remains ordered and bounded so
 reference frames are decoded even if the UI misses a refresh. Pinned TLS and private session links protect normal viewing. Optional focused
-input forwarding is implemented; audio, mDNS and persistent pairing are not.
+input forwarding is implemented. Audio and persistent pairing are absent; opt-in
+mDNS discovery is implemented on the development branch (DISCOVERY.md).
 
 ## Manual smoke test (requires a desktop)
 
@@ -71,8 +72,8 @@ feedback but is not a pure wire RTT.
 Build both binaries with `cargo build --release --workspace`, then run
 `target/release/mm-viewer`. The viewer finds `mm-host` beside its own executable;
 packaging must keep the two together. The generated app icon is embedded in the
-viewer window. The icon does not constitute a Windows executable resource or a
-Linux desktop-menu installation; those are packaging work.
+viewer window. The Windows setup and Linux DEB also install the project icon and
+application-menu shortcuts; see INSTALLERS.md for actual installer evidence.
 
 On Linux X11/Wayland or Windows, **Share this screen** launches the sibling host without
 a shell (mm-host on Linux, mm-host.exe on Windows).
@@ -88,11 +89,14 @@ are locked while the owned host runs. A sharing failure displays the last 4 KiB
 of host diagnostics; the private temporary log is removed during normal cleanup.
 Logs can remain after a crash or forced termination of the viewer.
 
-**View another screen** connects to a host IP/port. **Disconnect** cancels the
-viewer session and clears the last displayed frame. Viewing and sharing can run
-at the same time on Linux, but this does not create independent extended displays
-or provide multi-viewer hosting. Sharing captures the X11 root window: avoid
-viewing a stream of your own captured desktop to prevent recursive imagery.
+**View a screen** connects using a private link; bare IP/port remains an explicit
+legacy option. **Disconnect** cancels viewing and clears its last frame. Desktop
+sharing and viewing can run concurrently. Desktop hosting accepts four viewers
+with one controller at a time. X11 sharing mirrors the root window; Windows mirrors
+a monitor; Wayland uses the system-selected source and supports an experimental
+virtual-output Extend mode when offered by its portal. Simultaneous opposite-
+direction physical-device acceptance is unfinished. Avoid displaying a stream of
+your own captured desktop inside that capture to prevent recursive imagery.
 Windows now uses real GStreamer decoding and the DXGI host. Native dependency
 setup and physical desktop acceptance are described in WINDOWS.md.
 
@@ -105,7 +109,7 @@ Manual acceptance (not yet performed on physical devices):
 3. Stop sharing and confirm the host process and stream end. Restart sharing.
 4. Disconnect the viewer and confirm the displayed frame clears. Reconnect.
 5. Close the app while sharing and verify no owned mm-host process remains.
-6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
+6. Try an unavailable capture backend/portal and an occupied port; verify readable errors.
 7. Verify Windows host/viewer playback using the acceptance steps in WINDOWS.md.
 
 
