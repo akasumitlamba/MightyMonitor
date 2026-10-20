@@ -73,6 +73,7 @@ public final class ViewerSmokeTest {
         before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
         rotationDevice.setOrientationLeft();awaitRotation(true);
+        awaitTarget(app.findViewById(MainActivity.VIDEO_ID));before=app.getRenderedFrames();
         deadline = System.currentTimeMillis() + 15000;
         while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Video stopped rotating the full-screen viewer to landscape", app.getRenderedFrames() >= before + 3);
@@ -80,6 +81,7 @@ public final class ViewerSmokeTest {
         before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
         rotationDevice.setOrientationNatural();awaitRotation(false);
+        awaitTarget(app.findViewById(MainActivity.VIDEO_ID));before=app.getRenderedFrames();
         deadline = System.currentTimeMillis() + 15000;
         while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Video stopped rotating the viewer back to portrait", app.getRenderedFrames() >= before + 3);
