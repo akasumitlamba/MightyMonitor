@@ -89,3 +89,9 @@ Accessibility or a keyboard without the user's operating-system approval.
 
 For signed production APKs, see [RELEASE_SIGNING.md](RELEASE_SIGNING.md). Release
 assembly requires a publisher-owned private key; debug builds stay independent.
+
+
+The APK job also checks actual JNI ELF load-segment alignment with `readelf` and
+checks debug/release APK packaging with SDK `zipalign -c -P 16 4`. Compiler flags
+alone do not establish 16 KiB compatibility. These checks do not replace testing
+on a physical 16 KiB-page device. See the current workflow results for acceptance.

@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
-    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -42,6 +42,10 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - name: Verify actual native and debug APK 16 KiB alignment
+        run: |
+          python3 scripts/check-android-alignment.py android/app/src/main/jniLibs/*/*.so
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 android/app/build/outputs/apk/debug/app-debug.apk
       - name: Refuse an unsigned production build
         shell: bash
         run: |
@@ -62,6 +66,7 @@ jobs:
           trap 'rm -f "$MM_ANDROID_KEYSTORE"' EXIT
           keytool -genkeypair -keystore "$MM_ANDROID_KEYSTORE" -storepass:env MM_ANDROID_STORE_PASSWORD -keypass:env MM_ANDROID_KEY_PASSWORD -alias "$MM_ANDROID_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 2 -dname 'CN=MightyMonitor disposable CI test' > /tmp/mm-test-key.log 2>&1
           gradle -p android assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 4 android/app/build/outputs/apk/release/app-release.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk
           rm -f android/app/build/outputs/apk/release/app-release.apk
       - name: Record APK checksums and source revision

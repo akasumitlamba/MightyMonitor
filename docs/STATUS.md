@@ -305,3 +305,9 @@ remote translation. The new Escape regression plus existing Unicode input tests
 passed locally; workspace Clippy with warnings denied passed. Platform/UI checks
 are pending. The handover's development evidence was consolidated to remove
 superseded pending claims. Website FAQ reflects development viewing/discovery.
+
+
+2026-10-20: Added actual Android JNI ELF load-alignment and debug/release APK
+zipalign checks for 16 KiB pages. The new readelf-based checker accepted a real
+16 KiB-linked ELF and rejected a 4 KiB-linked ELF locally. Actual Android-library
+and APK checks await CI; physical 16 KiB-page hardware is unverified.

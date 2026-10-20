@@ -237,6 +237,10 @@ Commit normal checkpoints to the fork. No new PR is open for these changes.
   workspace Clippy pass. Fresh platform execution and physical UI acceptance are
   still required.
 
+The next Android job also checks every actual JNI library's ELF load alignment
+and debug/release APK packaging for 16 KiB pages. The checker passed independent
+positive/negative native ELF cases locally; Android CI acceptance is pending.
+
 The support table above remains the product-level limit: no physical Windows/
 phone acceptance, no Windows/X11 true extension, no persistent pairing and no
 published production release. Read DEVICE_ACCEPTANCE.md for the untested routes.
