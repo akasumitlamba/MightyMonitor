@@ -246,19 +246,18 @@ locally. They remain development builds, not a published stable release.
 
 The desktop reconnect-status follow-up passed native CI and both installers at
 9fe1716. Its repeated Android suite failed the initial control tap on API 29 and
-editor focus after rotation on API 36; API 30/34 passed. This intermittency remains
-unresolved. Input tests now wait for stable focused target bounds before each single gesture.
+editor focus after rotation on API 36; API 30/34 passed. The readiness follow-up described below passed its confirming run. Input tests now wait for stable focused target bounds before each single gesture.
 Viewer rotation separately checks visible viewport orientation/aspect and new
 frames; image rendering does not require keyboard focus. Full-screen entry hides
-the local keyboard. Java compilation passes; confirming runs are pending.
+the local keyboard. Java compilation and confirming Android run 39395701699 passed.
 The control test now runs three consented Share/control/Stop sessions in one app
 process. The first failure still fails the test. Avoid repeatedly force-stopping
 the process merely to repeat gesture checks: that hit Android 16 Accessibility
 rebind suppression before the second repeat could begin. Forced-process recovery
 remains a separate, unverified lifecycle scenario.
 The native Linux idle UI snapshot rendered successfully without sharing/input;
-a follow-up removes the unused Sharing off bar while preserving active/error
-indicators, and passes local viewer Clippy.
+the unused Sharing off bar is removed while preserving active/error
+indicators. Desktop CI and both installer lifecycle jobs passed at 734aea2.
 full-screen physical-device UI acceptance is still unverified.
 Android workflow filters now cover headless interop/capture dependencies and
 leave GUI-only verification to desktop CI.
@@ -266,3 +265,22 @@ leave GUI-only verification to desktop CI.
 The support table above remains the product-level limit: no physical Windows/
 phone acceptance, no Windows/X11 true extension, no persistent pairing and no
 published production release. Read DEVICE_ACCEPTANCE.md for the untested routes.
+
+
+**Repeated-session confirmation at bc3210e:** Android run 39395701699 passed
+all four tests on Android 10/11/14/16. The viewer test required fresh video after
+landscape/portrait changes. The control test completed three independently
+consented share/tap/rotate/type/revoke/stop sessions in one process on each version
+(12 sessions total). CI 39395701831 passed Linux, Windows, MSRV and PipeWire.
+This resolves the observed test readiness failures for this run; forced-process
+Accessibility recovery and physical-device reliability remain unverified.
+
+**Windows screen selection follow-up:** `display-windows/` is an original, small
+read-only Win32 adapter with the explicit unsafe FFI boundary. Share offers an
+existing-screen picker and refresh. `mm-host --list-displays` lists GDI device
+names; `--display DEVICE` resolves a snapshot to its exact HMONITOR for GStreamer.
+The snapshot is checked before startup and each frame; disappearance, handle,
+geometry or primary-status changes stop that capture instead of falling back.
+Explicit screen selection is view-only; primary/default control retains its
+existing restriction. No virtual monitor is created. Local snapshot rejection
+tests and Windows adapter cross-Clippy passed; full platform checks are pending.

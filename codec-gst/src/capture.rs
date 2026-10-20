@@ -6,6 +6,8 @@ use gstreamer_app::AppSink;
 use gstreamer_video as video;
 
 pub struct WindowsCapture {
+    #[cfg(target_os = "windows")]
+    display: Option<mightymonitor_display_windows::Display>,
     pipeline: gst::Pipeline,
     sink: AppSink,
     source_dimensions: (u32, u32),
@@ -28,6 +30,29 @@ impl WindowsCapture {
             "d3d11screencapturesrc capture-api=dxgi monitor-index={monitor} show-cursor=true ! video/x-raw,framerate={fps}/1 ! videoconvert ! video/x-raw,format=RGBA ! appsink name=capture sync=false max-buffers=1 drop=true"
         ))
     }
+    /// Capture a validated exact monitor; never substitute another display.
+    #[cfg(target_os = "windows")]
+    pub fn open_display(
+        fps: u32,
+        display: &mightymonitor_display_windows::Display,
+    ) -> Result<Self> {
+        if !(1..=240).contains(&fps) {
+            return Err(error("invalid capture fps"));
+        }
+        display.validate().map_err(error)?;
+        let handle = display.handle();
+        let mut capture = Self::from_description(&format!(
+            "d3d11screencapturesrc capture-api=dxgi monitor-handle={handle} show-cursor=true ! video/x-raw,framerate={fps}/1 ! videoconvert ! video/x-raw,format=RGBA ! appsink name=capture sync=false max-buffers=1 drop=true"
+        ))?;
+        display.validate().map_err(error)?;
+        if capture.source_dimensions != (display.width, display.height) {
+            return Err(error(
+                "Selected screen size does not match capture. Stop sharing and select it again.",
+            ));
+        }
+        capture.display = Some(display.clone());
+        Ok(capture)
+    }
     fn from_description(description: &str) -> Result<Self> {
         gst::init().map_err(error)?;
         let pipeline = gst::parse::launch(description)
@@ -40,6 +65,8 @@ impl WindowsCapture {
             .downcast::<AppSink>()
             .map_err(|_| error("invalid capture appsink"))?;
         let mut capture = Self {
+            #[cfg(target_os = "windows")]
+            display: None,
             pipeline,
             sink,
             source_dimensions: (0, 0),
@@ -69,6 +96,10 @@ impl WindowsCapture {
         })
     }
     pub fn next_rgba(&mut self) -> Result<Vec<u8>> {
+        #[cfg(target_os = "windows")]
+        if let Some(display) = &self.display {
+            display.validate().map_err(error)?;
+        }
         if let Some(first) = self.first.take() {
             return Ok(first);
         }

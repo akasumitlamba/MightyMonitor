@@ -139,7 +139,9 @@ mod desktop {
         }
     }
     #[cfg(target_os = "windows")]
-    struct CaptureFactory;
+    struct CaptureFactory {
+        display: Option<mightymonitor_display_windows::Display>,
+    }
     #[cfg(target_os = "windows")]
     impl CaptureFactory {
         fn open(mode: &str, _allow_control: bool, extend: bool) -> Result<Self, Error> {
@@ -149,7 +151,7 @@ mod desktop {
             if mode != "auto" {
                 return Err("Windows uses DXGI capture; --capture must be auto".into());
             }
-            Ok(Self)
+            Ok(Self { display: None })
         }
         fn input(
             &self,
@@ -165,7 +167,13 @@ mod desktop {
             fps: u32,
             monitor: i32,
         ) -> Result<(codec_gst::capture::WindowsCapture, u32, u32), Error> {
-            capture(fps, monitor)
+            if let Some(display) = &self.display {
+                let source = codec_gst::capture::WindowsCapture::open_display(fps, display)?;
+                let (width, height) = source.dimensions();
+                Ok((source, width, height))
+            } else {
+                capture(fps, monitor)
+            }
         }
     }
     struct Codec(GstEncoder);
@@ -203,6 +211,7 @@ mod desktop {
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
         let mut monitor: i32 = -1;
+        let mut display_device: Option<String> = None;
         let mut bitrate = 4000;
         let mut idle_timeout_secs = 30;
         let mut args = std::env::args().skip(1);
@@ -227,8 +236,25 @@ mod desktop {
                 managed = true;
                 continue;
             }
+            if flag == "--list-displays" {
+                #[cfg(target_os = "windows")]
+                {
+                    for display in mightymonitor_display_windows::displays()? {
+                        println!(
+                            "{}  {} × {}{}",
+                            display.device(),
+                            display.width,
+                            display.height,
+                            if display.primary { " (Main)" } else { "" }
+                        );
+                    }
+                    return Ok(());
+                }
+                #[cfg(not(target_os = "windows"))]
+                return Err("--list-displays requires Windows".into());
+            }
             if flag == "--help" {
-                println!("mm-host [--secure] [--discoverable] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--discoverable] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX] [--display DEVICE] [--list-displays]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -237,6 +263,7 @@ mod desktop {
                 "--capture" => capture_mode = value,
                 "--fps" => fps = value.parse()?,
                 "--monitor" => monitor = value.parse()?,
+                "--display" => display_device = Some(value),
                 "--bitrate" => bitrate = value.parse()?,
                 "--idle-timeout-secs" => idle_timeout_secs = value.parse()?,
                 _ => return Err(format!("unknown flag: {flag}").into()),
@@ -251,13 +278,28 @@ mod desktop {
         }
         // Obtain Wayland system consent before publishing an invitation or starting
         // network handshake deadlines. The portal lives for this sharing lifetime.
-        if allow_control && (!secure || monitor != -1) {
+        if allow_control && (!secure || monitor != -1 || display_device.is_some()) {
             return Err("Remote control requires --secure and the primary/default screen".into());
         }
         if discoverable && !secure {
             return Err("Discovery requires secure sharing".into());
         }
+        if display_device.is_some() && (monitor != -1 || extend) {
+            return Err("--display cannot be combined with --monitor or --extend".into());
+        }
+        #[cfg(not(target_os = "windows"))]
+        if display_device.is_some() {
+            return Err("--display requires Windows".into());
+        }
         let factory = CaptureFactory::open(&capture_mode, allow_control, extend)?;
+        #[cfg(target_os = "windows")]
+        let factory = {
+            let mut factory = factory;
+            if let Some(device) = display_device {
+                factory.display = Some(mightymonitor_display_windows::select(&device)?);
+            }
+            factory
+        };
         let mut stop = Box::pin(async move {
             if managed {
                 let (tx, rx) = tokio::sync::oneshot::channel();

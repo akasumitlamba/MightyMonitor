@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/wayland-sharing', 'codex/windows-installer', 'codex/remote-control', 'codex/device-discovery', main]
-    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
+    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'display-windows/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
 permissions:
   contents: read
 jobs:

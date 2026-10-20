@@ -84,3 +84,7 @@ https://github.com/keepsimple1/mdns-sd
 
 Read-only interface selection additionally uses if-addrs 0.15.0 (MIT OR
 BSD-3-Clause). No network configuration or privileged operations are performed.
+
+Read-only Windows display enumeration uses windows 0.61.3 (MIT OR Apache-2.0),
+through documented Win32 APIs. The original small adapter owns the unsafe FFI
+boundary; it neither installs drivers nor changes display configuration.

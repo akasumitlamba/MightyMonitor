@@ -392,3 +392,17 @@ session aborts the test; no failed result is retried into success. This models
 ordinary repeated sharing without repeatedly force-stopping an enabled system
 service. Initial capture orientation is explicitly portrait for the letterbox
 fixture. The old restart script was removed. Java compilation passes; runs pending.
+
+
+2026-10-20: Confirming Android run 39395701699 passed all four tests on APIs
+29/30/34/36, including fresh viewer frames after rotation and three independently
+consented control/share/stop rounds per version. CI 39395701831 also passed.
+Historical pending/failure entries above describe earlier revisions. Forced-process
+Accessibility recovery remains separate and unverified.
+
+2026-10-20: Added read-only Windows screen enumeration, a Share screen picker and
+CLI --list-displays/--display. Exact HMONITOR capture checks the selected snapshot
+before startup and every frame, rejecting removal/layout/identity changes without
+fallback. Explicit selection stays view-only. This is existing-screen selection,
+not Windows Extend. Snapshot rejection tests and Windows adapter cross-Clippy
+pass; full platform checks and physical multi-monitor acceptance remain.

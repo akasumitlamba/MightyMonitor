@@ -45,10 +45,28 @@ The default monitor is the primary display. `--monitor 0` (or another zero-based
 index) selects a different display. `--monitor` selection is Windows-only.
 A resolution change ends the current capture so reconnect can renegotiate it.
 Capture startup/frame waits are bounded to three seconds. Pipeline cleanup sets
-GStreamer to NULL; no raw pointers or new unsafe Rust were added.
+GStreamer to NULL. The codec adapter remains safe Rust; the separate small
+`display-windows` crate contains documented Win32 enumeration FFI.
 
-This does not implement virtual extended monitors, remote input, or persistent
-trusted-device pairing. It streams an existing display. CPU H.264 remains the default; hardware
+The Share page now offers Main screen or an explicitly selected existing screen,
+with Refresh screens after connecting a monitor. Explicit selection is view-only;
+use Main screen for the existing primary-screen control implementation.
+
+```powershell
+.\target\release\mm-host.exe --list-displays
+.\target\release\mm-host.exe --secure --display '\\.\DISPLAY2' --bind 192.168.1.10:5000
+```
+
+Use a device name from your actual list. The host resolves the name to an exact
+HMONITOR snapshot and passes `monitor-handle` to GStreamer. It rechecks identity,
+bounds and primary status before each frame. If the screen changes/disconnects,
+capture ends without substitution; stop, refresh and select again. The legacy
+index option remains available but cannot be combined with `--display`. Screen
+selection cannot be combined with `--extend` or `--allow-control`.
+Local geometry/identity rejection tests and Windows cross-compilation do not
+replace physical hotplug/multi-monitor tests.
+
+This does not implement virtual extended monitors or persistent trusted-device pairing. It streams an existing display. CPU H.264 remains the default; hardware
 encoder improvements are separate work.
 
 ## Acceptance on physical devices (pending)

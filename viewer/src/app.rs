@@ -26,6 +26,12 @@ pub struct App {
     allow_control: bool,
     extend: bool,
     discoverable: bool,
+    #[cfg(target_os = "windows")]
+    screens: Vec<mightymonitor_display_windows::Display>,
+    #[cfg(target_os = "windows")]
+    screen: Option<String>,
+    #[cfg(target_os = "windows")]
+    screen_error: Option<String>,
     discovery: Option<mightymonitor_discovery::Browser>,
     discovery_error: Option<String>,
     networks: Vec<mightymonitor_discovery::LocalAddress>,
@@ -60,6 +66,12 @@ impl App {
             allow_control: false,
             extend: false,
             discoverable: false,
+            #[cfg(target_os = "windows")]
+            screens: mightymonitor_display_windows::displays().unwrap_or_default(),
+            #[cfg(target_os = "windows")]
+            screen: None,
+            #[cfg(target_os = "windows")]
+            screen_error: None,
             discovery: None,
             discovery_error: None,
             networks: mightymonitor_discovery::local_addresses().unwrap_or_default(),
@@ -457,10 +469,33 @@ impl eframe::App for App {
                         ui.add_enabled_ui(available, |ui| {ui.selectable_value(&mut self.extend, true, "Extend");}).response.on_hover_text("Create an extra desktop display. Requires a Wayland desktop with virtual-monitor support.");
                     });
                 });
-                ui.add_enabled(
-                    self.host.is_none(),
+                #[cfg(target_os = "windows")]
+                ui.add_enabled_ui(self.host.is_none(), |ui| {
+                    ui.horizontal(|ui| {
+                        let label = self.screen.as_ref().and_then(|device| self.screens.iter().find(|screen| screen.device() == device)).map(|screen| screen.label()).unwrap_or_else(|| {
+                            if self.screen.is_some() { "Screen unavailable".into() } else { "Main screen".into() }
+                        });
+                        egui::ComboBox::from_id_salt("sharing_screen").selected_text(label).show_ui(ui, |ui| {
+                            ui.selectable_value(&mut self.screen, None, "Main screen");
+                            for screen in &self.screens {
+                                if ui.selectable_value(&mut self.screen, Some(screen.device().to_owned()), screen.label()).clicked() { self.allow_control = false; }
+                            }
+                        });
+                        if ui.button("Refresh screens").clicked() {
+                            match mightymonitor_display_windows::displays() {
+                                Ok(screens) => { self.screens = screens; self.screen_error = None; }
+                                Err(error) => { self.screens.clear(); self.screen_error = Some(error.to_string()); }
+                            }
+                        }
+                    });
+                    if let Some(error) = &self.screen_error { ui.label(error); }
+                });
+                let control_available = self.host.is_none();
+                #[cfg(target_os = "windows")]
+                let control_available = control_available && self.screen.is_none();
+                ui.add_enabled(control_available,
                     egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
-                );
+                ).on_disabled_hover_text("Control is currently available for the main screen.");
                 ui.add_enabled(self.host.is_none(),egui::Checkbox::new(&mut self.discoverable,"Show on local network")).on_hover_text("Lets nearby devices find this sharing address. Your private link and control permission are not broadcast.");
                 if self.host.is_some() {
                     if ui.button("Stop sharing").clicked() {
@@ -478,13 +513,18 @@ impl eframe::App for App {
                         )
                         .clicked()
                     {
-                        match crate::host::HostProcess::start_with_discovery(
+                        #[cfg(not(target_os = "windows"))]
+                        let screen: Option<&str> = None;
+                        #[cfg(target_os = "windows")]
+                        let screen = self.screen.as_deref();
+                        match crate::host::HostProcess::start_with_display(
                             &self.share_address,
                             self.share_fps,
                             self.share_bitrate,
                             self.allow_control,
                             self.extend,
                             self.discoverable,
+                            screen,
                         ) {
                             Ok(host) => {
                                 self.host = Some(host);

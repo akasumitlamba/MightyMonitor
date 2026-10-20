@@ -36,3 +36,6 @@ required-features = ["gui"]
 [[bin]]
 name = "mm-launcher"
 path = "src/launcher.rs"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+mightymonitor-display-windows = { path = "../display-windows" }

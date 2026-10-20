@@ -45,6 +45,31 @@ impl HostProcess {
         extend: bool,
         discoverable: bool,
     ) -> io::Result<Self> {
+        Self::start_with_display(
+            address,
+            fps,
+            bitrate,
+            allow_control,
+            extend,
+            discoverable,
+            None,
+        )
+    }
+    #[allow(clippy::too_many_arguments)]
+    pub fn start_with_display(
+        address: &str,
+        fps: u32,
+        bitrate: u32,
+        allow_control: bool,
+        extend: bool,
+        discoverable: bool,
+        display: Option<&str>,
+    ) -> io::Result<Self> {
+        if display.is_some() && (!cfg!(target_os = "windows") || allow_control || extend) {
+            return Err(io::Error::other(
+                "Screen selection requires Windows mirror mode with remote control off.",
+            ));
+        }
         if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
                 "Screen sharing currently requires Linux or Windows.",
@@ -79,6 +104,9 @@ impl HostProcess {
         }
         if discoverable {
             command.arg("--discoverable");
+        }
+        if let Some(device) = display {
+            command.arg("--display").arg(device);
         }
         Self::spawn(command)
     }

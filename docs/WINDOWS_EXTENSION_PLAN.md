@@ -31,7 +31,12 @@ backend when already installed by the user, not an incorporated dependency yet.
 No driver code, binary, certificate or installer has been added to MightyMonitor.
 Its public `rust/driver-ipc` API uses the `virtualdisplaydriver` named pipe,
 JSON messages delimited by byte 0x04, State/Notify/Remove commands and monitor
-IDs/modes. Review and pin a release/commit before implementing compatibility.
+IDs/modes. The read-only audit pins commit `22fcd2e065aac13745cb27dc869848091b9e3a23`;
+compatibility is not implemented.
+
+The original `display-windows` adapter now enumerates existing GDI screens and
+checks exact handle/device/geometry snapshots for view-only capture. It is a
+prerequisite, not driver integration or permission to select an unrelated screen.
 
 Important correctness details from the public source:
 
@@ -40,6 +45,11 @@ Important correctness details from the public source:
   Do not blindly send a one-monitor Notify or assume it is an atomic Create.
   Prefer a backend/protocol with atomic owned Create/Remove or obtain a documented
   exclusive-driver contract; tests must cover concurrent changes and preservation.
+- The pipe rejects remote connections but uses a NULL DACL allowing local clients;
+  it has no per-client monitor ownership. Its accumulated message buffer is not
+  bounded by its 4096-byte read chunk, and it accepts unlimited pipe instances.
+  An adopted/forked backend needs bounded messages/connections/timeouts and an
+  atomic owner lease rather than trusting every local sender.
 - Remove accepts individual monitor IDs. Cleanup must never use RemoveAll.
 - Its EDID serial identifies the monitor ID. Its configurable monitor name is not
   sufficient evidence of the actual captured Windows monitor identity.
@@ -71,3 +81,16 @@ These are reference material under their license, not proprietary application co
 References:
 [GStreamer monitor targeting](https://gstreamer.freedesktop.org/documentation/d3d11/d3d11screencapturesrc.html),
 [Microsoft driver signing](https://learn.microsoft.com/windows-hardware/drivers/dashboard/code-signing-reqs).
+
+
+## Exact owned-output identity
+
+Microsoft's [IddCx monitor-arrival output](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/iddcx/ns-iddcx-idarg_out_monitorarrival)
+returns `OsAdapterLuid` and `OsTargetId` for identifying an arrived output from a
+companion app. The audited Rust driver's context currently discards this output.
+A dedicated backend should return the pair in its atomic owned-create response;
+do not equate connector index with the OS target ID. Match the pair through
+QueryDisplayConfig to a source GDI name, then to the enumerated HMONITOR and
+rectangle. Reject inactive/cloned output rather than changing all other monitors
+to a new topology. Driver signing, lifecycle cleanup and secondary-screen input
+still require implementation and Windows testing.

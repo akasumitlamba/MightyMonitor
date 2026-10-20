@@ -537,6 +537,7 @@ dependencies = [
  "gstreamer-app",
  "gstreamer-video",
  "mightymonitor-core",
+ "mightymonitor-display-windows",
  "thiserror 2.0.21",
 ]
 
@@ -2143,6 +2144,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "mightymonitor-display-windows"
+version = "0.0.1"
+dependencies = [
+ "windows 0.61.3",
+]
+
+[[package]]
 name = "mightymonitor-host"
 version = "0.0.1"
 dependencies = [
@@ -2152,6 +2160,7 @@ dependencies = [
  "host-linux",
  "mightymonitor-core",
  "mightymonitor-discovery",
+ "mightymonitor-display-windows",
  "mightymonitor-security",
  "mightymonitor-viewer",
  "socket2",
@@ -2185,6 +2194,7 @@ dependencies = [
  "eframe",
  "mightymonitor-core",
  "mightymonitor-discovery",
+ "mightymonitor-display-windows",
  "mightymonitor-security",
  "qrcode",
  "tokio",

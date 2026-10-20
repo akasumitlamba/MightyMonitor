@@ -33,3 +33,6 @@ mightymonitor-viewer = { path = "../viewer", default-features = false }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 x11rb = { version = "0.13.2", features = ["xtest"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+mightymonitor-display-windows = { path = "../display-windows" }

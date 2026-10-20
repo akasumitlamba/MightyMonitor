@@ -11,3 +11,6 @@ gstreamer = { version = "=0.23.7", features = ["v1_20"] }
 gstreamer-app = { version = "=0.23.5", features = ["v1_20"] }
 gstreamer-video = { version = "=0.23.6", features = ["v1_20"] }
 thiserror.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+mightymonitor-display-windows = { path = "../display-windows" }
