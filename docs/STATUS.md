@@ -362,3 +362,10 @@ the versions with intermittent failures. Each runs the real grant/gesture/Unicod
 revocation test in a fresh instrumentation launch on the same isolated emulator;
 a failed execution fails the job, rather than being retried until green. The
 script refuses non-emulator devices and preserves logs. Execution is pending.
+
+
+2026-10-20: Simplified the desktop idle View page by hiding an unused sharing
+bar. Active sharing and sharing failures retain their global indicators; connected
+viewing retains its full-screen action. The native Linux snapshot rendered the
+revised idle window successfully; viewer Clippy with warnings denied passed.
+No capture or input injection was started for this UI check.

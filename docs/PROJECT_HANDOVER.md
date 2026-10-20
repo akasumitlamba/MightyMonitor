@@ -251,6 +251,8 @@ unresolved. A new test change waits for stable focused target bounds before each
 single remote gesture, and extends Android viewer playback across landscape/
 portrait rotation. Java compilation passes; confirming runs are pending.
 The native Linux idle UI snapshot rendered successfully without sharing/input;
+a follow-up removes the unused Sharing off bar while preserving active/error
+indicators, and passes local viewer Clippy.
 full-screen physical-device UI acceptance is still unverified.
 Android workflow filters now cover headless interop/capture dependencies and
 leave GUI-only verification to desktop CI.

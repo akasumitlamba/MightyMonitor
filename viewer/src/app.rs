@@ -270,33 +270,37 @@ impl eframe::App for App {
                     });
                 });
             });
-        egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                if !self.fullscreen {
-                    ui.label(if self.host.is_some() {
-                        "Sharing is on"
-                    } else {
-                        "Sharing is off"
-                    });
-                }
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if self.page == Page::View
-                        && self.texture.is_some()
-                        && ui
-                            .button(if self.fullscreen {
-                                "Exit full screen"
-                            } else {
-                                "Full screen"
-                            })
-                            .clicked()
-                    {
-                        self.set_fullscreen(ctx, !self.fullscreen);
+        egui::TopBottomPanel::top("toolbar").show_animated(
+            ctx,
+            self.host.is_some() || self.texture.is_some() || self.host_error,
+            |ui| {
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    if !self.fullscreen && (self.host.is_some() || self.host_error) {
+                        ui.label(if self.host.is_some() {
+                            "Sharing is on"
+                        } else {
+                            "Sharing stopped"
+                        });
                     }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if self.page == Page::View
+                            && self.texture.is_some()
+                            && ui
+                                .button(if self.fullscreen {
+                                    "Exit full screen"
+                                } else {
+                                    "Full screen"
+                                })
+                                .clicked()
+                        {
+                            self.set_fullscreen(ctx, !self.fullscreen);
+                        }
+                    });
                 });
-            });
-            ui.add_space(8.0);
-        });
+                ui.add_space(8.0);
+            },
+        );
         egui::TopBottomPanel::top("connection_controls").show_animated(
             ctx,
             self.page == Page::View && !self.fullscreen,
