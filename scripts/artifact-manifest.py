@@ -34,11 +34,11 @@ def main():
     revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
     dirty = bool(subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=root, text=True).strip())
     args.output.mkdir(parents=True, exist_ok=True)
-    (args.output / 'SHA256SUMS').write_text(''.join(f"{item['sha256']}  {item['file']}\n" for item in artifacts), encoding='utf-8')
+    (args.output / 'SHA256SUMS').write_text(''.join(f"{item['sha256']}  {item['file']}\n" for item in artifacts), encoding='utf-8', newline='\n')
     (args.output / 'BUILD_INFO.json').write_text(json.dumps({
         'project': 'MightyMonitor', 'revision': revision, 'tracked_sources_modified': dirty,
         'artifacts': artifacts,
-    }, indent=2) + '\n', encoding='utf-8')
+    }, indent=2) + '\n', encoding='utf-8', newline='\n')
 
 
 if __name__ == '__main__':
