@@ -61,11 +61,10 @@ Rust owns the original TCP/framing/message server. It handles Hello/Resume,
 configuration, sequence numbers, Ping/Pong, timed writes and bounded bitrate
 feedback. Only one viewer is served at a time. Queue overflow discards the old
 reference chain and requests a fresh keyframe, including SPS/PPS. A new viewer
-always starts on a keyframe. The original protocol is carried over authenticated TLS. Control is not enabled by this implementation.
+always starts on a keyframe. The original protocol is carried over authenticated TLS. Optional control requires the local Share permission, an explicit viewer request and the user-enabled Accessibility service.
 
 Both PC-to-phone playback and consent-based phone capture passed emulator tests
-on Android 10, 11, 14 and 16. Desktop decoder interoperability also passed for the capture milestone; the
-secure transport upgrade reruns that check. Physical Wi-Fi phone/PC verification
+on Android 10, 11, 14 and 16. Desktop decoder interoperability over pinned TLS also passed. Physical Wi-Fi phone/PC verification
 remains pending. See [connection security](../docs/SECURE_CONNECTIONS.md).
 
 

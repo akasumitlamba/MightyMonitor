@@ -6,7 +6,7 @@ Build native optimized binaries, then generate an installable .deb:
 
 ```sh
 cargo build --release --locked -p mightymonitor-host -p mightymonitor-viewer
-python3 scripts/package-linux.py --version '0.0.1~alpha.1'
+python3 scripts/package-linux.py --version '0.0.1~alpha.7'
 ```
 
 The script requires Python 3, dpkg, dpkg-deb, and dpkg-shlibdeps (dpkg-dev).
@@ -24,7 +24,7 @@ Install a package built for your distribution/architecture using its graphical
 package installer, or:
 
 ```sh
-sudo apt install ./mightymonitor_0.0.1~alpha.1_amd64.deb
+sudo apt install ./mightymonitor_0.0.1~alpha.7_amd64.deb
 ```
 
 Then open MightyMonitor from the application menu. apt resolves the declared

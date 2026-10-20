@@ -25,7 +25,8 @@ network should share, view and optionally control screens in either direction:
 - Local accounts/cloud services are unnecessary. The project website must stay
   plain HTML/CSS/JS usable from disk and GitHub Pages, without Sites hosting.
 
-`CROSS_DEVICE.md` is the detailed product/acceptance specification. Android is an
+`CROSS_DEVICE.md` is the detailed product specification; `DEVICE_ACCEPTANCE.md`
+is the physical-device checklist and untested route matrix. Android is an
 extension *viewer*; a separate Android desktop is outside the initial scope.
 
 ## Verified state

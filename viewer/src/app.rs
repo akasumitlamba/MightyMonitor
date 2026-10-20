@@ -310,7 +310,9 @@ impl eframe::App for App {
                         if browser.unavailable(){ui.label("Discovery unavailable on this network. You can still paste a private link.");}
                         else if peers.is_empty(){ui.label("Looking for devices. Enable Show on local network on the sharing device.");}
                         else {
-                            for peer in peers {ui.horizontal_wrapped(|ui|{ui.label(format!("{} · {}",peer.platform,if peer.extend {"Extra display"}else{"Screen"})); for address in peer.addresses {ui.label(address.to_string());}});}
+                            egui::ScrollArea::vertical().id_salt("nearby_devices").max_height(120.0).show(ui, |ui| {
+                                for peer in peers {ui.horizontal_wrapped(|ui|{ui.label(format!("{} · {}",peer.platform,if peer.extend {"Extra display"}else{"Screen"})); for address in peer.addresses {ui.label(address.to_string());}});}
+                            });
                             ui.label("Paste the private link from the sharing device to connect.");
                         }
                     }
