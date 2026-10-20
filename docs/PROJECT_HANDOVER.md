@@ -231,3 +231,10 @@ full screen; fresh emulator results must be checked before claiming acceptance.
 Android Share controls now scroll on small/landscape screens; desktop discovery
 uses a compact scrolling list. Full-screen transitions release held input.
 No new PR is requested: continue on `codex/device-discovery` and create one later.
+
+
+Installer acceptance was expanded in the current branch to Linux actual
+install/reinstall/runtime/desktop validation/purge and Windows reinstall. Check
+fresh workflow results before treating those new steps as verified. These run on
+isolated CI machines; no package install or uninstall was performed on the user's
+active Linux desktop.

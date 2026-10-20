@@ -79,3 +79,10 @@ handling. Opening a private URI prefills the viewer, with Connect still explicit
 The Windows handler is registered per user and removed on uninstall; the Linux
 desktop file declares x-scheme-handler/mightymonitor. APK signing/update continuity
 and production release signing are still separate unfinished work.
+
+
+The next packaging checks also install and reinstall the Linux package on an
+isolated CI runner, initialize the installed decoder, validate the desktop entry
+and remove the app/assets. Windows setup is exercised twice before its runtime,
+URI registration and uninstall checks. These additional checks are awaiting a
+fresh run; same-version reinstall is not proof of all future version upgrades.

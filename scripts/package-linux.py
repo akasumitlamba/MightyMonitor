@@ -27,7 +27,7 @@ def architecture(binary):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version', default='0.0.1~alpha.1')
+    parser.add_argument('--version', default='0.0.1~alpha.7')
     parser.add_argument('--binaries-dir', type=Path, default=ROOT / 'target/release')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'output/installers')
     args = parser.parse_args()

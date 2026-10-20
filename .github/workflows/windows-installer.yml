@@ -36,6 +36,9 @@ jobs:
           foreach ($file in @('mm-host.exe', 'mm-viewer.exe', 'mm-launcher.exe', 'unins000.exe')) {
             if (-not (Test-Path (Join-Path $app $file))) { throw "Missing installed file: $file" }
           }
+          # Reinstall over the existing app before runtime/association/uninstall checks.
+          $reinstall = Start-Process $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=`"$env:RUNNER_TEMP\mm-reinstall.log`"") -Wait -PassThru
+          if ($reinstall.ExitCode -ne 0) { throw "Reinstall failed: $($reinstall.ExitCode)" }
           $protocol = 'HKCU:\Software\Classes\mightymonitor'
           $handler = (Get-Item (Join-Path $protocol 'shell\open\command')).GetValue('')
           if ($handler -ne ('"' + (Join-Path $app 'mm-launcher.exe') + '" "%1"')) { throw 'Private-link handler is missing or incorrectly quoted' }
@@ -55,4 +58,6 @@ jobs:
         if: failure()
         with:
           name: windows-installer-diagnostics
-          path: ${{ runner.temp }}/mm-setup.log
+          path: |
+            ${{ runner.temp }}/mm-setup.log
+            ${{ runner.temp }}/mm-reinstall.log

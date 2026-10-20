@@ -251,3 +251,11 @@ Java compilation passed locally; fresh emulator execution is pending.
 scrolling list and keep Android Share controls reachable with scrolling on small
 or landscape displays. Full-screen transitions explicitly release remote input.
 Local Java compilation and workspace Clippy with warnings denied passed.
+
+
+2026-10-20: Expanded delivery checks: Linux actual package install/reinstall,
+installed decoder initialization, desktop entry validation and purge cleanup;
+Windows same-version reinstall before runtime/URI/uninstall checks. Updated the
+local Linux packaging default to alpha.7. Workflow YAML parses locally; these new
+packaging checks have not run yet. Physical upgrades and clean-device acceptance
+remain separate.
