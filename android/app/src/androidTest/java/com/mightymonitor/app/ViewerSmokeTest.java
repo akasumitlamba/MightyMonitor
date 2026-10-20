@@ -73,7 +73,7 @@ public final class ViewerSmokeTest {
         before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
         rotationDevice.setOrientationLeft();awaitRotation(true);
-        awaitTarget(app.findViewById(MainActivity.VIDEO_ID));before=app.getRenderedFrames();
+        awaitViewerLayout(app,true);before=app.getRenderedFrames();
         deadline = System.currentTimeMillis() + 15000;
         while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Video stopped rotating the full-screen viewer to landscape", app.getRenderedFrames() >= before + 3);
@@ -81,7 +81,7 @@ public final class ViewerSmokeTest {
         before = app.getRenderedFrames();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
         rotationDevice.setOrientationNatural();awaitRotation(false);
-        awaitTarget(app.findViewById(MainActivity.VIDEO_ID));before=app.getRenderedFrames();
+        awaitViewerLayout(app,false);before=app.getRenderedFrames();
         deadline = System.currentTimeMillis() + 15000;
         while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Video stopped rotating the viewer back to portrait", app.getRenderedFrames() >= before + 3);
@@ -246,15 +246,35 @@ public final class ViewerSmokeTest {
         while(!ready.get() && System.currentTimeMillis()<deadline){ready.set((device.getDisplayWidth()>device.getDisplayHeight())==landscape);Thread.sleep(100);}
         assertTrue("Test display did not rotate",ready.get());InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
+    private void awaitViewerLayout(MainActivity app,boolean landscape) throws Exception {
+        long deadline=System.currentTimeMillis()+15000;int stable=0;String previous="";
+        java.util.concurrent.atomic.AtomicReference<String> diagnostic=new java.util.concurrent.atomic.AtomicReference<>("");
+        while(System.currentTimeMillis()<deadline) {
+            java.util.concurrent.atomic.AtomicReference<String> bounds=new java.util.concurrent.atomic.AtomicReference<>("");
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+                android.view.View video=app.findViewById(MainActivity.VIDEO_ID),parent=(android.view.View)video.getParent();
+                boolean full=app.findViewById(MainActivity.EXIT_FULLSCREEN_ID).isShown();
+                diagnostic.set("viewport="+parent.getWidth()+"x"+parent.getHeight()+", video="+video.getWidth()+"x"+video.getHeight()+", full="+full+", shown="+video.isShown()+", frames="+app.getRenderedFrames());
+                // The CI desktop fixture is 640x480. Rendering does not require input focus.
+                if(full && video.isShown() && parent.getWidth()>0 && parent.getHeight()>0 && video.getHeight()>0 && ((parent.getWidth()>parent.getHeight())==landscape) && Math.abs(video.getWidth()/(float)video.getHeight()-4f/3f)<.02f)
+                    bounds.set(parent.getWidth()+":"+parent.getHeight()+":"+video.getWidth()+":"+video.getHeight());
+            });
+            String current=bounds.get();stable=!current.isEmpty() && current.equals(previous)?stable+1:0;
+            if(stable>=2)return;previous=current;Thread.sleep(100);
+        }
+        throw new AssertionError("Viewer layout did not settle: "+diagnostic.get());
+    }
     private void awaitTarget(android.view.View view) throws Exception {
         long deadline=System.currentTimeMillis()+15000;
         int stable=0;String previous="";
+        java.util.concurrent.atomic.AtomicReference<String> diagnostic=new java.util.concurrent.atomic.AtomicReference<>("");
         androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         while(System.currentTimeMillis()<deadline) {
             final boolean landscape=device.getDisplayWidth()>device.getDisplayHeight();
             java.util.concurrent.atomic.AtomicReference<String> bounds=new java.util.concurrent.atomic.AtomicReference<>("");
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
                 android.view.View root=view.getRootView();
+                diagnostic.set("view="+view.getWidth()+"x"+view.getHeight()+", root="+root.getWidth()+"x"+root.getHeight()+", shown="+view.isShown()+", windowFocus="+view.hasWindowFocus()+", pendingLayout="+view.isLayoutRequested()+"/"+root.isLayoutRequested()+", landscape="+landscape);
                 if(view.isShown() && view.hasWindowFocus() && view.getWidth()>0 && view.getHeight()>0 && !view.isLayoutRequested() && !root.isLayoutRequested() && ((root.getWidth()>root.getHeight())==landscape)) {
                     int[] xy=new int[2];view.getLocationOnScreen(xy);
                     bounds.set(xy[0]+":"+xy[1]+":"+view.getWidth()+":"+view.getHeight()+":"+root.getWidth()+":"+root.getHeight());
@@ -265,7 +285,7 @@ public final class ViewerSmokeTest {
             if(stable>=2)return;
             previous=current;Thread.sleep(100);
         }
-        throw new AssertionError("Test target did not obtain stable focused display bounds");
+        throw new AssertionError("Test target did not obtain stable focused display bounds: "+diagnostic.get());
     }
     private float[] capturePoint(android.view.View view) throws Exception {
         awaitTarget(view);

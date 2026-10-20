@@ -352,6 +352,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             try {NativeBridge.releaseInput(handle);} catch (Exception error) {disconnect("Connection closed"); return;}
         }
         if (enabled) {
+            getSystemService(android.view.inputmethod.InputMethodManager.class).hideSoftInputFromWindow(address.getWindowToken(), 0);
+            address.clearFocus();
             hiddenControls.clear();
             for (int i = 0; i < viewPage.getChildCount(); i++) {
                 View child = viewPage.getChildAt(i);

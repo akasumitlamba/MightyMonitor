@@ -369,3 +369,15 @@ bar. Active sharing and sharing failures retain their global indicators; connect
 viewing retains its full-screen action. The native Linux snapshot rendered the
 revised idle window successfully; viewer Clippy with warnings denied passed.
 No capture or input injection was started for this UI check.
+
+
+2026-10-20: Expanded viewer-rotation tests failed on API 29/34/36 at the generic
+input-target readiness precondition (API 30 passed). That precondition is not
+appropriate for view-only video. The viewer check now requires a stable visible
+full-screen viewport with correct orientation/4:3 fixture aspect ratio, followed
+by three new frames; it does not require keyboard focus. Input-gesture checks
+retain their stricter focus/layout requirements. Failures now report safe numeric
+geometry/state diagnostics. Full-screen entry also dismisses the local keyboard.
+Both Java compilations pass. These changes require confirming execution.
+Control repetitions run even if a different full-suite test failed, but the
+original suite failure still fails the job; no failed assertion is ignored.

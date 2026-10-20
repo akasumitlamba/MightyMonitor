@@ -157,8 +157,8 @@ jobs:
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
             tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
-            grep -q 'OK (4 tests)' /tmp/mm-android-test.log
             bash scripts/android/repeat-control-checks.sh "${{ matrix.api }}"
+            grep -q 'OK (4 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
         run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true
