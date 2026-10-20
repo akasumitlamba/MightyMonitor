@@ -2,8 +2,10 @@
 
 Native Android UI/MediaCodec with the shared original Rust protocol via a narrow
 JNI bridge. View an existing PC screen or explicitly share the phone screen.
-Sharing uses private session links and pinned TLS 1.3. Remote input, persistent
-device pairing and virtual extended displays are not implemented.
+Sharing uses private session links and pinned TLS 1.3. Optional remote input uses user-enabled Accessibility and optional IME services
+with per-share consent; see [remote control](../docs/REMOTE_CONTROL.md). Persistent
+device pairing is not implemented. Android can view a Linux virtual monitor;
+creating an extended desktop on the phone itself is outside the initial scope.
 
 Build requirements: JDK 17, Gradle 8.9, Android SDK 35/build-tools 35.0.0, NDK,
 Rust Android targets and cargo-ndk 4.1.2. See the Android viewer workflow for the

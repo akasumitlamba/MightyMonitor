@@ -24,8 +24,7 @@ can use `--no-default-features`. Wayland permission is requested before publishi
 the connection link, and one portal session survives viewer reconnection. Static
 screens reuse the last frame. Resolution changes end the current video session;
 a reconnect renegotiates dimensions without a new system prompt. Stopping the
-host closes the portal. A missing/denied portal never silently falls back to X11. It serves one viewer at a time and
-accepts another after disconnection. The Windows executable uses DXGI desktop capture through GStreamer and the same
+host closes the portal. A missing/denied portal never silently falls back to X11. It accepts up to four simultaneous viewers, with one controlling viewer at a time. The Windows executable uses DXGI desktop capture through GStreamer and the same
 H.264 pipeline. See [WINDOWS.md](WINDOWS.md) for setup and pending acceptance.
 
 ## Session and pipeline
@@ -69,8 +68,9 @@ dropped, sent and max_send_age. Age is capture-start to send initiation; TCP
 buffers and viewer read delays can still add delivery latency. A blocked send
 has a two-second deadline in mm-host; a partial/timed-out write ends that
 connection rather than retrying a corrupt stream. Capture continues replacing
-the slot during writes. Control handling can wait for an in-progress write or
-encode, and its bounded eight-message channel disconnects a flooding viewer.
+the slot during writes. Input and revocation are handled by the session reader even while encoding or
+writing waits. Outgoing control replies use a bounded channel; flooding ends the
+session instead of growing memory without bound.
 Dropping the pipeline stops capture after its current backend call completes.
 A capture-thread panic closes the slot and wakes a waiting consumer; poisoned
 slot locks are recovered. A backend call that never returns remains a limitation.
@@ -99,3 +99,8 @@ workspace backends. See CODEC.md for GStreamer/plugin licensing considerations.
 Adaptive bitrate policy, write-pressure feedback, simulation and limitations are
 specified in [ABR.md](ABR.md). Live bitrate rejection leaves the controller at its
 last accepted target so subsequent feedback can retry.
+
+
+Optional input uses `--secure --allow-control` and a separate viewer grant.
+Wayland extension uses `--extend` and system Virtual-monitor support. See
+[REMOTE_CONTROL.md](REMOTE_CONTROL.md) and [EXTENDED_DISPLAYS.md](EXTENDED_DISPLAYS.md).

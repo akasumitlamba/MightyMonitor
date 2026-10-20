@@ -9,7 +9,8 @@ libgl1-mesa-dev and libx11-dev. Run:
 cargo run -p mightymonitor-viewer --bin mm-viewer
 ```
 
-Enter the host IP:port and click Connect. The default is 127.0.0.1:5000.
+Paste the host's private viewing link and click Connect. Bare IP:port connections
+require explicitly enabling legacy unencrypted viewing.
 Windows uses the same GStreamer H.264 decoder; see [WINDOWS.md](WINDOWS.md) for
 the native runtime/development prerequisites. Physical Windows playback still
 needs validation. For a headless core build:
@@ -38,8 +39,8 @@ GPU completion, monitor scanout, capture-to-display or glass-to-glass latency.
 NetStats and Ping are sent approximately once per second once configured. TCP
 loss is not observable here, so loss_pct is zero; throughput excludes framing.
 UI frames use a latest-frame slot; encoded input remains ordered and bounded so
-reference frames are decoded even if the UI misses a refresh. There is no input
-forwarding, audio, mDNS, authentication or encryption; use a trusted LAN.
+reference frames are decoded even if the UI misses a refresh. Pinned TLS and private session links protect normal viewing. Optional focused
+input forwarding is implemented; audio, mDNS and persistent pairing are not.
 
 ## Manual smoke test (requires a desktop)
 
@@ -73,12 +74,14 @@ packaging must keep the two together. The generated app icon is embedded in the
 viewer window. The icon does not constitute a Windows executable resource or a
 Linux desktop-menu installation; those are packaging work.
 
-On Linux X11 or Windows, **Share this screen** launches the sibling host without
+On Linux X11/Wayland or Windows, **Share this screen** launches the sibling host without
 a shell (mm-host on Linux, mm-host.exe on Windows).
 Enter a local listen IP/port, frame rate, and bitrate. The loopback default is
 for this computer only; use the computer's LAN address for another device.
-A trusted-network acknowledgement is required because the current transport
-has no authentication or encryption. The UI does not enable remote input.
+Normal sharing uses private links and pinned TLS. Optional **Allow remote control**
+requires a separate viewer request; Wayland also requires system input consent.
+See [REMOTE_CONTROL.md](REMOTE_CONTROL.md). Supported Wayland desktops additionally
+offer **Extend**; see [EXTENDED_DISPLAYS.md](EXTENDED_DISPLAYS.md).
 **Stop sharing**, or closing the application, terminates and reaps the owned
 host process. A separately started host is unaffected. Configuration controls
 are locked while the owned host runs. A sharing failure displays the last 4 KiB
