@@ -60,6 +60,8 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 - `security/`: TLS 1.3, certificate pinning, private session invitations and
   asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
+- `display-windows/`: small read-only Win32 display snapshot/identity adapter;
+  owns the documented unsafe enumeration boundary, with no driver installation.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.
 - `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
@@ -283,9 +285,17 @@ The snapshot is checked before startup and each frame; disappearance, handle,
 geometry or primary-status changes stop that capture instead of falling back.
 Explicit screen selection is view-only; primary/default control retains its
 existing restriction. No virtual monitor is created. Local snapshot rejection
-tests and Windows adapter cross-Clippy passed; full platform checks are pending.
+tests and Windows adapter cross-Clippy passed; native Windows/Linux, MSRV and PipeWire checks passed at 893a490 in
+run 39399148245. Linux installer/guide checks passed in 39399148203. Physical
+multi-monitor/hotplug acceptance remains unverified.
 
 
 The user-facing GETTING_STARTED.md guide is linked from README and included in
 desktop installers. Keep its simple setup/permission/troubleshooting instructions
 consistent with actual capabilities. Installer jobs check its presence and removal.
+
+
+The desktop Share page now scrolls vertically so QR/settings/control actions stay
+reachable in short windows. Local viewer Clippy passes with warnings denied;
+platform confirmation for this final layout change is pending. The View canvas
+is unchanged.

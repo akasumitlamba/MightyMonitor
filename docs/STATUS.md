@@ -414,3 +414,10 @@ in both desktop installers. Packaging checks verify the guide's presence and
 Linux purge cleanup; installer confirmation is pending. Updated older installer
 documentation to distinguish implemented input/Wayland extension from physical
 acceptance and Windows virtual-display work.
+
+
+2026-10-20: Native Windows/Linux, MSRV and PipeWire passed in 39399148245
+at 893a490, including the new display adapter and exact-screen capture code.
+Linux installer/guide presence and purge checks passed in 39399148203.
+A follow-up adds vertical scrolling to the desktop Share page so QR/settings/Stop
+remain reachable on short windows. Viewer Clippy passes; final layout CI pending.

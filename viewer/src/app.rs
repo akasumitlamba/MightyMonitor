@@ -401,6 +401,7 @@ impl eframe::App for App {
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.page == Page::Share {
+                egui::ScrollArea::vertical().id_salt("share_content").auto_shrink([false, false]).show(ui, |ui| {
                 ui.add_space(24.0);
                 ui.heading("Share this screen");
                 ui.add_space(10.0);
@@ -575,6 +576,7 @@ impl eframe::App for App {
                         ui.label(&self.host_message);
                     });
                 }
+                });
             } else {
                 if !self.fullscreen || state != State::Connected {ui.horizontal(|ui| {
                     ui.label(match state {
