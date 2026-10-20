@@ -1,6 +1,31 @@
 //! Translate focused preview events into bounded portable remote input.
 use eframe::egui::{self, Event, Key};
 use mightymonitor_core::{InputEvent, MouseButton};
+/// Reserve Escape for leaving local full screen before remote translation sees it.
+pub fn take_fullscreen_escape(events: &mut Vec<Event>) -> bool {
+    let pressed = events.iter().any(|event| {
+        matches!(
+            event,
+            Event::Key {
+                key: Key::Escape,
+                pressed: true,
+                ..
+            }
+        )
+    });
+    if pressed {
+        events.retain(|event| {
+            !matches!(
+                event,
+                Event::Key {
+                    key: Key::Escape,
+                    ..
+                }
+            )
+        });
+    }
+    pressed
+}
 pub fn hid(key: Key) -> Option<u32> {
     Some(match key {
         Key::A => 4,
@@ -208,6 +233,43 @@ pub fn translate(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn local_fullscreen_exit_never_reaches_the_remote_keyboard() {
+        let mut events = vec![
+            Event::Key {
+                key: Key::Escape,
+                physical_key: Some(Key::Escape),
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            },
+            Event::Key {
+                key: Key::A,
+                physical_key: Some(Key::A),
+                pressed: true,
+                repeat: false,
+                modifiers: egui::Modifiers::NONE,
+            },
+        ];
+        assert!(take_fullscreen_escape(&mut events));
+        let mut modifiers = egui::Modifiers::NONE;
+        let mapped = translate(
+            &events,
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(100.0, 100.0)),
+            &mut modifiers,
+            egui::Modifiers::NONE,
+        );
+        assert!(!mapped
+            .iter()
+            .any(|event| matches!(event, InputEvent::Key { code: 41, .. })));
+        assert!(mapped.iter().any(|event| matches!(
+            event,
+            InputEvent::Key {
+                code: 4,
+                pressed: true
+            }
+        )));
+    }
     #[test]
     fn paste_releases_shortcuts_and_preserves_unicode_across_chunks() {
         let text = "🙂".repeat(600);

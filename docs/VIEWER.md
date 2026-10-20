@@ -107,3 +107,14 @@ Manual acceptance (not yet performed on physical devices):
 5. Close the app while sharing and verify no owned mm-host process remains.
 6. Attempt sharing outside X11 or with an occupied port and verify readable errors.
 7. Verify Windows host/viewer playback using the acceptance steps in WINDOWS.md.
+
+
+## Desktop full-screen viewing (development)
+
+While viewing a picture, **Full screen** hides navigation and connection/status
+panels while preserving the image aspect ratio and an explicit **Exit full
+screen** button. Escape leaves full screen locally and is consumed before remote
+keyboard translation. Transitions release held input and focus; click the picture
+again to resume control. Disconnect/closed sessions restore the normal view.
+Exit full screen to change control or open the Keyboard panel. Local regression
+checks passed; physical Windows/Linux full-screen acceptance remains unverified.

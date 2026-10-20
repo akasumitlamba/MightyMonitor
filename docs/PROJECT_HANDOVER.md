@@ -45,7 +45,7 @@ viewers; #45 added experimental Wayland extension. Check newer PRs before editin
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
 | Linux Extend | Portal Virtual source, advertised capability and returned type checked; Mirror/Extend UI | Live KDE Wayland: real extra output appeared, three H.264 frames decoded over secure loopback, normal Stop removed output and restored original active displays. Layout/window movement, virtual-display input, other compositors and physical Wi-Fi unverified |
 | Windows/X11 Extend | Explicit unsupported error | Actual virtual-output/driver implementation missing |
-| Installers | Linux DEB, Windows per-user setup, Android debug/test APK | Builds pass, including Windows install/runtime/uninstall; production signing, stable release publication and update continuity not established |
+| Installers | Linux DEB, Windows per-user setup, Android debug/test APK | Builds pass, including Windows install/runtime/uninstall; Android release-signing build path verified with a disposable key; production keys, stable release publication and update continuity not established |
 | Website | Static `website/dist`; latest stable GitHub installer asset lookup | Keep status current; do not confuse workflow artifacts with published releases |
 
 The full app is **not complete**. There is no defensible measured completion
@@ -201,62 +201,42 @@ personal conversation history, local machine identifiers, secrets and transient
 execution-session details out of the repository. This guide should explain the
 project sufficiently for a contributor with no access to previous chats.
 
-Current development note: the user has asked to keep implementing/testing without
-pausing for PRs or merges, and to create PRs later. Continue on the working branch
-with normal commits/checkpoints; do not treat an unopened PR as a work blocker.
+## Current development branch and evidence
 
-The current development branch also adds desktop Keyboard text entry for Unicode/
-composition, with held-input release and dialog text/undo cleanup. Its text path
-uses the existing bounded Unicode protocol. The Android control acceptance test
-now includes non-ASCII text. Do not claim its new test result until it completes.
+Continue on `codex/device-discovery`. The user has asked for implementation and
+testing to continue without pausing for PRs or merges; create upstream PRs later.
+Commit normal checkpoints to the fork. No new PR is open for these changes.
 
-Latest validated checkpoint: discovery, network selection, private-link startup
-and Unicode Keyboard compile/tests passed; Windows install/runtime/uninstall plus
-URI registration cleanup passed and the Linux alpha.7 installer built. New work
-after that checkpoint fixes Android stale pointer clicks in rotation letterboxes,
-normal Stop status, unavailable selected-network failure and remote-IME fullscreen
-behavior, and keeps an active visible Android viewer awake. Regression tests are
-being rerun. Check current results before upgrading these claims to acceptance.
+- **Verified at 27173aa:** opt-in discovery, network selection, desktop private-link
+  prefill and Unicode Keyboard entry; Android full-screen viewing, keep-awake,
+  scrollable Share controls, rotated-pointer/letterbox rejection, Unicode entry,
+  control revocation and Stop status. Android run 39373557186 passed all four tests
+  on API 29/30/34/36. CI/MSRV/PipeWire passed in 39373557265.
+- **Desktop installer lifecycle:** Linux actual install/reinstall, installed
+  decoder, desktop validation and purge passed in 39373557147. Windows reinstall,
+  private-runtime initialization, URI registration and uninstall passed in
+  39373557232. These ran on isolated CI machines, not the user's active desktop.
+- **Build identity:** SHA256SUMS and BUILD_INFO.json are included with installer/
+  APK artifacts. The records contain relative paths, source commit, tracked-source
+  modification flag, sizes and hashes. Linux 39377608049 and Windows 39377608033
+  passed the manifest follow-up; APK manifest generation passed in 39377927435.
+  They are unsigned provenance/integrity records, not publisher signatures.
+- **Android release build:** RELEASE_SIGNING.md documents the four private
+  MM_ANDROID signing environment variables. Missing credentials fail release
+  assembly. The APK job in 39377927435 passed both that refusal and actual signing/
+  apksigner verification using a disposable random CI key. It deleted the key and
+  signed test APK. A production key, stable update identity and publication are
+  still required; the downloadable CI APK remains a debug/test build.
+- **Android notification follow-up:** a first Share on API 33+ requests optional
+  POST_NOTIFICATIONS once, then separately requests capture consent even after
+  denial. App Stop remains available. Java compilation passes; check the emulator
+  results in 39377927435 before claiming the new denial path accepted.
+- **Desktop full-screen follow-up:** hide navigation/connection/status panels,
+  retain an explicit exit, release held input on transitions and consume local
+  Escape before remote translation. Local input regression tests and warning-free
+  workspace Clippy pass. Fresh platform execution and physical UI acceptance are
+  still required.
 
-
-### Active development checkpoint: Android viewing usability
-
-The current branch adds a Full screen button to the Android viewer. It hides
-connection/navigation controls while retaining an explicit Exit full screen
-button over the picture, preserves aspect ratio and restores controls on exit or
-disconnect. Active viewing keeps the display awake; background/disconnect clears
-that request. Java main/debug/instrumentation sources compile locally. The actual
-video test requires three more rendered frames both entering and leaving full
-screen. Run 39373557186 passed all four tests on Android 10/11/14/16, including
-full-screen transitions, rotated-pointer targeting, Unicode typing and revocation.
-Android Share controls now scroll on small/landscape screens; desktop discovery
-uses a compact scrolling list. Full-screen transitions release held input.
-No new PR is requested: continue on `codex/device-discovery` and create one later.
-
-
-Installer acceptance was expanded in the current branch to Linux actual
-install/reinstall/runtime/desktop validation/purge and Windows reinstall. Linux run 39373557147 and Windows run 39373557232 passed these new lifecycle
-checks at commit 27173aa. These run on
-isolated CI machines; no package install or uninstall was performed on the user's
-active Linux desktop.
-
-
-The artifact-manifest follow-up adds SHA256SUMS and BUILD_INFO.json to all three
-platform artifact bundles. Local checks passed; verify its fresh artifact jobs
-before marking packaging of those records accepted. These unsigned records do
-not provide production publisher signing.
-
-
-Android notification follow-up: the first Share on API 33+ requests optional
-POST_NOTIFICATIONS permission once, then independently requests MediaProjection
-consent whether notifications were allowed or denied. App Stop remains available.
-The existing emulator capture tests handle/deny the optional notification prompt;
-check fresh execution before claiming this path accepted. Java compilation passes.
-
-
-Android production build support now reads signing configuration only from four
-MM_ANDROID environment variables; RELEASE_SIGNING.md describes key ownership,
-update continuity and the exact build. Release tasks reject missing credentials.
-New CI steps test that refusal and actual APK signing with a disposable random
-key, then delete the key and signed test APK. No production key is supplied or
-published. Check the fresh APK job before accepting these new Gradle/CI steps.
+The support table above remains the product-level limit: no physical Windows/
+phone acceptance, no Windows/X11 true extension, no persistent pairing and no
+published production release. Read DEVICE_ACCEPTANCE.md for the untested routes.

@@ -97,6 +97,26 @@ impl App {
             ..Default::default()
         }));
     }
+    fn set_fullscreen(&mut self, ctx: &egui::Context, enabled: bool) {
+        if self.fullscreen == enabled {
+            return;
+        }
+        self.command(crate::net::ControlAction::Input(
+            mightymonitor_core::InputEvent::ReleaseAll,
+        ));
+        let enabled =
+            enabled && self.task.is_some() && self.texture.is_some() && self.page == Page::View;
+        self.fullscreen = enabled;
+        self.input_focused = false;
+        self.input_modifiers = egui::Modifiers::NONE;
+        self.close_keyboard(ctx);
+        ctx.memory_mut(|memory| {
+            if let Some(id) = memory.focused() {
+                memory.surrender_focus(id);
+            }
+        });
+        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(enabled));
+    }
     fn close_keyboard(&mut self, ctx: &egui::Context) {
         self.show_keyboard = false;
         self.keyboard_text.clear();
@@ -225,14 +245,18 @@ impl eframe::App for App {
             ctx.set_style(style);
             self.themed = true;
         }
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) && self.fullscreen {
-            self.fullscreen = false;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(false));
+        if self.fullscreen
+            && (ctx.input_mut(|input| crate::input::take_fullscreen_escape(&mut input.events))
+                || self.page != Page::View
+                || self.texture.is_none()
+                || self.task.is_none())
+        {
+            self.set_fullscreen(ctx, false);
         }
         egui::SidePanel::left("navigation")
             .resizable(false)
             .exact_width(174.0)
-            .show(ctx, |ui| {
+            .show_animated(ctx, !self.fullscreen, |ui| {
                 ui.add_space(18.0);
                 ui.label(egui::RichText::new("MightyMonitor").size(20.0).strong());
                 ui.add_space(30.0);
@@ -249,13 +273,16 @@ impl eframe::App for App {
         egui::TopBottomPanel::top("toolbar").show(ctx, |ui| {
             ui.add_space(8.0);
             ui.horizontal(|ui| {
-                ui.label(if self.host.is_some() {
-                    "Sharing is on"
-                } else {
-                    "Sharing is off"
-                });
+                if !self.fullscreen {
+                    ui.label(if self.host.is_some() {
+                        "Sharing is on"
+                    } else {
+                        "Sharing is off"
+                    });
+                }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if self.texture.is_some()
+                    if self.page == Page::View
+                        && self.texture.is_some()
                         && ui
                             .button(if self.fullscreen {
                                 "Exit full screen"
@@ -264,8 +291,7 @@ impl eframe::App for App {
                             })
                             .clicked()
                     {
-                        self.fullscreen = !self.fullscreen;
-                        ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(self.fullscreen));
+                        self.set_fullscreen(ctx, !self.fullscreen);
                     }
                 });
             });
@@ -273,7 +299,7 @@ impl eframe::App for App {
         });
         egui::TopBottomPanel::top("connection_controls").show_animated(
             ctx,
-            self.page == Page::View,
+            self.page == Page::View && !self.fullscreen,
             |ui| {
                 ui.add_space(16.0);
                 ui.heading("View a screen");
@@ -354,6 +380,9 @@ impl eframe::App for App {
         let stats = out.stats.clone();
         let error = out.error.clone();
         drop(out);
+        if self.fullscreen && state == State::Closed {
+            self.set_fullscreen(ctx, false);
+        }
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.page == Page::Share {
                 ui.add_space(24.0);
@@ -503,7 +532,7 @@ impl eframe::App for App {
                     });
                 }
             } else {
-                ui.horizontal(|ui| {
+                if !self.fullscreen {ui.horizontal(|ui| {
                     ui.label(match state {
                         State::Connecting => "Connecting…",
                         State::Connected => "Connected",
@@ -525,7 +554,7 @@ impl eframe::App for App {
                             ));
                         });
                     }
-                });
+                });}
                 if let Some(error) = error {
                     ui.colored_label(egui::Color32::from_rgb(166, 48, 36), error);
                 }

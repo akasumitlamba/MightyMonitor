@@ -297,3 +297,11 @@ publisher credentials. Added CI negative check and genuine release assembly /
 apksigner verification using a disposable random test key, not a production key.
 The key/test release APK are deleted and excluded from artifact uploads. Gradle
 execution is pending; this is not a published or production-signed release.
+
+
+2026-10-20: Desktop Full screen now hides navigation/connection/status panels,
+keeps an explicit exit, releases held input/focus and consumes local Escape before
+remote translation. The new Escape regression plus existing Unicode input tests
+passed locally; workspace Clippy with warnings denied passed. Platform/UI checks
+are pending. The handover's development evidence was consolidated to remove
+superseded pending claims. Website FAQ reflects development viewing/discovery.
