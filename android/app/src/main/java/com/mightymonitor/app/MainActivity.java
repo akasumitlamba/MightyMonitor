@@ -50,7 +50,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private Button connect;
     private MediaCodec codec;
     private long handle;
-    private boolean surfaceReady;
+    private boolean surfaceReady, pendingSharePermission;
     private byte[] pendingFrame;
     private int videoWidth, videoHeight;
     private final MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
@@ -208,9 +208,12 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         shareStatus = text(ScreenShareService.summary, 14, Color.rgb(61, 91, 77)); sharePage.addView(shareStatus);
         share.setOnClickListener(v -> {
             if (ScreenShareService.sharing) { stopService(new android.content.Intent(this, ScreenShareService.class)); return; }
-            android.media.projection.MediaProjectionManager manager = getSystemService(android.media.projection.MediaProjectionManager.class);
-            android.content.Intent permission = android.os.Build.VERSION.SDK_INT >= 34 ? manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay()) : manager.createScreenCaptureIntent();
-            startActivityForResult(permission, 200);
+            if (pendingSharePermission) return;
+            if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED && !getPreferences(MODE_PRIVATE).getBoolean("notification_permission_asked", false)) {
+                pendingSharePermission = true;
+                getPreferences(MODE_PRIVATE).edit().putBoolean("notification_permission_asked", true).apply();
+                requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 201);
+            } else requestCapturePermission();
         });
         trusted.setOnCheckedChangeListener((v, checked) -> { if (!checked) disconnect("Not connected"); });
         setContentView(layout); handler.post(refreshSharing);
@@ -236,6 +239,20 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         button.setSelected(selected);
     }
     private LinearLayout column() { LinearLayout layout = new LinearLayout(this); layout.setOrientation(LinearLayout.VERTICAL); return layout; }
+    private void requestCapturePermission() {
+        if (isFinishing() || isDestroyed() || ScreenShareService.sharing) return;
+        android.media.projection.MediaProjectionManager manager = getSystemService(android.media.projection.MediaProjectionManager.class);
+        android.content.Intent permission = android.os.Build.VERSION.SDK_INT >= 34 ? manager.createScreenCaptureIntent(android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay()) : manager.createScreenCaptureIntent();
+        startActivityForResult(permission, 200);
+    }
+    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(request, permissions, results);
+        if (request == 201 && pendingSharePermission) {
+            pendingSharePermission = false;
+            // Notification permission controls the convenient Stop action, not capture consent.
+            requestCapturePermission();
+        }
+    }
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 200 && result == RESULT_OK && data != null) {

@@ -78,3 +78,10 @@ and [DISCOVERY.md](../docs/DISCOVERY.md); private links are still required.
 During viewing, **Full screen** expands the picture and hides connection controls.
 Use **Exit full screen** to return. The display stays awake while viewing in the
 foreground; leaving the app disconnects and releases remote input.
+
+
+On Android 13 and later, the first Share asks for notification permission so the
+ongoing notification can show **Stop**. This permission is optional: denying it
+still leads to Android's separate screen-capture consent. Use **Stop sharing** in
+the app if notifications are disabled. The app does not enable notifications,
+Accessibility or a keyboard without the user's operating-system approval.

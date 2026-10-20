@@ -283,3 +283,10 @@ rejection, Unicode editor entry, revocation and Stop status. Linux actual packag
 install/reinstall/runtime/desktop validation/purge passed (39373557147), as did
 Windows reinstall/runtime/URI/uninstall (39373557232) and CI/MSRV/PipeWire
 (39373557265). Physical-device acceptance and Windows Extend remain unfinished.
+
+
+2026-10-20: Added Android 13+ optional notification permission on first Share so
+its existing Stop action can appear. Declining notifications still proceeds to
+separate OS capture consent. Emulator capture helpers now exercise notification
+denial when that prompt appears. Main/debug/test Java compilation passed; actual
+new permission-flow execution awaits the next Android run.

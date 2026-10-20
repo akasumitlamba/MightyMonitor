@@ -84,7 +84,7 @@ public final class ViewerSmokeTest {
             app.findViewById(MainActivity.SHARE_ID).performClick();
         });
         androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        androidx.test.uiautomator.UiObject2 confirm = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android", "button1")), 20000);
+        androidx.test.uiautomator.UiObject2 confirm = captureConsentAfterOptionalNotificationDenial(device);
         assertTrue("Android screen capture consent did not appear", confirm != null); confirm.click();
         long client = 0; android.media.MediaCodec decoder = null;
         try {
@@ -138,7 +138,7 @@ public final class ViewerSmokeTest {
             app.findViewById(MainActivity.SHARE_ID).performClick();
         });
         androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        androidx.test.uiautomator.UiObject2 confirm = device.wait(androidx.test.uiautomator.Until.findObject(androidx.test.uiautomator.By.res("android", "button1")), 20000);
+        androidx.test.uiautomator.UiObject2 confirm = captureConsentAfterOptionalNotificationDenial(device);
         assertTrue("Capture consent did not appear", confirm != null); confirm.click();
         while (ScreenShareService.invitation.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Phone did not start sharing", !ScreenShareService.invitation.isEmpty());
@@ -204,6 +204,18 @@ public final class ViewerSmokeTest {
             app.stopService(new android.content.Intent(app, ScreenShareService.class));
             if (target != null) {android.app.Activity closing = target; InstrumentationRegistry.getInstrumentation().runOnMainSync(closing::finish);}
         }
+    }
+    private androidx.test.uiautomator.UiObject2 captureConsentAfterOptionalNotificationDenial(androidx.test.uiautomator.UiDevice device) throws Exception {
+        long deadline=System.currentTimeMillis()+25000;
+        while(System.currentTimeMillis()<deadline) {
+            // Exercise the optional permission's denied path on newer Android versions.
+            androidx.test.uiautomator.UiObject2 deny=device.findObject(androidx.test.uiautomator.By.res("com.android.permissioncontroller", "permission_deny_button"));
+            if(deny!=null){deny.click();Thread.sleep(100);continue;}
+            androidx.test.uiautomator.UiObject2 capture=device.findObject(androidx.test.uiautomator.By.res("android", "button1"));
+            if(capture!=null)return capture;
+            Thread.sleep(100);
+        }
+        return null;
     }
     private static byte[] mouseMove(float x,float y){return java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)1).putFloat(x).putFloat(y).array();}
     private void awaitRotation(boolean landscape)throws Exception{

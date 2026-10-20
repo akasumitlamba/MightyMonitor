@@ -245,3 +245,10 @@ The artifact-manifest follow-up adds SHA256SUMS and BUILD_INFO.json to all three
 platform artifact bundles. Local checks passed; verify its fresh artifact jobs
 before marking packaging of those records accepted. These unsigned records do
 not provide production publisher signing.
+
+
+Android notification follow-up: the first Share on API 33+ requests optional
+POST_NOTIFICATIONS permission once, then independently requests MediaProjection
+consent whether notifications were allowed or denied. App Stop remains available.
+The existing emulator capture tests handle/deny the optional notification prompt;
+check fresh execution before claiming this path accepted. Java compilation passes.
