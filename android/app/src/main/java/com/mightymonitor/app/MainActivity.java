@@ -26,11 +26,17 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /** Platform UI and video decoding only. The screen-sharing protocol lives in Rust. */
 public final class MainActivity extends Activity implements SurfaceHolder.Callback {
-    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106, CONTROL_ID = 107, SHARE_CONTROL_ID = 108, VIDEO_ID = 109;
+    public static final int ADDRESS_ID = 101, TRUST_ID = 102, CONNECT_ID = 103, SHARE_TAB_ID = 104, SHARE_TRUST_ID = 105, SHARE_ID = 106, CONTROL_ID = 107, SHARE_CONTROL_ID = 108, VIDEO_ID = 109, FULLSCREEN_ID = 110, EXIT_FULLSCREEN_ID = 111;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final ExecutorService cleanup = Executors.newSingleThreadExecutor();
     private final AtomicInteger renderedFrames = new AtomicInteger();
     private SurfaceView video;
+    private LinearLayout rootLayout;
+    private View appHeading, navigation;
+    private android.widget.FrameLayout viewport;
+    private Button fullscreen, exitFullscreen;
+    private boolean fullscreenActive;
+    private final java.util.Map<View, Integer> hiddenControls = new java.util.IdentityHashMap<>();
     private TextView status;
     private TextView emptyPreview;
     private EditText address;
@@ -86,11 +92,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     };
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        LinearLayout layout = column(); layout.setFitsSystemWindows(true);
+        LinearLayout layout = column(); rootLayout = layout; layout.setFitsSystemWindows(true);
         layout.setPadding(dp(20), dp(18), dp(20), dp(12));
         layout.setBackgroundColor(Color.rgb(247, 248, 247));
-        layout.addView(text("MightyMonitor", 26, Color.rgb(30, 39, 35)));
-        LinearLayout navigation = new LinearLayout(this);
+        appHeading = text("MightyMonitor", 26, Color.rgb(30, 39, 35)); layout.addView(appHeading);
+        LinearLayout navigation = new LinearLayout(this); this.navigation = navigation;
         Button viewTab = new Button(this); viewTab.setText("View");
         Button shareTab = new Button(this); shareTab.setText("Share"); shareTab.setId(SHARE_TAB_ID);
         styleTab(viewTab, true); styleTab(shareTab, false);
@@ -115,6 +121,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         LinearLayout buttons = new LinearLayout(this);
         connect = new Button(this); connect.setId(CONNECT_ID); connect.setText("Connect"); connect.setEnabled(false); styleButton(connect, true); connect.setOnClickListener(v -> { if (handle != 0) disconnect("Not connected"); else startViewing(); });
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
+        fullscreen = new Button(this); fullscreen.setId(FULLSCREEN_ID); fullscreen.setText("Full screen"); styleButton(fullscreen, false); fullscreen.setEnabled(false);
+        fullscreen.setOnClickListener(v -> setFullscreen(true)); buttons.addView(fullscreen, new LinearLayout.LayoutParams(0, -2, 1));
         viewPage.addView(buttons);
         LinearLayout controlBar = new LinearLayout(this);
         android.widget.TextView nearbyStatus = text("", 13, Color.rgb(61,91,77));
@@ -155,10 +163,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             return true;
         });
         video.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fitVideo());
-        android.widget.FrameLayout viewport = new android.widget.FrameLayout(this);
+        viewport = new android.widget.FrameLayout(this);
+        viewport.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob) -> fitVideo());
         viewport.addView(video, new android.widget.FrameLayout.LayoutParams(-1, -1, Gravity.CENTER));
         emptyPreview = text("Your other screen will appear here", 15, Color.rgb(83, 102, 91)); emptyPreview.setGravity(Gravity.CENTER); emptyPreview.setBackground(rounded(Color.rgb(235, 241, 237)));
         viewport.addView(emptyPreview, new android.widget.FrameLayout.LayoutParams(-1, -1)); viewPage.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
+        exitFullscreen = new Button(this); exitFullscreen.setId(EXIT_FULLSCREEN_ID); exitFullscreen.setText("Exit full screen"); styleButton(exitFullscreen, false); exitFullscreen.setVisibility(View.GONE);
+        android.widget.FrameLayout.LayoutParams exitParams = new android.widget.FrameLayout.LayoutParams(-2, -2, Gravity.TOP | Gravity.END); exitParams.setMargins(dp(8), dp(8), dp(8), dp(8));
+        viewport.addView(exitFullscreen, exitParams); exitFullscreen.setOnClickListener(v -> setFullscreen(false));
         TextView heading = text("Share this screen", 24, Color.rgb(30, 39, 35)); heading.setPadding(0, dp(24), 0, dp(12)); sharePage.addView(heading);
         sharePage.addView(text("Share a private link with your other device.", 15, Color.rgb(83, 94, 88)));
         selectedAddress=ScreenShareService.sharing?ScreenShareService.sharingAddress:ScreenShareService.localAddress();
@@ -240,7 +252,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             String endpoint = address.getText().toString().trim();
             handle = NativeBridge.connect(endpoint);
             if (handle == 0) throw new IllegalStateException("Could not start the network client");
-            video.setKeepScreenOn(true);
+            video.setKeepScreenOn(true); fullscreen.setEnabled(true);
             renderedFrames.set(0); connect.setText("Disconnect");
             handler.post(pump);
         } catch (Exception | UnsatisfiedLinkError error) { disconnect("Cannot connect: " + error.getMessage()); }
@@ -313,7 +325,38 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         pendingFrame = null;
         if (codec != null) { try { codec.stop(); } catch (IllegalStateException ignored) {} codec.release(); codec = null; }
     }
+    private void setFullscreen(boolean enabled) {
+        if (enabled == fullscreenActive || (enabled && handle == 0)) return;
+        fullscreenActive = enabled;
+        if (enabled) {
+            hiddenControls.clear();
+            for (int i = 0; i < viewPage.getChildCount(); i++) {
+                View child = viewPage.getChildAt(i);
+                if (child != viewport) {hiddenControls.put(child, child.getVisibility()); child.setVisibility(View.GONE);}
+            }
+            appHeading.setVisibility(View.GONE); navigation.setVisibility(View.GONE);
+            rootLayout.setPadding(0, 0, 0, 0);
+        } else {
+            for (java.util.Map.Entry<View,Integer> item : hiddenControls.entrySet()) item.getKey().setVisibility(item.getValue());
+            hiddenControls.clear(); appHeading.setVisibility(View.VISIBLE); navigation.setVisibility(View.VISIBLE);
+            rootLayout.setPadding(dp(20), dp(18), dp(20), dp(12));
+        }
+        exitFullscreen.setVisibility(enabled ? View.VISIBLE : View.GONE);
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            android.view.WindowInsetsController bars = getWindow().getInsetsController();
+            if (bars != null) {
+                bars.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                if (enabled) bars.hide(android.view.WindowInsets.Type.systemBars()); else bars.show(android.view.WindowInsets.Type.systemBars());
+            }
+        } else {
+            getWindow().getDecorView().setSystemUiVisibility(enabled ? View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY : View.SYSTEM_UI_FLAG_VISIBLE);
+        }
+        viewport.post(this::fitVideo);
+    }
+    @Override public void onBackPressed() {if (fullscreenActive) setFullscreen(false); else super.onBackPressed();}
     private void disconnect(String message) {
+        setFullscreen(false);
+        if (fullscreen != null) fullscreen.setEnabled(false);
         if(video!=null)video.setKeepScreenOn(false);
         remoteControlActive = false;
         if (viewControl != null) {updatingControl = true; viewControl.setChecked(false); viewControl.setVisibility(View.GONE); keyboard.setVisibility(View.GONE); updatingControl = false;}

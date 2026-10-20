@@ -30,7 +30,7 @@ extension *viewer*; a separate Android desktop is outside the initial scope.
 
 ## Verified state
 
-PRs #38–45 are merged upstream. #44 added remote control and concurrent desktop
+PRs #38–46 are merged upstream. #44 added remote control and concurrent desktop
 viewers; #45 added experimental Wayland extension. Check newer PRs before editing.
 
 | Capability | Implementation and evidence | Remaining acceptance/limits |
@@ -38,7 +38,7 @@ viewers; #45 added experimental Wayland extension. Check newer PRs before editin
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing not implemented; opt-in discovery is in development |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing not implemented; opt-in discovery passes Rust LAN and Android emulator tests on the development branch |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
@@ -120,8 +120,7 @@ ANDROID instructions in `android/README.md` before changing their features.
    increase phone-host peers only with bounded-resource and lifecycle acceptance.
 5. **Wired setup:** read-only desktop and Android IPv4 interface pickers are
    implemented in development; see NETWORK_SETUP.md. Deep links now prefill the
-   desktop viewer and per-user installer handlers are implemented, with validation
-   still running. Continue to test Wi-Fi/Ethernet/USB
+   desktop viewer and per-user installer handlers are implemented, with Windows install/uninstall handler validation passed. Continue to test Wi-Fi/Ethernet/USB
    networking, and test supported USB4/Thunderbolt plus Android tethering/tunnels.
    Document actual hardware support instead of assuming a Type-C cable works.
 6. **Production delivery:** stable Android signing/update keys, Windows signing,
@@ -217,3 +216,15 @@ after that checkpoint fixes Android stale pointer clicks in rotation letterboxes
 normal Stop status, unavailable selected-network failure and remote-IME fullscreen
 behavior, and keeps an active visible Android viewer awake. Regression tests are
 being rerun. Check current results before upgrading these claims to acceptance.
+
+
+### Active development checkpoint: Android viewing usability
+
+The current branch adds a Full screen button to the Android viewer. It hides
+connection/navigation controls while retaining an explicit Exit full screen
+button over the picture, preserves aspect ratio and restores controls on exit or
+disconnect. Active viewing keeps the display awake; background/disconnect clears
+that request. Java main/debug/instrumentation sources compile locally. The actual
+video test now requires three more rendered frames both entering and leaving
+full screen; fresh emulator results must be checked before claiming acceptance.
+No new PR is requested: continue on `codex/device-discovery` and create one later.

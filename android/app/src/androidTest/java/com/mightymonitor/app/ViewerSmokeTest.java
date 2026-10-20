@@ -62,6 +62,17 @@ public final class ViewerSmokeTest {
         });
         while (app.getRenderedFrames() < 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Android MediaCodec never presented desktop H.264 frames", app.getRenderedFrames() >= 3);
+        int before = app.getRenderedFrames();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.findViewById(MainActivity.FULLSCREEN_ID).performClick());
+        deadline = System.currentTimeMillis() + 15000;
+        while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Video stopped entering full screen", app.getRenderedFrames() >= before + 3);
+        assertTrue("Full screen exit is not available", app.findViewById(MainActivity.EXIT_FULLSCREEN_ID).getVisibility() == android.view.View.VISIBLE);
+        before = app.getRenderedFrames();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> app.findViewById(MainActivity.EXIT_FULLSCREEN_ID).performClick());
+        deadline = System.currentTimeMillis() + 15000;
+        while (app.getRenderedFrames() < before + 3 && System.currentTimeMillis() < deadline) Thread.sleep(100);
+        assertTrue("Video stopped leaving full screen", app.getRenderedFrames() >= before + 3);
     }
 
     @Test public void capturesPhoneScreenAndDecodesThroughRustHost() throws Exception {

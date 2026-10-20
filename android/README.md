@@ -74,3 +74,8 @@ on disconnect/backgrounding. It does not bypass manual locking. The optional
 remote keyboard stays out of fullscreen extract mode. Network selection and
 nearby-device discovery are described in [NETWORK_SETUP.md](../docs/NETWORK_SETUP.md)
 and [DISCOVERY.md](../docs/DISCOVERY.md); private links are still required.
+
+
+During viewing, **Full screen** expands the picture and hides connection controls.
+Use **Exit full screen** to return. The display stays awake while viewing in the
+foreground; leaving the app disconnects and releases remote input.

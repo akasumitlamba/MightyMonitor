@@ -239,3 +239,9 @@ Further changes fix Android letterbox clicks reusing a stale pointer, remote IME
 fullscreen, Stop status and unavailable selected-network handling; active visible
 Android viewing now keeps the display awake. Expanded rotation/click/cleanup
 regressions are awaiting fresh runs. No new PR was opened per the user request.
+
+
+2026-10-20: Added Android full-screen viewing with an explicit exit overlay,
+aspect-ratio fitting on viewport resize, restored controls/system bars on exit
+and disconnect, and live-video enter/exit regression assertions. Main/debug/test
+Java compilation passed locally; fresh emulator execution is pending.
