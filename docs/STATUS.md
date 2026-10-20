@@ -290,3 +290,10 @@ its existing Stop action can appear. Declining notifications still proceeds to
 separate OS capture consent. Emulator capture helpers now exercise notification
 denial when that prompt appears. Main/debug/test Java compilation passed; actual
 new permission-flow execution awaits the next Android run.
+
+
+2026-10-20: Implemented Android release-signing configuration and refusal without
+publisher credentials. Added CI negative check and genuine release assembly /
+apksigner verification using a disposable random test key, not a production key.
+The key/test release APK are deleted and excluded from artifact uploads. Gradle
+execution is pending; this is not a published or production-signed release.

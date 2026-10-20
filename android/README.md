@@ -85,3 +85,7 @@ ongoing notification can show **Stop**. This permission is optional: denying it
 still leads to Android's separate screen-capture consent. Use **Stop sharing** in
 the app if notifications are disabled. The app does not enable notifications,
 Accessibility or a keyboard without the user's operating-system approval.
+
+
+For signed production APKs, see [RELEASE_SIGNING.md](RELEASE_SIGNING.md). Release
+assembly requires a publisher-owned private key; debug builds stay independent.

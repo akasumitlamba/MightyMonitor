@@ -42,6 +42,28 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - name: Refuse an unsigned production build
+        shell: bash
+        run: |
+          unset MM_ANDROID_KEYSTORE MM_ANDROID_STORE_PASSWORD MM_ANDROID_KEY_ALIAS MM_ANDROID_KEY_PASSWORD
+          if gradle -p android assembleRelease > /tmp/mm-unsigned-release.log 2>&1; then
+            echo 'Release unexpectedly built without a private signing key'
+            exit 1
+          fi
+          grep -F 'Release signing requires a private keystore' /tmp/mm-unsigned-release.log
+      - name: Verify release signing with a disposable test key
+        shell: bash
+        run: |
+          umask 077
+          export MM_ANDROID_KEYSTORE="$RUNNER_TEMP/mm-disposable-signing.jks"
+          export MM_ANDROID_STORE_PASSWORD=$(python3 -c 'import secrets; print(secrets.token_hex(24))')
+          export MM_ANDROID_KEY_PASSWORD="$MM_ANDROID_STORE_PASSWORD"
+          export MM_ANDROID_KEY_ALIAS=disposable-ci
+          trap 'rm -f "$MM_ANDROID_KEYSTORE"' EXIT
+          keytool -genkeypair -keystore "$MM_ANDROID_KEYSTORE" -storepass:env MM_ANDROID_STORE_PASSWORD -keypass:env MM_ANDROID_KEY_PASSWORD -alias "$MM_ANDROID_KEY_ALIAS" -keyalg RSA -keysize 3072 -validity 2 -dname 'CN=MightyMonitor disposable CI test' > /tmp/mm-test-key.log 2>&1
+          gradle -p android assembleRelease
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose android/app/build/outputs/apk/release/app-release.apk
+          rm -f android/app/build/outputs/apk/release/app-release.apk
       - name: Record APK checksums and source revision
         run: python3 scripts/artifact-manifest.py --output android/app/build/outputs/apk android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
       - uses: actions/upload-artifact@v4

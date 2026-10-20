@@ -252,3 +252,11 @@ POST_NOTIFICATIONS permission once, then independently requests MediaProjection
 consent whether notifications were allowed or denied. App Stop remains available.
 The existing emulator capture tests handle/deny the optional notification prompt;
 check fresh execution before claiming this path accepted. Java compilation passes.
+
+
+Android production build support now reads signing configuration only from four
+MM_ANDROID environment variables; RELEASE_SIGNING.md describes key ownership,
+update continuity and the exact build. Release tasks reject missing credentials.
+New CI steps test that refusal and actual APK signing with a disposable random
+key, then delete the key and signed test APK. No production key is supplied or
+published. Check the fresh APK job before accepting these new Gradle/CI steps.

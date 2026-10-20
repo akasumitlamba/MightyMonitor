@@ -1,4 +1,7 @@
 plugins { id 'com.android.application' }
+// Release keys are supplied by the builder, never bundled with the repository.
+def releaseKeys = ['MM_ANDROID_KEYSTORE', 'MM_ANDROID_STORE_PASSWORD', 'MM_ANDROID_KEY_ALIAS', 'MM_ANDROID_KEY_PASSWORD'].collectEntries { name -> [(name): System.getenv(name)] }
+def releaseKeysPresent = releaseKeys.values().every { value -> value != null && !value.isEmpty() }
 android {
     namespace 'com.mightymonitor.app'
     compileSdk 35
@@ -11,6 +14,22 @@ android {
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         ndk { abiFilters 'arm64-v8a', 'armeabi-v7a', 'x86_64' }
     }
+    signingConfigs {
+        production {
+            if (releaseKeysPresent) {
+                storeFile file(releaseKeys.MM_ANDROID_KEYSTORE)
+                storePassword releaseKeys.MM_ANDROID_STORE_PASSWORD
+                keyAlias releaseKeys.MM_ANDROID_KEY_ALIAS
+                keyPassword releaseKeys.MM_ANDROID_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes {
+        release {
+            debuggable false
+            signingConfig signingConfigs.production
+        }
+    }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {
@@ -18,4 +37,16 @@ dependencies {
     androidTestImplementation 'androidx.test:runner:1.6.2'
     androidTestImplementation 'androidx.test.ext:junit:1.2.1'
     androidTestImplementation 'androidx.test:rules:1.6.1'
+}
+
+
+def validateReleaseSigning = tasks.register('validateReleaseSigning') {
+    doLast {
+        if (!releaseKeysPresent || !file(releaseKeys.MM_ANDROID_KEYSTORE).isFile()) {
+            throw new GradleException('Release signing requires a private keystore and all four MM_ANDROID signing environment variables. See android/RELEASE_SIGNING.md.')
+        }
+    }
+}
+tasks.configureEach { task ->
+    if (task.name in ['preReleaseBuild', 'validateSigningRelease']) task.dependsOn(validateReleaseSigning)
 }
