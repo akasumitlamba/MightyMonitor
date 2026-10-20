@@ -284,3 +284,8 @@ geometry or primary-status changes stop that capture instead of falling back.
 Explicit screen selection is view-only; primary/default control retains its
 existing restriction. No virtual monitor is created. Local snapshot rejection
 tests and Windows adapter cross-Clippy passed; full platform checks are pending.
+
+
+The user-facing GETTING_STARTED.md guide is linked from README and included in
+desktop installers. Keep its simple setup/permission/troubleshooting instructions
+consistent with actual capabilities. Installer jobs check its presence and removal.

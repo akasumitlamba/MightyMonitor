@@ -35,6 +35,7 @@ Source: "..\..\target\release\mm-launcher.exe"; DestDir: "{app}"; Flags: ignorev
 Source: "mightymonitor.ico"; DestDir: "{app}"
 Source: "..\..\LICENSE"; DestDir: "{app}"
 Source: "..\..\NOTICE"; DestDir: "{app}"
+Source: "..\..\docs\GETTING_STARTED.md"; DestDir: "{app}"
 [Registry]
 Root: HKCU; Subkey: "Software\Classes\mightymonitor"; ValueType: string; ValueData: "URL:MightyMonitor connection"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\mightymonitor"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""

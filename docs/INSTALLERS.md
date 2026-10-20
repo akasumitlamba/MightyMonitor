@@ -34,15 +34,16 @@ GStreamer/GUI runtime dependencies. Remove it using your package manager or
 The Build Linux installer workflow produces an artifact built on Ubuntu 24.04.
 A local build records ABI requirements of the machine where it was built; it is
 not automatically compatible with older distributions. Other package formats
-and clean-machine installation acceptance remain pending.
+remain pending; actual install/reinstall/runtime/purge checks pass on isolated
+Ubuntu CI runners. Physical-device acceptance is separate.
 
 ## What this package is
 
 An alpha development installer for the Linux X11/Wayland sharing and viewing app.
 It is not a declaration that the complete cross-platform product is finished.
 The GUI uses private viewing links over pinned TLS; see
-[connection security](SECURE_CONNECTIONS.md). Remote input, independent extended
-displays, and complete multi-device acceptance remain unfinished.
+[connection security](SECURE_CONNECTIONS.md). Optional remote input is implemented; Wayland virtual displays are experimental.
+Windows/X11 extension and complete physical multi-device acceptance remain unfinished.
 
 ## Releases and downloads
 
@@ -98,4 +99,10 @@ whole artifact. On Windows, `Get-FileHash <installer> -Algorithm SHA256` can be
 compared with the manifest. These are unsigned integrity/provenance records, not
 publisher signatures or a substitute for downloading from a trusted workflow.
 The manifest generator was checked locally against independent hashes and nested
-paths; fresh packaging workflow validation is still required.
+paths; packaging workflows have also verified generated installer/APK manifests.
+
+
+Desktop installers include the offline GETTING_STARTED.md guide: Windows places
+it in the app folder; Linux uses /usr/share/doc/mightymonitor/. The same guide is
+linked from README and covers sharing, control permissions, supported extension
+and common connection failures. It does not contain private connection details.

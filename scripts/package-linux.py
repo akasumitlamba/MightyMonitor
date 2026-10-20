@@ -62,6 +62,7 @@ def main():
             (ROOT / 'assets/mightymonitor.png', 'usr/share/pixmaps/mightymonitor.png'),
             (ROOT / 'LICENSE', 'usr/share/doc/mightymonitor/LICENSE'),
             (ROOT / 'NOTICE', 'usr/share/doc/mightymonitor/NOTICE'),
+            (ROOT / 'docs/GETTING_STARTED.md', 'usr/share/doc/mightymonitor/GETTING_STARTED.md'),
         ]:
             target = package / destination
             target.parent.mkdir(parents=True, exist_ok=True)

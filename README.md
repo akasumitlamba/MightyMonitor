@@ -25,6 +25,8 @@ iOS are not currently targeted.
 | Android  | capture alpha; emulator tested | viewer alpha; Android 10/11/14/16 emulator tested |
 | Browser (ChromeOS, TVs, old laptops, Fire tablets) | - | planned |
 
+New to the app? Read the [quick start and troubleshooting guide](docs/GETTING_STARTED.md).
+
 ## Contributor starting point
 
 Read the [project handover](docs/PROJECT_HANDOVER.md) for current evidence, missing

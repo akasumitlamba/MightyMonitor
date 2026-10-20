@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/wayland-sharing', 'codex/windows-installer', 'codex/remote-control', 'codex/device-discovery', main]
-    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'display-windows/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
+    paths: ['docs/GETTING_STARTED.md', 'scripts/artifact-manifest.py', 'discovery/**', 'display-windows/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
 permissions:
   contents: read
 jobs:
@@ -33,7 +33,7 @@ jobs:
           $app = Join-Path $env:RUNNER_TEMP 'MightyMonitor app smoke'
           $process = Start-Process $setup -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$app`"", "/LOG=`"$env:RUNNER_TEMP\mm-setup.log`"") -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw "Setup failed: $($process.ExitCode)" }
-          foreach ($file in @('mm-host.exe', 'mm-viewer.exe', 'mm-launcher.exe', 'unins000.exe')) {
+          foreach ($file in @('mm-host.exe', 'mm-viewer.exe', 'mm-launcher.exe', 'GETTING_STARTED.md', 'unins000.exe')) {
             if (-not (Test-Path (Join-Path $app $file))) { throw "Missing installed file: $file" }
           }
           # Reinstall over the existing app before runtime/association/uninstall checks.

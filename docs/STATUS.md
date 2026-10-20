@@ -406,3 +406,11 @@ before startup and every frame, rejecting removal/layout/identity changes withou
 fallback. Explicit selection stays view-only. This is existing-screen selection,
 not Windows Extend. Snapshot rejection tests and Windows adapter cross-Clippy
 pass; full platform checks and physical multi-monitor acceptance remain.
+
+
+2026-10-20: Added GETTING_STARTED.md with plain-language setup, consent, control,
+extra-display limits and troubleshooting. It is linked from README and bundled
+in both desktop installers. Packaging checks verify the guide's presence and
+Linux purge cleanup; installer confirmation is pending. Updated older installer
+documentation to distinguish implemented input/Wayland extension from physical
+acceptance and Windows virtual-display work.

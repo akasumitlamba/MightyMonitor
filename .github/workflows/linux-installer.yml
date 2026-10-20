@@ -8,7 +8,7 @@ on:
         default: '0.0.1~alpha.7'
   push:
     branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'display-windows/**', 'security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
+    paths: ['docs/GETTING_STARTED.md', 'scripts/artifact-manifest.py', 'discovery/**', 'display-windows/**', 'security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
 permissions:
   contents: read
 jobs:
@@ -35,6 +35,7 @@ jobs:
           /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-host --help
           test -x /tmp/mightymonitor-package/usr/lib/mightymonitor/mm-viewer
           test -f /tmp/mightymonitor-package/usr/share/applications/mightymonitor.desktop
+          test -f /tmp/mightymonitor-package/usr/share/doc/mightymonitor/GETTING_STARTED.md
       - name: Install, reinstall, validate runtime, and remove on the isolated runner
         run: |
           package=$(realpath output/installers/*.deb)
@@ -50,6 +51,7 @@ jobs:
           test ! -e /usr/lib/mightymonitor/mm-host
           test ! -e /usr/share/applications/mightymonitor.desktop
           test ! -e /usr/share/pixmaps/mightymonitor.png
+          test ! -e /usr/share/doc/mightymonitor/GETTING_STARTED.md
       - name: Record installer checksums and source revision
         run: python3 scripts/artifact-manifest.py --output output/installers output/installers/*.deb
       - uses: actions/upload-artifact@v4
