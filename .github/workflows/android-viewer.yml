@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
-    paths: ['discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -42,12 +42,16 @@ jobs:
         with:
           gradle-version: '8.9'
       - run: gradle -p android assembleDebug assembleDebugAndroidTest
+      - name: Record APK checksums and source revision
+        run: python3 scripts/artifact-manifest.py --output android/app/build/outputs/apk android/app/build/outputs/apk/debug/app-debug.apk android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android-viewer-apks
           path: |
             android/app/build/outputs/apk/debug/app-debug.apk
             android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            android/app/build/outputs/apk/SHA256SUMS
+            android/app/build/outputs/apk/BUILD_INFO.json
           if-no-files-found: error
   emulator:
     timeout-minutes: 20

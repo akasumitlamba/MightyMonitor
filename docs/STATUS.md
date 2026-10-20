@@ -267,3 +267,10 @@ rotation precondition on 14/16. The test measured the background MainActivity's
 display; it now uses UI Automator display dimensions and explicit test-device
 rotation with cleanup. This diagnosis still requires a confirming rerun; rotated
 control is not yet accepted on 14/16. No production permission is automated.
+
+
+2026-10-20: Installer/APK artifact workflows now prepare portable SHA256SUMS and
+BUILD_INFO.json with exact source revision, dirty-source indicator, sizes and
+hashes. The standard-library generator passed local independent-hash and nested
+path checks; YAML parses. No signing credential or certificate was generated.
+Fresh workflow execution for manifest packaging remains pending.

@@ -86,3 +86,16 @@ isolated CI runner, initialize the installed decoder, validate the desktop entry
 and remove the app/assets. Windows setup is exercised twice before its runtime,
 URI registration and uninstall checks. These additional checks are awaiting a
 fresh run; same-version reinstall is not proof of all future version upgrades.
+
+
+## Build identity and file checks
+
+New build artifacts include `SHA256SUMS` and `BUILD_INFO.json`. The latter records
+the source commit, whether tracked sources changed during the build, file sizes
+and SHA-256 hashes. Paths are relative to the artifact root, including Android's
+APK subdirectories. On Linux, run `sha256sum -c SHA256SUMS` after extracting the
+whole artifact. On Windows, `Get-FileHash <installer> -Algorithm SHA256` can be
+compared with the manifest. These are unsigned integrity/provenance records, not
+publisher signatures or a substitute for downloading from a trusted workflow.
+The manifest generator was checked locally against independent hashes and nested
+paths; fresh packaging workflow validation is still required.

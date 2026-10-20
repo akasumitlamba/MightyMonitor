@@ -8,7 +8,7 @@ on:
         default: '0.0.1~alpha.7'
   push:
     branches: ['codex/linux-installer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['discovery/**', 'security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
+    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/**', 'host/**', 'core/**', 'codec-gst/**', 'host-linux/**', 'scripts/package-linux.py', 'packaging/**', 'assets/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/linux-installer.yml']
 permissions:
   contents: read
 jobs:
@@ -50,8 +50,13 @@ jobs:
           test ! -e /usr/lib/mightymonitor/mm-host
           test ! -e /usr/share/applications/mightymonitor.desktop
           test ! -e /usr/share/pixmaps/mightymonitor.png
+      - name: Record installer checksums and source revision
+        run: python3 scripts/artifact-manifest.py --output output/installers output/installers/*.deb
       - uses: actions/upload-artifact@v4
         with:
           name: mightymonitor-linux-deb
-          path: output/installers/*.deb
+          path: |
+            output/installers/*.deb
+            output/installers/SHA256SUMS
+            output/installers/BUILD_INFO.json
           if-no-files-found: error

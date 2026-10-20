@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: ['codex/wayland-sharing', 'codex/windows-installer', 'codex/remote-control', 'codex/device-discovery', main]
-    paths: ['discovery/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
+    paths: ['scripts/artifact-manifest.py', 'discovery/**', 'packaging/windows/**', 'scripts/windows/**', 'viewer/**', 'host/**', 'core/**', 'security/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/windows-installer.yml']
 permissions:
   contents: read
 jobs:
@@ -49,10 +49,19 @@ jobs:
           $uninstall = Start-Process (Join-Path $app 'unins000.exe') -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
           if ($uninstall.ExitCode -ne 0 -or (Test-Path (Join-Path $app 'mm-viewer.exe'))) { throw 'App uninstall failed' }
           if (Test-Path $protocol) { throw 'Private-link handler remained after uninstall' }
+      - name: Record installer checksums and source revision
+        shell: pwsh
+        run: |
+          $packages = @(Get-ChildItem output/installers/*-windows-x64-setup.exe | ForEach-Object { $_.FullName })
+          python scripts/artifact-manifest.py --output output/installers @packages
+          if ($LASTEXITCODE -ne 0) { throw 'Installer manifest failed' }
       - uses: actions/upload-artifact@v4
         with:
           name: mightymonitor-windows-installer
-          path: output/installers/*-windows-x64-setup.exe
+          path: |
+            output/installers/*-windows-x64-setup.exe
+            output/installers/SHA256SUMS
+            output/installers/BUILD_INFO.json
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: failure()
