@@ -318,3 +318,10 @@ release signing/apksigner verification and artifact manifests. Android 16 also
 passed the actual optional-notification-denial/video/control/discovery suite;
 other emulator results are still running. Related viewer documentation was
 updated to remove stale single-viewer/X11-only/no-discovery statements.
+
+
+2026-10-20: Confirmed a696298 Android run 39377927435 succeeded on all four emulator
+versions, including optional-notification denial followed by real video/control.
+Release-signing guard and disposable signed build also passed. The next checkpoint
+adds desktop full-screen behavior and explicit actual 16 KiB ELF/APK checks; those
+new platform checks remain to run. No new PR was created.

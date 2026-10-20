@@ -229,8 +229,8 @@ Commit normal checkpoints to the fork. No new PR is open for these changes.
   still required; the downloadable CI APK remains a debug/test build.
 - **Android notification follow-up:** a first Share on API 33+ requests optional
   POST_NOTIFICATIONS once, then separately requests capture consent even after
-  denial. App Stop remains available. Java compilation passes; check the emulator
-  results in 39377927435 before claiming the new denial path accepted.
+  denial. App Stop remains available. Java compilation passes; all four emulator tests passed on API 29/30/34/36 in
+  39377927435, including denial on the newer Android versions.
 - **Desktop full-screen follow-up:** hide navigation/connection/status panels,
   retain an explicit exit, release held input on transitions and consume local
   Escape before remote translation. Local input regression tests and warning-free
