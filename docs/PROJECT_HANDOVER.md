@@ -312,3 +312,25 @@ window-ID readiness check. No coordinates, text, keys, tokens or viewing links a
 recorded by the service. It does not retry failed gestures or alter permission
 requirements; its confirming execution is pending. Physical-device testing is
 deferred while implementation/build work continues.
+
+
+**Desktop local revocation follow-up:** Share now offers Stop control while
+locally allowed sharing is active. The private managed-host input pipe accepts
+bounded REVOKE_CONTROL/STOP commands. A monotonic owner/consent signal revokes
+all current input leases and prevents future grants for that share lifetime;
+closed ownership fails closed. Session reads/writes remain pinned during release,
+late valid input is discarded, and video continues. Failure to deliver the GUI
+command ends sharing. Six real framed-socket tests with synthetic capture/input
+pass, including release during a deliberately stalled video write, multi-session
+revocation and later reconnect refusal. Native viewer/host Clippy passes locally;
+new platform/installer runs are required. These tests do not inject OS input.
+
+**Android diagnostic run f5afd04:** 39473898336 built the three-ABI APK and passed
+API 29/30. API 34 first failed a stale notification-permission UI handle, leaving
+a dialog that blocked later fixture launches. The permission helper now resolves
+and clicks within one bounded loop and re-resolves stale handles before any click
+was dispatched. API 36 failed the valid rotated click in session three after
+three successful initial taps; its cause is not yet proven. The rotated assertion
+now includes the same bounded dispatch/target counters. Main/test Java compile.
+No failed remote gesture is retried. Full device testing remains deferred while
+implementation and installer work continue.

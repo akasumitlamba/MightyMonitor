@@ -8,7 +8,11 @@ when you have enabled control, request that permission.
 
 On desktop, click the picture to focus it. Keyboard, mouse and scrolling then go
 to the shared screen. Clicking elsewhere or switching away releases held keys
-and buttons. Uncheck Control to return control; Stop sharing ends the session.
+and buttons. Uncheck Control to return control. On the source desktop's Share
+page, **Stop control** revokes access for all viewers while video continues.
+Held input is released, late input is discarded, and reconnecting cannot restore
+permission. Start a new sharing session to allow control again. **Stop sharing**
+ends viewing too.
 Desktop hosts support four viewers, with one controlling viewer at a time.
 If another viewer controls the host, its control request is denied until the
 current controller relinquishes control or disconnects.

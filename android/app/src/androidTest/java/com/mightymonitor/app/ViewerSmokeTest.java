@@ -105,8 +105,7 @@ public final class ViewerSmokeTest {
             app.findViewById(MainActivity.SHARE_ID).performClick();
         });
         androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        androidx.test.uiautomator.UiObject2 confirm = captureConsentAfterOptionalNotificationDenial(device);
-        assertTrue("Android screen capture consent did not appear", confirm != null); confirm.click();
+        approveCaptureAfterOptionalNotificationDenial(device);
         long client = 0; android.media.MediaCodec decoder = null;
         try {
             long deadline = System.currentTimeMillis() + 60000;
@@ -168,8 +167,7 @@ public final class ViewerSmokeTest {
             app.findViewById(MainActivity.SHARE_ID).performClick();
         });
         androidx.test.uiautomator.UiDevice device = androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
-        androidx.test.uiautomator.UiObject2 confirm = captureConsentAfterOptionalNotificationDenial(device);
-        assertTrue("Capture consent did not appear", confirm != null); confirm.click();
+        approveCaptureAfterOptionalNotificationDenial(device);
         while (ScreenShareService.invitation.isEmpty() && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Phone did not start sharing", !ScreenShareService.invitation.isEmpty());
         long client = NativeBridge.connect(ScreenShareService.invitation.replaceFirst("mightymonitor://[^/]+/", "mightymonitor://127.0.0.1:5000/"));
@@ -206,7 +204,7 @@ public final class ViewerSmokeTest {
             RemoteControlService.accept(new byte[]{2,0,1});RemoteControlService.accept(new byte[]{2,0,0});
             long tapDeadline=System.currentTimeMillis()+10000;
             while(InputTestActivity.taps.get()==taps && System.currentTimeMillis()<tapDeadline)Thread.sleep(20);
-            assertTrue("A valid rotated pointer click stopped working",InputTestActivity.taps.get()==taps+1);
+            assertTrue("A valid rotated pointer click stopped working: "+inputDiagnostic(button),InputTestActivity.taps.get()==taps+1);
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
             androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationNatural();
             awaitRotation(false);deadline=System.currentTimeMillis()+60000;
@@ -237,17 +235,22 @@ public final class ViewerSmokeTest {
             if (target != null) {android.app.Activity closing = target; InstrumentationRegistry.getInstrumentation().runOnMainSync(closing::finish);}
         }
     }
-    private androidx.test.uiautomator.UiObject2 captureConsentAfterOptionalNotificationDenial(androidx.test.uiautomator.UiDevice device) throws Exception {
+    private void approveCaptureAfterOptionalNotificationDenial(androidx.test.uiautomator.UiDevice device) throws Exception {
         long deadline=System.currentTimeMillis()+25000;
         while(System.currentTimeMillis()<deadline) {
-            // Exercise the optional permission's denied path on newer Android versions.
-            androidx.test.uiautomator.UiObject2 deny=device.findObject(androidx.test.uiautomator.By.res("com.android.permissioncontroller", "permission_deny_button"));
-            if(deny!=null){deny.click();Thread.sleep(100);continue;}
-            androidx.test.uiautomator.UiObject2 capture=device.findObject(androidx.test.uiautomator.By.res("android", "button1"));
-            if(capture!=null)return capture;
+            // A permission window may disappear between lookup and node access.
+            // Re-resolve that stale UI handle; never retry a remote test gesture.
+            try {
+                androidx.test.uiautomator.UiObject2 deny=device.findObject(androidx.test.uiautomator.By.res("com.android.permissioncontroller", "permission_deny_button"));
+                if(deny!=null){deny.click();Thread.sleep(100);continue;}
+                androidx.test.uiautomator.UiObject2 capture=device.findObject(androidx.test.uiautomator.By.res("android", "button1"));
+                if(capture!=null){capture.click();return;}
+            } catch(androidx.test.uiautomator.StaleObjectException stale) {
+                // No gesture was dispatched: UiObject2 failed reading its stale node.
+            }
             Thread.sleep(100);
         }
-        return null;
+        throw new AssertionError("Capture consent did not appear");
     }
     private static byte[] mouseMove(float x,float y){return java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)1).putFloat(x).putFloat(y).array();}
     private void awaitRotation(boolean landscape)throws Exception{

@@ -30,8 +30,9 @@ send input. Use the viewer's **Keyboard** control for text entry. Only one deskt
 viewer can control a host at a time; other viewers can watch.
 
 On a desktop viewer, keyboard input follows focus in the picture. Moving focus
-away releases held input. Reconnecting needs a fresh control grant. Stop sharing
-or revoke control on the source device to end access.
+away releases held input. Reconnecting needs a fresh control grant. Use **Stop control** on the source desktop's Share page to revoke control while
+video continues. Start a new sharing session to enable control again. Stop sharing
+ends viewing and control together.
 
 When sharing an Android screen, the phone owner must enable MightyMonitor's
 Accessibility service in Android Settings. To receive typed text, also enable

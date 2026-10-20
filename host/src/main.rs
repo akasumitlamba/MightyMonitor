@@ -10,7 +10,7 @@ mod desktop {
     use mightymonitor_core::{Bytes, CodecError, Encoder};
     use mightymonitor_host::{
         pipeline::{HostEncoder, Pipeline},
-        session::{serve_with_input, SessionConfig},
+        session::{serve_with_revocable_input, SessionConfig},
         Error,
     };
     use std::time::Duration;
@@ -300,13 +300,28 @@ mod desktop {
             }
             factory
         };
+        let (control_owner, control_consent) =
+            mightymonitor_host::input::control_consent(allow_control);
         let mut stop = Box::pin(async move {
+            // Keep the sender alive for unmanaged CLI hosts as well.
+            let control_owner = control_owner;
             if managed {
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 std::thread::spawn(move || {
-                    use std::io::BufRead;
-                    let mut line = String::new();
-                    let _ = std::io::stdin().lock().read_line(&mut line);
+                    use std::io::{BufRead, Read};
+                    let stdin = std::io::stdin();
+                    let mut input = stdin.lock();
+                    loop {
+                        let mut line = String::new();
+                        // This local pipe accepts bounded commands, never launch text.
+                        match input.by_ref().take(64).read_line(&mut line) {
+                            Ok(0) | Err(_) => break,
+                            Ok(_) if line == "REVOKE_CONTROL\n" => {
+                                control_owner.revoke();
+                            }
+                            _ => break, // STOP, an unknown command or an oversized line stops sharing.
+                        }
+                    }
                     let _ = tx.send(());
                 });
                 let _ = rx.await;
@@ -360,18 +375,20 @@ mod desktop {
                     let(stream,_)=peer?;
                     let Ok(permit)=viewers.clone().try_acquire_owned() else {drop(stream);continue;};
                     let identity=identity.clone();let factory=factory.clone();let controller=controller.clone();
+                    let consent=control_consent.clone();
                     tasks.spawn(async move {
                         let _permit=permit;
                         let transport:Box<dyn mightymonitor_core::Transport>=if let Some(identity)=identity {Box::new(mightymonitor_core::FramedTransport::from_stream(mightymonitor_security::asynchronous::accept(stream,&identity).await?))} else {Box::new(mightymonitor_core::TcpTransport::new(stream)?)};
+                        let capture_consent=consent.clone();
                         let (pipeline,config,input)=tokio::task::spawn_blocking(move ||->Result<_,Error>{
                             let(capture,width,height)=factory.capture(fps,monitor)?;
                             let encoder=Codec(GstEncoder::new(EncoderConfig{width,height,fps,bitrate_kbps:bitrate,format:PixelFormat::Rgba,..Default::default()})?);
                             let pipeline=Pipeline::new(capture,encoder,fps)?.with_bitrate(bitrate)?;
-                            let input=if allow_control {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
+                            let input=if allow_control && capture_consent.is_allowed() {factory.input(width,height)?.map(|backend|Box::new(mightymonitor_host::input::ExclusiveInput::new(backend,controller)) as Box<dyn mightymonitor_host::input::InputTarget>)}else{None};
                             let config=SessionConfig{session_id:1,codec:mightymonitor_core::Codec::H264,width,height,fps,write_timeout:Duration::from_secs(2),handshake_timeout:Duration::from_secs(5),idle_timeout:Duration::from_secs(idle_timeout_secs)};
                             Ok((pipeline,config,input))
                         }).await??;
-                        serve_with_input(transport,pipeline,config,input).await
+                        serve_with_revocable_input(transport,pipeline,config,input,consent).await
                     });
                 }
             }

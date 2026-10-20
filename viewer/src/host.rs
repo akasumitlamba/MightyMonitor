@@ -183,6 +183,16 @@ impl HostProcess {
             }
         }
     }
+    /// Revoke all existing and future controller grants for this sharing lifetime.
+    pub fn revoke_control(&mut self) -> io::Result<()> {
+        let input = self
+            .child
+            .stdin
+            .as_mut()
+            .ok_or_else(|| io::Error::other("Sharing control channel is closed"))?;
+        input.write_all(b"REVOKE_CONTROL\n")?;
+        input.flush()
+    }
     pub fn invitation(&self) -> Option<mightymonitor_security::Invitation> {
         self.invitation
             .lock()

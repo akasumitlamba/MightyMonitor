@@ -1,6 +1,36 @@
 //! Explicitly authorized remote input. View-only sessions never create a backend.
 use crate::Error;
 use mightymonitor_core::{InputEvent, MouseButton, TouchPhase};
+/// Only the local owner can revoke; there is deliberately no re-enable operation.
+#[derive(Clone)]
+pub struct ControlOwner(tokio::sync::watch::Sender<bool>);
+#[derive(Clone)]
+pub struct ControlConsent(tokio::sync::watch::Receiver<bool>);
+pub fn control_consent(allowed: bool) -> (ControlOwner, ControlConsent) {
+    let (owner, consent) = tokio::sync::watch::channel(allowed);
+    (ControlOwner(owner), ControlConsent(consent))
+}
+impl ControlOwner {
+    pub fn revoke(&self) {
+        self.0.send_replace(false);
+    }
+}
+impl ControlConsent {
+    pub fn is_allowed(&self) -> bool {
+        *self.0.borrow() && self.0.has_changed().is_ok()
+    }
+    pub async fn revoked(&mut self) {
+        loop {
+            if !*self.0.borrow_and_update() {
+                return;
+            }
+            if self.0.changed().await.is_err() {
+                return;
+            }
+        }
+    }
+}
+
 pub trait InputTarget: Send {
     fn activate(&mut self) -> bool {
         true

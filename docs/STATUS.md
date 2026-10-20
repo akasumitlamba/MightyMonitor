@@ -432,3 +432,16 @@ debug-only fixture touch counts for diagnostic assertions; test readiness also
 checks the active accessibility window against the actual target window. No
 failed click is retried. Confirmation is pending; this is diagnostic work, not a
 claim that the Android 10 issue has been fixed.
+
+
+Development follow-up: Added desktop Stop control without interrupting viewing.
+Six real framed-socket tests with synthetic input/capture pass, including local
+owner loss, revocation across sessions, late-input discard, refusal on reconnect
+and held-input release during a stalled video write. Viewer/host Clippy passes.
+Native input was not injected during these tests. Platform builds pending.
+
+Android run 39473898336 built successfully and passed API 29/30. API 34 failed on
+a stale system-permission UI handle, which blocked later fixture launches; that
+helper now re-resolves stale handles within its original timeout. API 36 missed
+a rotated valid click in the third session; the rotated assertion now includes
+dispatch/target counters. This cause remains unproven, not reported as fixed.

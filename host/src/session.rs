@@ -77,12 +77,31 @@ pub async fn serve_transport<E: HostEncoder>(
 /// supplying an input target. Each connection starts without an input grant.
 pub async fn serve_with_input<E: HostEncoder>(
     transport: Box<dyn Transport>,
-    mut pipeline: Pipeline<E>,
+    pipeline: Pipeline<E>,
     config: SessionConfig,
     input: Option<Box<dyn crate::input::InputTarget>>,
 ) -> Result<(), Error> {
+    let (_owner, consent) = crate::input::control_consent(true);
+    serve_with_revocable_input(transport, pipeline, config, input, consent).await
+}
+/// Local consent can be permanently revoked without ending the video session.
+/// A false value or loss of its sender releases input. Re-enabling requires a
+/// newly created session/consent receiver; queued input is never replayed.
+pub async fn serve_with_revocable_input<E: HostEncoder>(
+    transport: Box<dyn Transport>,
+    mut pipeline: Pipeline<E>,
+    config: SessionConfig,
+    input: Option<Box<dyn crate::input::InputTarget>>,
+    mut consent: crate::input::ControlConsent,
+) -> Result<(), Error> {
+    let initially_allowed = consent.is_allowed();
+    let had_input = input.is_some();
+    let mut locally_revoked = input.is_some() && !initially_allowed;
+    let input = input
+        .map(crate::input::InputLease)
+        .filter(|_| initially_allowed);
     let control_available = input.is_some();
-    let input = input.map(crate::input::InputLease);
+    let handshake_consent = consent.clone();
     let mut session = ReconnectingSession::new(
         Accepted(Some(transport)),
         config.session_id,
@@ -108,7 +127,32 @@ pub async fn serve_with_input<E: HostEncoder>(
         let _closed = Closed(reader_closed);
         let mut input = input;
         let mut controlling = false;
-        while let Ok(frame) = reader.recv().await {
+        loop {
+            // Keep a partially received frame alive across local revocation.
+            // Cancelling recv during an inline write closes the transport; keep
+            // the receive/write operation alive while revocation releases input.
+            let frame = {
+                let receive = reader.recv();
+                tokio::pin!(receive);
+                loop {
+                    tokio::select! {
+                        biased;
+                        () = consent.revoked(), if !locally_revoked => {
+                                locally_revoked = true;
+                                controlling = false;
+                                input = None; // InputLease releases held keys and the exclusive slot.
+                                if reader_handshake.load(std::sync::atomic::Ordering::Acquire)
+                                    && tx.try_send(Message::ControlStatus { enabled: false }).is_err() {
+                                    return;
+                                }
+                        }
+                        frame = &mut receive => break frame,
+                    }
+                }
+            };
+            let Ok(frame) = frame else {
+                break;
+            };
             let Ok(message) = Message::from_frame_parts(frame.kind, &frame.payload) else {
                 break;
             };
@@ -123,6 +167,12 @@ pub async fn serve_with_input<E: HostEncoder>(
                     continue;
                 }
                 Message::Input(event) => {
+                    // Late packets from a revoked controller are discarded, not
+                    // replayed or allowed to interrupt view-only video.
+                    if locally_revoked && had_input && event.validate() {
+                        tokio::task::yield_now().await;
+                        continue;
+                    }
                     if !reader_handshake.load(std::sync::atomic::Ordering::Acquire)
                         || !controlling
                         || !event.validate()
@@ -189,7 +239,7 @@ pub async fn serve_with_input<E: HostEncoder>(
             Message::HelloAckV2 {
                 session_id: config.session_id,
                 accepted,
-                control_available,
+                control_available: control_available && handshake_consent.is_allowed(),
             }
         } else {
             Message::HelloAck {

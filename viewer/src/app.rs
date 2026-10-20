@@ -499,6 +499,17 @@ impl eframe::App for App {
                 ).on_disabled_hover_text("Control is currently available for the main screen.");
                 ui.add_enabled(self.host.is_none(),egui::Checkbox::new(&mut self.discoverable,"Show on local network")).on_hover_text("Lets nearby devices find this sharing address. Your private link and control permission are not broadcast.");
                 if self.host.is_some() {
+                    if self.allow_control && ui.button("Stop control").clicked() {
+                        let result = self.host.as_mut().expect("active sharing").revoke_control();
+                        self.allow_control = false;
+                        if result.is_err() {
+                            // If delivery fails, ending sharing is the fail-closed fallback.
+                            self.host = None;
+                            self.share_qr = None;
+                            self.host_message = "Sharing stopped because control could not be revoked.".into();
+                            self.host_error = true;
+                        }
+                    }
                     if ui.button("Stop sharing").clicked() {
                         self.host = None;
                         self.share_qr = None;
