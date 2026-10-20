@@ -247,9 +247,15 @@ locally. They remain development builds, not a published stable release.
 The desktop reconnect-status follow-up passed native CI and both installers at
 9fe1716. Its repeated Android suite failed the initial control tap on API 29 and
 editor focus after rotation on API 36; API 30/34 passed. This intermittency remains
-unresolved. A new test change waits for stable focused target bounds before each
-single remote gesture, and extends Android viewer playback across landscape/
-portrait rotation. Java compilation passes; confirming runs are pending.
+unresolved. Input tests now wait for stable focused target bounds before each single gesture.
+Viewer rotation separately checks visible viewport orientation/aspect and new
+frames; image rendering does not require keyboard focus. Full-screen entry hides
+the local keyboard. Java compilation passes; confirming runs are pending.
+The control test now runs three consented Share/control/Stop sessions in one app
+process. The first failure still fails the test. Avoid repeatedly force-stopping
+the process merely to repeat gesture checks: that hit Android 16 Accessibility
+rebind suppression before the second repeat could begin. Forced-process recovery
+remains a separate, unverified lifecycle scenario.
 The native Linux idle UI snapshot rendered successfully without sharing/input;
 a follow-up removes the unused Sharing off bar while preserving active/error
 indicators, and passes local viewer Clippy.

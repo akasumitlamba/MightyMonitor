@@ -149,7 +149,16 @@ public final class ViewerSmokeTest {
         }
     }
     @Test public void controlsPhoneOnlyAfterBothGrantsAndStopsOnRevocation() throws Exception {
+        for(int round=1;round<=3;round++) {
+            System.out.println("Remote control share/stop session "+round+" of 3");
+            checkOneControlSession();
+        }
+    }
+    private void checkOneControlSession() throws Exception {
         MainActivity app = activity.getActivity();
+        androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationNatural();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+        awaitRotation(false);
         long deadline = System.currentTimeMillis() + 60000;
         while (!RemoteControlService.available() && System.currentTimeMillis() < deadline) Thread.sleep(100);
         assertTrue("Test accessibility grant did not start the service", RemoteControlService.available());

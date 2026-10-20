@@ -4,9 +4,9 @@ on:
   push:
     # Interop uses the headless viewer; desktop GUI changes have separate platform checks.
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['scripts/android/**', 'scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
-    paths: ['scripts/android/**', 'scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'viewer/examples/receive_smoke.rs', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'viewer/examples/receive_smoke.rs', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -157,7 +157,6 @@ jobs:
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
             tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
-            bash scripts/android/repeat-control-checks.sh "${{ matrix.api }}"
             grep -q 'OK (4 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
@@ -171,8 +170,6 @@ jobs:
             /tmp/mm-host.log
             /tmp/mm-xvfb.log
             /tmp/mm-android-test.log
-            /tmp/mm-control-repeat-*.log
-            /tmp/mm-android-repeat-logcat.log
             /tmp/mm-android-logcat.log
             /tmp/mm-ime-install-logcat.log
             /tmp/mm-input-methods.log

@@ -381,3 +381,14 @@ geometry/state diagnostics. Full-screen entry also dismisses the local keyboard.
 Both Java compilations pass. These changes require confirming execution.
 Control repetitions run even if a different full-suite test failed, but the
 original suite failure still fails the job; no failed assertion is ignored.
+
+
+2026-10-20: The fresh-instrumentation stress approach exposed Android 16
+Accessibility rebind/crash suppression after repeated forced process restarts
+(full suite and first repeat passed, second failed before control began). It was
+replaced by three independently consented share/control/rotate/type/revoke/stop
+sessions within one test process on every emulator version. The first failed
+session aborts the test; no failed result is retried into success. This models
+ordinary repeated sharing without repeatedly force-stopping an enabled system
+service. Initial capture orientation is explicitly portrait for the letterbox
+fixture. The old restart script was removed. Java compilation passes; runs pending.
