@@ -57,7 +57,7 @@ until its acceptance evidence exists; CI alone cannot verify physical devices.
 1. **Linux baseline:** run real X11 host/viewer on two devices over Wi-Fi;
    record dependencies, resolution/fps, hardware, latency, sustained playback,
    bandwidth throttling, and recovery after network interruption. Separately
-   validate Wayland; the existing CLI uses X11 despite a portal backend existing.
+   validate Wayland; the CLI selects Wayland capture automatically and requires system portal consent.
 2. **Secure sessions:** authenticated pairing, encrypted transport, explicit
    view/control permissions and revocation. Test rejected peers, reconnect
    authorization, and independent session identity before enabling remote input.

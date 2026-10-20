@@ -25,6 +25,11 @@ iOS are not currently targeted.
 | Android  | capture alpha; emulator tested | viewer alpha; Android 10/11/14/16 emulator tested |
 | Browser (ChromeOS, TVs, old laptops, Fire tablets) | - | planned |
 
+## Contributor starting point
+
+Read the [project handover](docs/PROJECT_HANDOVER.md) for current evidence, missing
+features, architecture, next milestones and the squash-merge workflow.
+
 ## Architecture (Cargo workspace)
 - `core`: protocol (serde + bincode, version byte first), framing, input events, platform traits (Capture, Encoder, Decoder, InputInjector), adaptive bitrate and reconnect logic.
 - `host-linux`: X11 capture and a PipeWire portal backend, selected automatically for the desktop session; optional keyboard/mouse control is implemented.

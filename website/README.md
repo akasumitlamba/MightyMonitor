@@ -37,6 +37,6 @@ The website does not create installers. Maintainers must build, validate and att
 node website/tests/downloads.cjs
 ```
 
-The automated tests cover missing releases, real installer filtering, untrusted URLs, source-only releases and offline/rate-limit fallback. The development status is an editorial snapshot dated 18 October 2026. Update it when physical-device acceptance changes. The interactive device illustration is explicitly a concept, not a screenshot or a claim that planned Android/control/extension features work.
+The automated tests cover missing releases, real installer filtering, untrusted URLs, source-only releases and offline/rate-limit fallback. The development status is an editorial snapshot dated 20 October 2026. Update it at every merged milestone, keeping implementation, emulator/local validation and physical-device acceptance distinct. The interactive device illustration is explicitly a concept, not a screenshot or a claim that all platform/device combinations work. Icons are inline SVG and do not depend on font glyph coverage.
 
 See DESIGN.md for the frontend-design skill's design plan and critique. The icon is original project artwork. Bundled Sora and IBM Plex Sans fonts include their open-font licenses in `dist/assets/fonts/`.

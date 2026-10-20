@@ -251,3 +251,19 @@ The initial target is clamped to the bounds. Initialize the encoder with
 
 The absolute RTT slack tolerates small LAN jitter even with a zero or one millisecond
 baseline.
+
+
+## Optional input negotiation
+
+A viewer advertising `input-v1` can receive HelloAckV2 (kind 11) with
+`session_id`, `accepted` and `control_available`. Hosts retain the original
+HelloAck for viewers without this capability. ControlRequest (kind 12, `enabled`)
+requests/relinquishes input; ControlStatus (kind 13, `enabled`) confirms the grant.
+A private viewing token alone does not grant input. Local host consent, secure
+transport and an active viewer grant are required.
+
+Input events use normalized display coordinates and USB HID keyboard usages,
+not peer-provided native OS scan codes. Text is bounded Unicode; ReleaseAll
+releases held remote input. Reconnect discards queued input and requires a fresh
+control request. See REMOTE_CONTROL.md and the current core message definitions
+for validation bounds. Existing message kind values remain unchanged.

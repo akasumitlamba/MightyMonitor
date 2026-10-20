@@ -2,9 +2,9 @@
 const PROJECT = 'reduckyLang/MightyMonitor';
 const RELEASES_URL = `https://github.com/${PROJECT}/releases`;
 const descriptions = {
-  mirror: ['Same screen.\nNew perspective.', 'See a screen on another device. Linux implementation exists; real-device validation is pending.'],
-  control: ['Your touch.\nTheir workspace.', 'Use a keyboard, mouse or touch across devices. Remote control is planned, not implemented yet.'],
-  extend: ['A little\nmore room.', 'An independent second display, streamed to another device. Extended displays are planned, not implemented yet.']
+  mirror: ['Same screen.\nNew perspective.', 'View Windows, Linux or Android screens. Physical-device Wi-Fi testing remains.'],
+  control: ['Your touch.\nTheir workspace.', 'Optional control is implemented. Android touch, typing and revocation passed on Android 10/11/14/16 emulators.'],
+  extend: ['A little\nmore room.', 'Create extra desktop space on supported Linux Wayland desktops. Live KDE creation, video and cleanup passed; Windows extension remains unfinished.']
 };
 for (const button of document.querySelectorAll('.mode-switch button')) {
   button.addEventListener('click', () => {
@@ -42,7 +42,7 @@ async function loadRelease() {
   const status = document.getElementById('release-status');
   const refresh = document.getElementById('refresh-releases');
   refresh.disabled = true;
-  document.getElementById('download-availability').textContent = 'Linux prototype. Installer availability is listed below.';
+  document.getElementById('download-availability').textContent = 'Alpha builds exist. Published installer availability is listed below.';
   resetDownloads('Checking availability…');
   status.textContent = 'Checking for published installers…';
   const controller = new AbortController();
@@ -74,7 +74,7 @@ async function loadRelease() {
       links.replaceChildren();
       for (const asset of assets) {
         const link = document.createElement('a');
-        link.href = asset.browser_download_url; link.className = 'button'; link.textContent = `↓ ${asset.name}`;
+        link.href = asset.browser_download_url; link.className = 'button'; link.textContent = `Download ${asset.name}`;
         link.setAttribute('aria-label', `Download ${asset.name} installer`);
         links.append(link);
       }
@@ -85,7 +85,7 @@ async function loadRelease() {
   } catch {
     resetDownloads('Check GitHub Releases');
     status.replaceChildren(document.createTextNode('Could not check downloads. '));
-    const link = document.createElement('a'); link.href = RELEASES_URL; link.textContent = 'Check GitHub Releases ↗';
+    const link = document.createElement('a'); link.href = RELEASES_URL; link.textContent = 'Check GitHub Releases';
     status.append(link);
   } finally {
     clearTimeout(timeout); refresh.disabled = false;

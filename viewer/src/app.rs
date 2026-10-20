@@ -163,7 +163,7 @@ impl eframe::App for App {
                     Ok(false) => {
                         let diagnostics = host.diagnostics().unwrap_or_default();
                         self.host_message = if diagnostics.contains("mm-host listening on") {
-                            format!("Sharing on {} — one viewer at a time", self.share_address)
+                            format!("Sharing on {}", self.share_address)
                         } else {
                             "Starting sharing…".into()
                         };
