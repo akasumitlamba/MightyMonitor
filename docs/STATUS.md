@@ -206,3 +206,11 @@ decoded three real H.264 frames, managed-host Stop exited with status zero, and
 the virtual monitor disappeared with the original active display set restored.
 This test used loopback and view-only sharing. Layout/window movement, virtual
 monitor input, other compositors and physical cross-device Wi-Fi remain unverified.
+
+
+2026-10-20: Opt-in untrusted local presence discovery is implemented on the
+development branch for desktop and Android. Advertisements exclude viewing
+credentials; a private link is still required to connect. Rust unit tests and
+real local multicast advertise/resolve/remove/no-TCP tests passed. Android source
+and resources compile; NSD emulator and physical cross-device acceptance remain
+unverified. Work continues without waiting for PR creation per the user request.

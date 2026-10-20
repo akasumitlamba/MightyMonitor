@@ -22,6 +22,9 @@ pub struct App {
     allow_legacy: bool,
     allow_control: bool,
     extend: bool,
+    discoverable: bool,
+    discovery: Option<mightymonitor_discovery::Browser>,
+    discovery_error: Option<String>,
     commands: Option<tokio::sync::mpsc::Sender<crate::net::Command>>,
     input_focused: bool,
     input_modifiers: egui::Modifiers,
@@ -49,6 +52,9 @@ impl App {
             allow_legacy: false,
             allow_control: false,
             extend: false,
+            discoverable: false,
+            discovery: None,
+            discovery_error: None,
             commands: None,
             input_focused: false,
             input_modifiers: egui::Modifiers::NONE,
@@ -269,6 +275,22 @@ impl eframe::App for App {
                         self.connect();
                     }
                 });
+                ui.collapsing("Nearby devices", |ui| {
+                    let mut scanning=self.discovery.is_some();
+                    if ui.checkbox(&mut scanning,"Find nearby sharing devices").changed(){
+                        self.discovery=None; self.discovery_error=None;
+                        if scanning {match mightymonitor_discovery::Browser::new(){Ok(browser)=>self.discovery=Some(browser),Err(_)=>self.discovery_error=Some("Discovery unavailable. You can still paste a private link.".into())}}
+                    }
+                    if let Some(error)=&self.discovery_error {ui.label(error);}
+                    if let Some(browser)=&self.discovery {
+                        let peers=browser.peers();
+                        if peers.is_empty(){ui.label("Looking for devices. Enable Show on local network on the sharing device.");}
+                        else {
+                            for peer in peers {ui.horizontal_wrapped(|ui|{ui.label(format!("{} · {}",peer.platform,if peer.extend {"Extra display"}else{"Screen"})); for address in peer.addresses {ui.label(address.to_string());}});}
+                            ui.label("Paste the private link from the sharing device to connect.");
+                        }
+                    }
+                });
                 ui.collapsing("Connection settings", |ui| {
                     ui.checkbox(
                         &mut self.allow_legacy,
@@ -380,6 +402,7 @@ impl eframe::App for App {
                     self.host.is_none(),
                     egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
                 );
+                ui.add_enabled(self.host.is_none(),egui::Checkbox::new(&mut self.discoverable,"Show on local network")).on_hover_text("Lets nearby devices find this sharing address. Your private link and control permission are not broadcast.");
                 if self.host.is_some() {
                     if ui.button("Stop sharing").clicked() {
                         self.host = None;
@@ -396,12 +419,13 @@ impl eframe::App for App {
                         )
                         .clicked()
                     {
-                        match crate::host::HostProcess::start_with_options(
+                        match crate::host::HostProcess::start_with_discovery(
                             &self.share_address,
                             self.share_fps,
                             self.share_bitrate,
                             self.allow_control,
                             self.extend,
+                            self.discoverable,
                         ) {
                             Ok(host) => {
                                 self.host = Some(host);

@@ -198,6 +198,7 @@ mod desktop {
         let mut allow_control = false;
         let mut extend = false;
         let mut managed = false;
+        let mut discoverable = false;
         let mut capture_mode = "auto".to_string();
         let mut bind = "127.0.0.1:5000".to_string();
         let mut fps = 30;
@@ -218,12 +219,16 @@ mod desktop {
                 extend = true;
                 continue;
             }
+            if flag == "--discoverable" {
+                discoverable = true;
+                continue;
+            }
             if flag == "--managed" {
                 managed = true;
                 continue;
             }
             if flag == "--help" {
-                println!("mm-host [--secure] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
+                println!("mm-host [--secure] [--discoverable] [--allow-control] [--extend] [--capture auto|x11|wayland] [--bind ADDRESS:PORT] [--fps 1..240] [--bitrate KBPS] [--idle-timeout-secs SECONDS] [--monitor -1|INDEX]");
                 return Ok(());
             }
             let value = args.next().ok_or("missing flag value")?;
@@ -248,6 +253,9 @@ mod desktop {
         // network handshake deadlines. The portal lives for this sharing lifetime.
         if allow_control && (!secure || monitor != -1) {
             return Err("Remote control requires --secure and the primary/default screen".into());
+        }
+        if discoverable && !secure {
+            return Err("Discovery requires secure sharing".into());
         }
         let factory = CaptureFactory::open(&capture_mode, allow_control, extend)?;
         let mut stop = Box::pin(async move {
@@ -282,6 +290,21 @@ mod desktop {
                 "WARNING: non-loopback bind exposes streaming without authentication or encryption"
             );
         }
+        let _advertisement = if discoverable {
+            match mightymonitor_discovery::Advertisement::new(
+                listener.local_addr()?,
+                std::env::consts::OS,
+                extend,
+            ) {
+                Ok(service) => Some(service),
+                Err(error) => {
+                    eprintln!("Local discovery unavailable: {error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
         eprintln!("mm-host listening on {}", listener.local_addr()?);
         let factory = std::sync::Arc::new(factory);
         let viewers = std::sync::Arc::new(tokio::sync::Semaphore::new(4));

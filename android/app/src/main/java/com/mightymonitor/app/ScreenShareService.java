@@ -33,7 +33,8 @@ public final class ScreenShareService extends Service {
     private Surface input;
     private long host;
     private byte[] codecHeaders = new byte[0];
-    private boolean closed;
+    private boolean closed, discoverable;
+    private NearbyDevices.Advertisement advertisement;
     private int bitrate = 4_000_000;
     private long lastKeyRequest;
     private MediaProjection.Callback projectionCallback;
@@ -47,6 +48,7 @@ public final class ScreenShareService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ScreenShareService.class).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, "sharing").setSmallIcon(android.R.drawable.presence_video_online).setContentTitle("Sharing your screen").setContentText("Tap Stop to end sharing").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION); else startForeground(1, notification);
+        discoverable = intent.getBooleanExtra("discoverable",false);
         allowControl = intent.getBooleanExtra("allowControl", false) && RemoteControlService.available();
         sharing = true; summary = "Starting sharing…"; capturedFrames = 0;
         int resultCode = intent.getIntExtra("resultCode", Activity.RESULT_CANCELED);
@@ -77,6 +79,7 @@ public final class ScreenShareService extends Service {
         host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
         invitation = NativeBridge.hostInvite(host, localAddress());
         NativeBridge.allowHostControl(host, allowControl);
+        if(discoverable)advertisement=new NearbyDevices.Advertisement(this,5000);
         worker.post(drainInput);
         encoder.setCallback(new MediaCodec.Callback() {
             @Override public void onInputBufferAvailable(MediaCodec codec, int index) { }
@@ -169,7 +172,7 @@ public final class ScreenShareService extends Service {
         if (current == this) current = null;
         sharing = false; allowControl = false; invitation = ""; RemoteControlService.stopInput();
         worker.post(() -> {
-            closed = true; worker.removeCallbacks(update); worker.removeCallbacks(drainInput);
+            closed = true; if(advertisement!=null){advertisement.close();advertisement=null;} worker.removeCallbacks(update); worker.removeCallbacks(drainInput);
             if (projection != null && projectionCallback != null) projection.unregisterCallback(projectionCallback);
             if (display != null) display.release();
             if (encoder != null) { try { encoder.stop(); } catch (Exception ignored) {} encoder.release(); }

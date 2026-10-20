@@ -37,7 +37,7 @@ features, architecture, next milestones and the squash-merge workflow.
 - `viewer`: egui/eframe viewer for Linux and Windows.
 - Browser streaming: planned; the static project website is not a streaming viewer.
 - `android-bridge` / `android`: shared Rust networking via JNI, with native Java UI and MediaCodec decoding. Phone capture uses MediaProjection and surface H.264; optional accessibility and keyboard control are implemented. See [Android build/install instructions](android/README.md).
-- Networking: TCP today. QUIC and mDNS discovery are planned.
+- Networking: TCP today. Opt-in mDNS presence discovery is implemented in development; persistent pairing and QUIC remain planned.
 
 The workspace includes `core`, Linux capture, GStreamer H.264 codecs, a host,
 a desktop viewer, and latency tools. Linux host/viewer paths are implemented;

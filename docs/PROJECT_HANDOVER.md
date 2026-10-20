@@ -38,7 +38,7 @@ viewers; #45 added experimental Wayland extension. Check newer PRs before editin
 | Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing and discovery not implemented |
+| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing not implemented; opt-in discovery is in development |
 | Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
@@ -54,6 +54,8 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 
 - `core/`: versioned messages/framing, generic transports, reconnect, bitrate,
   normalized input events, platform traits. See PROTOCOL.md and ABR.md.
+- `discovery/`: untrusted mDNS presence, explicit public metadata whitelist, bounded
+  desktop device list; Android uses platform NSD. See DISCOVERY.md for test limits.
 - `security/`: TLS 1.3, certificate pinning, private session invitations and
   asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
@@ -97,7 +99,11 @@ ANDROID instructions in `android/README.md` before changing their features.
    sessions, rotation/scaling, focus, revocation, congestion and reconnection.
    Finish KDE virtual-monitor layout/input tests and another supported compositor.
    OS permission dialogs require the user; do independent work while waiting.
-2. **Discovery and pairing UX:** show nearby devices without broadcasting tokens
+2. **Discovery and pairing UX:** opt-in desktop/Android presence discovery is
+   implemented on the current development branch. A real local Rust advertise/
+   resolve/remove test passed and confirmed no TCP connection. Android NSD tests
+   and physical cross-device discovery remain unverified. Continue toward smooth
+   pairing without broadcasting tokens
    or treating nearby peers as trusted. Preserve explicit sharing/control consent.
    Plan certificate identity, pairing confirmation, revocation and persistence
    before replacing private links. Android discovery needs lifecycle/network tests.
@@ -188,3 +194,7 @@ status copy. Link this guide from README and keep AGENTS.md pointing here. Keep
 personal conversation history, local machine identifiers, secrets and transient
 execution-session details out of the repository. This guide should explain the
 project sufficiently for a contributor with no access to previous chats.
+
+Current development note: the user has asked to keep implementing/testing without
+pausing for PRs or merges, and to create PRs later. Continue on the working branch
+with normal commits/checkpoints; do not treat an unopened PR as a work blocker.

@@ -30,6 +30,26 @@ public final class ViewerSmokeTest {
         catch (java.io.IOException error) {throw new IllegalStateException("Test system grant failed", error);}
     }
     @Rule public ActivityTestRule<MainActivity> activity = new ActivityTestRule<>(MainActivity.class);
+    @Test public void discoversAndRemovesLocalPublicPresence() throws Exception {
+        MainActivity app=activity.getActivity();
+        java.net.ServerSocket listener=new java.net.ServerSocket(0);
+        java.util.concurrent.atomic.AtomicReference<String> status=new java.util.concurrent.atomic.AtomicReference<>("");
+        NearbyDevices browser=new NearbyDevices(app,status::set);
+        NearbyDevices.Advertisement publisher=new NearbyDevices.Advertisement(app,listener.getLocalPort());
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(browser::start);
+        try {
+            long deadline=System.currentTimeMillis()+30000;
+            String port=":"+listener.getLocalPort();
+            while(!status.get().contains(port) && System.currentTimeMillis()<deadline)Thread.sleep(100);
+            assertTrue("Android NSD did not resolve the test sharing presence",status.get().contains(port));
+            assertTrue("Presence leaked a viewing credential",!status.get().contains("mightymonitor://"));
+            listener.setSoTimeout(200);boolean connected=false;try{listener.accept().close();connected=true;}catch(java.net.SocketTimeoutException expected){}
+            assertTrue("Discovery initiated a screen connection",!connected);
+            publisher.close();deadline=System.currentTimeMillis()+15000;
+            while(status.get().contains(port) && System.currentTimeMillis()<deadline)Thread.sleep(100);
+            assertTrue("Stopped sharing remained in Android discovery",!status.get().contains(port));
+        } finally {publisher.close();listener.close();InstrumentationRegistry.getInstrumentation().runOnMainSync(browser::stop);}
+    }
     @Test public void decodesRealDesktopH264ThroughRustProtocol() throws Exception {
         MainActivity app = activity.getActivity();
         long deadline = System.currentTimeMillis() + 60000;

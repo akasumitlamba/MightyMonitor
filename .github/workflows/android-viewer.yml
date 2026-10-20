@@ -2,10 +2,10 @@ name: Build and test Android viewer
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control']
-    paths: ['security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
+    branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
+    paths: ['discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
-    paths: ['security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+    paths: ['discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -113,7 +113,7 @@ jobs:
             adb exec-out run-as com.mightymonitor.app tar -C files -cf - screenshots > /tmp/mm-screenshots.tar
             mkdir -p /tmp/mm-screenshots
             tar -xf /tmp/mm-screenshots.tar -C /tmp/mm-screenshots
-            grep -q 'OK (3 tests)' /tmp/mm-android-test.log
+            grep -q 'OK (4 tests)' /tmp/mm-android-test.log
       - name: Collect logs
         if: always()
         run: test -f /tmp/mm-android-logcat.log || timeout 15s adb logcat -d > /tmp/mm-android-logcat.log || true

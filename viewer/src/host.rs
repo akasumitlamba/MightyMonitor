@@ -35,6 +35,16 @@ impl HostProcess {
         allow_control: bool,
         extend: bool,
     ) -> io::Result<Self> {
+        Self::start_with_discovery(address, fps, bitrate, allow_control, extend, false)
+    }
+    pub fn start_with_discovery(
+        address: &str,
+        fps: u32,
+        bitrate: u32,
+        allow_control: bool,
+        extend: bool,
+        discoverable: bool,
+    ) -> io::Result<Self> {
         if !cfg!(any(target_os = "linux", target_os = "windows")) {
             return Err(io::Error::other(
                 "Screen sharing currently requires Linux or Windows.",
@@ -66,6 +76,9 @@ impl HostProcess {
         }
         if extend {
             command.arg("--extend");
+        }
+        if discoverable {
+            command.arg("--discoverable");
         }
         Self::spawn(command)
     }

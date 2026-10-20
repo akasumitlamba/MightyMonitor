@@ -34,7 +34,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private TextView status;
     private TextView emptyPreview;
     private EditText address;
-    private CheckBox trusted, viewControl, shareControl;
+    private CheckBox trusted, viewControl, shareControl, discoverable, scanNearby;
+    private NearbyDevices nearby;
     private Button keyboard;
     private boolean updatingControl, remoteControlActive;
     public boolean isRemoteControlActive() {return remoteControlActive;}
@@ -74,6 +75,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         @Override public void run() {
             share.setText(ScreenShareService.sharing ? "Stop sharing" : "Share this screen");
             shareStatus.setText(ScreenShareService.summary);
+            discoverable.setEnabled(!ScreenShareService.sharing);
             shareControl.setEnabled(!ScreenShareService.sharing || ScreenShareService.allowControl);
             if (ScreenShareService.sharing && !ScreenShareService.allowControl) shareControl.setChecked(false);
             handler.postDelayed(this, 500);
@@ -112,6 +114,10 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         buttons.addView(connect, new LinearLayout.LayoutParams(0, -2, 1));
         viewPage.addView(buttons);
         LinearLayout controlBar = new LinearLayout(this);
+        android.widget.TextView nearbyStatus = text("", 13, Color.rgb(61,91,77));
+        nearby = new NearbyDevices(this, nearbyStatus::setText);
+        scanNearby = new CheckBox(this);scanNearby.setText("Find nearby sharing devices");viewPage.addView(scanNearby);viewPage.addView(nearbyStatus);
+        scanNearby.setOnCheckedChangeListener((v,enabled)->{nearbyStatus.setText("");if(enabled)nearby.start();else nearby.stop();});
         viewControl = new CheckBox(this); viewControl.setId(CONTROL_ID); viewControl.setText("Control"); viewControl.setVisibility(View.GONE); controlBar.addView(viewControl);
         keyboard = new Button(this); keyboard.setText("Keyboard"); styleButton(keyboard, false); keyboard.setVisibility(View.GONE); controlBar.addView(keyboard); viewPage.addView(controlBar);
         viewControl.setOnCheckedChangeListener((v, enabled) -> { if (!updatingControl && handle != 0) { try { NativeBridge.requestControl(handle, enabled); } catch (Exception error) { disconnect(error.getMessage()); } } });
@@ -169,6 +175,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
                 new android.app.AlertDialog.Builder(this).setTitle("Enable phone control").setMessage("Enable MightyMonitor control in Android Accessibility settings. Control works only while you share your screen and allow it here.").setPositiveButton("Open settings", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS))).setNegativeButton("Cancel", null).show();
             }
         });
+        discoverable = new CheckBox(this);discoverable.setText("Show on local network");sharePage.addView(discoverable);
         Button keyboardSettings = new Button(this); keyboardSettings.setText("Remote keyboard"); styleButton(keyboardSettings, false); sharePage.addView(keyboardSettings);
         keyboardSettings.setOnClickListener(v -> new android.app.AlertDialog.Builder(this).setTitle("Remote keyboard").setMessage("Optional: enable and select the MightyMonitor remote keyboard for full typing, shortcuts and password fields. You can switch back at any time.").setPositiveButton("Enable", (dialog, which) -> startActivity(new android.content.Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))).setNeutralButton("Select", (dialog, which) -> getSystemService(android.view.inputmethod.InputMethodManager.class).showInputMethodPicker()).setNegativeButton("Cancel", null).show());
         share = new Button(this); share.setId(SHARE_ID); share.setText("Share this screen"); styleButton(share, true); sharePage.addView(share);
@@ -206,7 +213,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 200 && result == RESULT_OK && data != null) {
-            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked());
+            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked()).putExtra("discoverable", discoverable.isChecked());
             startForegroundService(service);
         } else if (request == 200) shareStatus.setText("Sharing cancelled");
     }
@@ -310,5 +317,6 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) { fitVideo(); }
     @Override public void surfaceDestroyed(SurfaceHolder holder) { surfaceReady = false; connect.setEnabled(false); disconnect("Display closed"); }
     @Override public void onPause() { disconnect("Not connected"); super.onPause(); }
-    @Override public void onDestroy() { disconnect("Not connected"); handler.removeCallbacks(refreshSharing); cleanup.shutdown(); super.onDestroy(); }
+    @Override protected void onStop() {if(nearby!=null)nearby.stop();if(scanNearby!=null)scanNearby.setChecked(false);super.onStop();}
+    @Override public void onDestroy() {if(nearby!=null)nearby.stop(); disconnect("Not connected"); handler.removeCallbacks(refreshSharing); cleanup.shutdown(); super.onDestroy(); }
 }
