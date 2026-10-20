@@ -186,7 +186,9 @@ public final class ViewerSmokeTest {
             android.widget.Button button = target.findViewById(InputTestActivity.TAP_ID);
             tap(client, button);
             while (InputTestActivity.taps.get() < 1 && System.currentTimeMillis() < deadline) Thread.sleep(20);
-            assertTrue("Remote gesture did not click the actual Android button", InputTestActivity.taps.get() >= 1);
+            String inputState=inputDiagnostic(button);
+            assertTrue("Remote gesture did not click the actual Android button: "+inputState, InputTestActivity.taps.get() >= 1);
+            System.out.println("Initial remote tap: "+inputState);
             android.app.Activity testTarget=target;
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
             androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationLeft();
@@ -280,11 +282,16 @@ public final class ViewerSmokeTest {
         androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         while(System.currentTimeMillis()<deadline) {
             final boolean landscape=device.getDisplayWidth()>device.getDisplayHeight();
+            android.view.accessibility.AccessibilityNodeInfo active=InstrumentationRegistry.getInstrumentation().getUiAutomation(android.app.UiAutomation.FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES).getRootInActiveWindow();
+            final int activeWindow=active==null?-1:active.getWindowId();
+            if(active!=null)active.recycle();
             java.util.concurrent.atomic.AtomicReference<String> bounds=new java.util.concurrent.atomic.AtomicReference<>("");
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
                 android.view.View root=view.getRootView();
-                diagnostic.set("view="+view.getWidth()+"x"+view.getHeight()+", root="+root.getWidth()+"x"+root.getHeight()+", shown="+view.isShown()+", windowFocus="+view.hasWindowFocus()+", pendingLayout="+view.isLayoutRequested()+"/"+root.isLayoutRequested()+", landscape="+landscape);
-                if(view.isShown() && view.hasWindowFocus() && view.getWidth()>0 && view.getHeight()>0 && !view.isLayoutRequested() && !root.isLayoutRequested() && ((root.getWidth()>root.getHeight())==landscape)) {
+                android.view.accessibility.AccessibilityNodeInfo node=view.createAccessibilityNodeInfo();
+                int targetWindow=node.getWindowId();node.recycle();
+                diagnostic.set("view="+view.getWidth()+"x"+view.getHeight()+", root="+root.getWidth()+"x"+root.getHeight()+", shown="+view.isShown()+", windowFocus="+view.hasWindowFocus()+", pendingLayout="+view.isLayoutRequested()+"/"+root.isLayoutRequested()+", landscape="+landscape+", activeWindow="+activeWindow+", targetWindow="+targetWindow);
+                if(activeWindow>=0 && activeWindow==targetWindow && view.isShown() && view.hasWindowFocus() && view.getWidth()>0 && view.getHeight()>0 && !view.isLayoutRequested() && !root.isLayoutRequested() && ((root.getWidth()>root.getHeight())==landscape)) {
                     int[] xy=new int[2];view.getLocationOnScreen(xy);
                     bounds.set(xy[0]+":"+xy[1]+":"+view.getWidth()+":"+view.getHeight()+":"+root.getWidth()+":"+root.getHeight());
                 }
@@ -295,6 +302,15 @@ public final class ViewerSmokeTest {
             previous=current;Thread.sleep(100);
         }
         throw new AssertionError("Test target did not obtain stable focused display bounds: "+diagnostic.get());
+    }
+    private String inputDiagnostic(android.view.View target) {
+        java.util.concurrent.atomic.AtomicReference<String> diagnostic=new java.util.concurrent.atomic.AtomicReference<>("");
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+            diagnostic.set(RemoteControlService.diagnosticState()+", targetDown="+InputTestActivity.downs.get()
+                +", targetUp="+InputTestActivity.ups.get()+", targetCancel="+InputTestActivity.cancels.get()
+                +", target="+target.getWidth()+"x"+target.getHeight()+", windowFocus="+target.hasWindowFocus());
+        });
+        return diagnostic.get();
     }
     private float[] capturePoint(android.view.View view) throws Exception {
         awaitTarget(view);

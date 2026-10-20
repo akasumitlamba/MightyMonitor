@@ -421,3 +421,14 @@ at 893a490, including the new display adapter and exact-screen capture code.
 Linux installer/guide presence and purge checks passed in 39399148203.
 A follow-up adds vertical scrolling to the desktop Share page so QR/settings/Stop
 remain reachable on short windows. Viewer Clippy passes; final layout CI pending.
+
+
+2026-10-20: The final scrolling Share UI passed Windows/Linux/MSRV/PipeWire CI
+39399759531 and Windows/Linux installers 39399759511/39399759517 at 3676811.
+Android repeat 39398842473 passed API 30/34/36; API 29 failed the third session's
+first remote tap after the first two sessions completed. Cause is unproven.
+Added bounded, content-free gesture dispatch/completion/cancellation counters and
+debug-only fixture touch counts for diagnostic assertions; test readiness also
+checks the active accessibility window against the actual target window. No
+failed click is retried. Confirmation is pending; this is diagnostic work, not a
+claim that the Android 10 issue has been fixed.

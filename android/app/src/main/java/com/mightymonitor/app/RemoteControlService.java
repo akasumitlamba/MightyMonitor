@@ -20,6 +20,17 @@ public final class RemoteControlService extends AccessibilityService {
     private float x, y, strokeX, strokeY;
     private boolean down, busy, changed, shift, ctrl, alt, pointerValid;
     private GestureDescription.StrokeDescription stroke;
+    private long received, releases, dispatched, completed, cancelled, rejected, invalidPoints, blocked, failed;
+    // Bounded counters only: no coordinates, text, keys or invitation data.
+    // Called on the main thread by instrumentation, never broadcast or logged by the app.
+    static String diagnosticState() {
+        RemoteControlService service = current;
+        if (service == null) return "service=disconnected";
+        return "received="+service.received+", releases="+service.releases+", dispatched="+service.dispatched
+            +", completed="+service.completed+", cancelled="+service.cancelled+", rejected="+service.rejected
+            +", invalidPoints="+service.invalidPoints+", blocked="+service.blocked+", failed="+service.failed+", down="+service.down+", busy="+service.busy
+            +", stroke="+(service.stroke!=null)+", allowed="+allowed();
+    }
     public static boolean available() { return current != null; }
     private static boolean allowed() { return ScreenShareService.sharing && ScreenShareService.allowControl; }
     @Override protected void onServiceConnected() { current = this; main.post(watch); }
@@ -30,14 +41,14 @@ public final class RemoteControlService extends AccessibilityService {
     public static void accept(byte[] event) {
         RemoteControlService service = current;
         if (service != null) service.main.post(() -> {
-            if (!allowed()) {service.release(); return;}
-            try { service.apply(event); } catch (RuntimeException ignored) {service.release();}
+            if (!allowed()) {service.blocked++;service.release(); return;}
+            try { service.apply(event); } catch (RuntimeException ignored) {service.failed++;service.release();}
         });
     }
     private final Runnable watch = new Runnable() {
         @Override public void run() { if (!allowed()) release(); if (current == RemoteControlService.this) main.postDelayed(this, 100); }
     };
-    private void release() { pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
+    private void release() { releases++; pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
     private PointF map(float nx, float ny) {
         if (!Float.isFinite(nx) || !Float.isFinite(ny) || nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
         android.util.DisplayMetrics metrics = new android.util.DisplayMetrics();
@@ -50,7 +61,7 @@ public final class RemoteControlService extends AccessibilityService {
         if (!down && (px < 0 || py < 0 || px >= metrics.widthPixels || py >= metrics.heightPixels)) return null;
         return new PointF(Math.max(0, Math.min(metrics.widthPixels - 1, px)), Math.max(0, Math.min(metrics.heightPixels - 1, py)));
     }
-    private void point(float nx, float ny) { PointF p = map(nx, ny); pointerValid = p != null; if (p != null) {x = p.x; y = p.y; changed = true; drainGesture();} }
+    private void point(float nx, float ny) { PointF p = map(nx, ny); pointerValid = p != null; if(p==null)invalidPoints++; if (p != null) {x = p.x; y = p.y; changed = true; drainGesture();} }
     private void drainGesture() {
         if (busy || (!changed && !down)) return;
         if (stroke == null && !down) {changed = false; return;}
@@ -61,13 +72,15 @@ public final class RemoteControlService extends AccessibilityService {
         GestureDescription.StrokeDescription next = stroke == null ? new GestureDescription.StrokeDescription(path, 0, 16, continuing) : stroke.continueStroke(path, 0, 16, continuing);
         strokeX = x; strokeY = y; changed = false; busy = true;
         boolean accepted = dispatchGesture(new GestureDescription.Builder().addStroke(next).build(), new GestureResultCallback() {
-            @Override public void onCompleted(GestureDescription description) {busy = false; stroke = continuing ? next : null; if (changed || !down) drainGesture();}
-            @Override public void onCancelled(GestureDescription description) {busy = false; stroke = null; down = false; changed = false;}
+            @Override public void onCompleted(GestureDescription description) {completed++; busy = false; stroke = continuing ? next : null; if (changed || !down) drainGesture();}
+            @Override public void onCancelled(GestureDescription description) {cancelled++; busy = false; stroke = null; down = false; changed = false;}
         }, main);
-        if (!accepted) {busy = false; stroke = null; down = false; changed = false;}
+        if (accepted) dispatched++;
+        if (!accepted) {rejected++; busy = false; stroke = null; down = false; changed = false;}
     }
     private void apply(byte[] event) {
         if (event.length == 0) return;
+        received++;
         ByteBuffer bytes = ByteBuffer.wrap(event).order(ByteOrder.LITTLE_ENDIAN);
         switch (event[0]) {
             case 1: if (event.length == 9) point(bytes.getFloat(1), bytes.getFloat(5)); break;
@@ -79,7 +92,7 @@ public final class RemoteControlService extends AccessibilityService {
                 break;
             case 3:
                 if (event.length != 10) break;
-                if (event[1] == 0) {PointF p = map(bytes.getFloat(2), bytes.getFloat(6)); if (p == null) {pointerValid=false;break;} pointerValid=true; x = p.x; y = p.y; down = true; changed = true; drainGesture();}
+                if (event[1] == 0) {PointF p = map(bytes.getFloat(2), bytes.getFloat(6)); if (p == null) {invalidPoints++;pointerValid=false;break;} pointerValid=true; x = p.x; y = p.y; down = true; changed = true; drainGesture();}
                 else if (event[1] == 1) point(bytes.getFloat(2), bytes.getFloat(6));
                 else {point(bytes.getFloat(2), bytes.getFloat(6)); down = false; changed = true; drainGesture();}
                 break;

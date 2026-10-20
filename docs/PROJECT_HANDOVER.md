@@ -297,5 +297,18 @@ consistent with actual capabilities. Installer jobs check its presence and remov
 
 The desktop Share page now scrolls vertically so QR/settings/control actions stay
 reachable in short windows. Local viewer Clippy passes with warnings denied;
-platform confirmation for this final layout change is pending. The View canvas
+native Windows/Linux/MSRV/PipeWire CI 39399759531 and both installer jobs
+39399759511/39399759517 passed at 3676811. The View canvas
 is unchanged.
+
+
+**Later Android repeat at 53594c1:** run 39398842473 passed API 30/34/36 but
+API 29 failed its initial tap in the third control session (the first two sessions
+completed). Do not treat the earlier all-green run as proof of settled reliability.
+The failure did not include dispatch/cancellation evidence, so its cause is not
+yet established. A follow-up adds fixed-size, content-free service counters and
+debug fixture DOWN/UP/CANCEL counts to test diagnostics, plus an active accessibility
+window-ID readiness check. No coordinates, text, keys, tokens or viewing links are
+recorded by the service. It does not retry failed gestures or alter permission
+requirements; its confirming execution is pending. Physical-device testing is
+deferred while implementation/build work continues.
