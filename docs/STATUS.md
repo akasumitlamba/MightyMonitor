@@ -325,3 +325,19 @@ versions, including optional-notification denial followed by real video/control.
 Release-signing guard and disposable signed build also passed. The next checkpoint
 adds desktop full-screen behavior and explicit actual 16 KiB ELF/APK checks; those
 new platform checks remain to run. No new PR was created.
+
+
+2026-10-20: The full-screen viewer now retains visible reconnecting status while
+hiding ordinary connected controls. Viewer Clippy with warnings denied passed.
+Android workflow coverage was focused on its actual headless-viewer/capture/codec
+and shared-protocol dependencies; desktop-only UI changes keep their desktop
+checks and no longer need unrelated emulator reruns. Workflow YAML parses.
+
+
+2026-10-20: Checkpoint e468edb passed Android real JNI/debug/release 16 KiB
+alignment, signing guard/test signature checks, and all four emulator tests on
+10/11/14/16 (39378671813). Desktop CI/MSRV/PipeWire (39378671820), Windows installer
+lifecycle (39378671793), and Linux package lifecycle (39378671812) passed. Matching
+Windows/Linux/Android artifacts were retrieved locally and independently checked
+against SHA256SUMS and BUILD_INFO.json; each reported clean tracked sources.
+The small later reconnect-status/filter follow-up awaits its fresh builds.

@@ -2,10 +2,11 @@ name: Build and test Android viewer
 on:
   workflow_dispatch:
   push:
+    # Interop uses the headless viewer; desktop GUI changes have separate platform checks.
     branches: ['codex/android-viewer', 'codex/android-sharing-light-ui', 'codex/secure-pairing', 'codex/wayland-sharing', 'codex/remote-control', 'codex/device-discovery']
-    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'viewer/examples/receive_smoke.rs', 'Cargo.toml', 'Cargo.lock', '.github/workflows/android-viewer.yml']
   pull_request:
-    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'viewer/src/**', 'android/**', 'android-bridge/**', '.github/workflows/android-viewer.yml']
+    paths: ['scripts/check-android-alignment.py', 'scripts/artifact-manifest.py', 'discovery/**', 'security/**', 'core/**', 'host/**', 'host-linux/**', 'codec-gst/**', 'Cargo.toml', 'Cargo.lock', 'viewer/src/lib.rs', 'viewer/src/net.rs', 'viewer/src/render.rs', 'viewer/Cargo.toml', 'viewer/examples/receive_smoke.rs', 'android/app/**', 'android/*.gradle', 'android/gradle.properties', 'android-bridge/**', '.github/workflows/android-viewer.yml']
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true

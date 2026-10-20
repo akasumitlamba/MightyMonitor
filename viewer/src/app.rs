@@ -532,7 +532,7 @@ impl eframe::App for App {
                     });
                 }
             } else {
-                if !self.fullscreen {ui.horizontal(|ui| {
+                if !self.fullscreen || state != State::Connected {ui.horizontal(|ui| {
                     ui.label(match state {
                         State::Connecting => "Connecting…",
                         State::Connected => "Connected",

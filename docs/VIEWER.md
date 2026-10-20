@@ -120,5 +120,6 @@ panels while preserving the image aspect ratio and an explicit **Exit full
 screen** button. Escape leaves full screen locally and is consumed before remote
 keyboard translation. Transitions release held input and focus; click the picture
 again to resume control. Disconnect/closed sessions restore the normal view.
-Exit full screen to change control or open the Keyboard panel. Local regression
+Reconnecting status remains visible during an outage; closed sessions leave full
+screen. Exit full screen to change control or open the Keyboard panel. Local regression
 checks passed; physical Windows/Linux full-screen acceptance remains unverified.

@@ -234,12 +234,20 @@ Commit normal checkpoints to the fork. No new PR is open for these changes.
 - **Desktop full-screen follow-up:** hide navigation/connection/status panels,
   retain an explicit exit, release held input on transitions and consume local
   Escape before remote translation. Local input regression tests and warning-free
-  workspace Clippy pass. Fresh platform execution and physical UI acceptance are
-  still required.
+  workspace Clippy pass. Native Linux/Windows/MSRV/PipeWire checks passed in 39378671820; physical
+  full-screen UI acceptance remains unverified.
 
-The next Android job also checks every actual JNI library's ELF load alignment
-and debug/release APK packaging for 16 KiB pages. The checker passed independent
-positive/negative native ELF cases locally; Android CI acceptance is pending.
+Android run 39378671813 passed actual JNI ELF and debug/release APK 16 KiB
+alignment, release-signing checks, and all four video/control/discovery emulator
+tests on API 29/30/34/36. Linux package install/reinstall/runtime/purge passed in
+39378671812; Windows setup/reinstall/runtime/URI/uninstall passed in 39378671793.
+The matching e468edb installer artifacts were downloaded and checksum-verified
+locally. They remain development builds, not a published stable release.
+
+A small subsequent desktop follow-up keeps reconnecting status visible in full
+screen. Its local warning-free Clippy check passes; fresh builds are pending.
+Android workflow filters now cover headless interop/capture dependencies and
+leave GUI-only verification to desktop CI.
 
 The support table above remains the product-level limit: no physical Windows/
 phone acceptance, no Windows/X11 true extension, no persistent pairing and no
