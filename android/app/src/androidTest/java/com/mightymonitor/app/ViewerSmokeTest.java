@@ -159,6 +159,7 @@ public final class ViewerSmokeTest {
             assertTrue("Remote gesture did not click the actual Android button", InputTestActivity.taps.get() >= 1);
             android.app.Activity testTarget=target;
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
+            androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationLeft();
             awaitRotation(true);
             float[] buttonPoint=capturePoint(button);
             RemoteControlService.accept(mouseMove(buttonPoint[0],buttonPoint[1]));
@@ -175,6 +176,7 @@ public final class ViewerSmokeTest {
             while(InputTestActivity.taps.get()==taps && System.currentTimeMillis()<tapDeadline)Thread.sleep(20);
             assertTrue("A valid rotated pointer click stopped working",InputTestActivity.taps.get()==taps+1);
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
+            androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationNatural();
             awaitRotation(false);deadline=System.currentTimeMillis()+60000;
             android.widget.EditText editor = target.findViewById(InputTestActivity.EDITOR_ID); tap(client, editor);
             // A prior activity can still have an input connection while the remote
@@ -196,6 +198,8 @@ public final class ViewerSmokeTest {
             while((ScreenShareService.sharing || !"Sharing stopped".equals(ScreenShareService.summary)) && System.currentTimeMillis()<stopDeadline)Thread.sleep(20);
             assertTrue("Stopped sharing retained a live-session status",!ScreenShareService.sharing && "Sharing stopped".equals(ScreenShareService.summary));
         } finally {
+            androidx.test.uiautomator.UiDevice rotationDevice=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+            rotationDevice.setOrientationNatural();rotationDevice.unfreezeRotation();
             running.set(false); pump.join(1000); NativeBridge.disconnect(client);
             app.stopService(new android.content.Intent(app, ScreenShareService.class));
             if (target != null) {android.app.Activity closing = target; InstrumentationRegistry.getInstrumentation().runOnMainSync(closing::finish);}
@@ -205,13 +209,16 @@ public final class ViewerSmokeTest {
     private void awaitRotation(boolean landscape)throws Exception{
         long deadline=System.currentTimeMillis()+15000;
         java.util.concurrent.atomic.AtomicBoolean ready=new java.util.concurrent.atomic.AtomicBoolean();
-        while(!ready.get() && System.currentTimeMillis()<deadline){InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);ready.set((metrics.widthPixels>metrics.heightPixels)==landscape);});Thread.sleep(100);}
+        androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        while(!ready.get() && System.currentTimeMillis()<deadline){ready.set((device.getDisplayWidth()>device.getDisplayHeight())==landscape);Thread.sleep(100);}
         assertTrue("Test display did not rotate",ready.get());InstrumentationRegistry.getInstrumentation().waitForIdleSync();
     }
     private float[] capturePoint(android.view.View view){
         int[] location=new int[2];java.util.concurrent.atomic.AtomicReference<float[]> point=new java.util.concurrent.atomic.AtomicReference<>();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
-            view.getLocationOnScreen(location);android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();activity.getActivity().getWindowManager().getDefaultDisplay().getRealMetrics(metrics);
+            view.getLocationOnScreen(location);
+            androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+            android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();metrics.widthPixels=device.getDisplayWidth();metrics.heightPixels=device.getDisplayHeight();
             float cw=ScreenShareService.captureWidth,ch=ScreenShareService.captureHeight,scale=Math.min(cw/metrics.widthPixels,ch/metrics.heightPixels);
             point.set(new float[]{((location[0]+view.getWidth()/2f)*scale+(cw-metrics.widthPixels*scale)/2)/cw,((location[1]+view.getHeight()/2f)*scale+(ch-metrics.heightPixels*scale)/2)/ch});
         });return point.get();

@@ -259,3 +259,11 @@ Windows same-version reinstall before runtime/URI/uninstall checks. Updated the
 local Linux packaging default to alpha.7. Workflow YAML parses locally; these new
 packaging checks have not run yet. Physical upgrades and clean-device acceptance
 remain separate.
+
+
+2026-10-20: Full-screen/live-video checks passed on all four emulator versions in
+run 39372769598. The expanded control suite passed Android 10/11 but failed the
+rotation precondition on 14/16. The test measured the background MainActivity's
+display; it now uses UI Automator display dimensions and explicit test-device
+rotation with cleanup. This diagnosis still requires a confirming rerun; rotated
+control is not yet accepted on 14/16. No production permission is automated.
