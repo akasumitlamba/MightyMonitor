@@ -226,15 +226,22 @@ connection/navigation controls while retaining an explicit Exit full screen
 button over the picture, preserves aspect ratio and restores controls on exit or
 disconnect. Active viewing keeps the display awake; background/disconnect clears
 that request. Java main/debug/instrumentation sources compile locally. The actual
-video test now requires three more rendered frames both entering and leaving
-full screen; fresh emulator results must be checked before claiming acceptance.
+video test requires three more rendered frames both entering and leaving full
+screen. Run 39373557186 passed all four tests on Android 10/11/14/16, including
+full-screen transitions, rotated-pointer targeting, Unicode typing and revocation.
 Android Share controls now scroll on small/landscape screens; desktop discovery
 uses a compact scrolling list. Full-screen transitions release held input.
 No new PR is requested: continue on `codex/device-discovery` and create one later.
 
 
 Installer acceptance was expanded in the current branch to Linux actual
-install/reinstall/runtime/desktop validation/purge and Windows reinstall. Check
-fresh workflow results before treating those new steps as verified. These run on
+install/reinstall/runtime/desktop validation/purge and Windows reinstall. Linux run 39373557147 and Windows run 39373557232 passed these new lifecycle
+checks at commit 27173aa. These run on
 isolated CI machines; no package install or uninstall was performed on the user's
 active Linux desktop.
+
+
+The artifact-manifest follow-up adds SHA256SUMS and BUILD_INFO.json to all three
+platform artifact bundles. Local checks passed; verify its fresh artifact jobs
+before marking packaging of those records accepted. These unsigned records do
+not provide production publisher signing.

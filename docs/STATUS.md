@@ -274,3 +274,12 @@ BUILD_INFO.json with exact source revision, dirty-source indicator, sizes and
 hashes. The standard-library generator passed local independent-hash and nested
 path checks; YAML parses. No signing credential or certificate was generated.
 Fresh workflow execution for manifest packaging remains pending.
+
+
+2026-10-20: Confirmed checkpoint 27173aa: Android run 39373557186 passed all four
+tests on API 29/30/34/36 after using actual device dimensions/rotation in the test.
+This includes live full-screen enter/exit, real rotated clicks, stale-letterbox
+rejection, Unicode editor entry, revocation and Stop status. Linux actual package
+install/reinstall/runtime/desktop validation/purge passed (39373557147), as did
+Windows reinstall/runtime/URI/uninstall (39373557232) and CI/MSRV/PipeWire
+(39373557265). Physical-device acceptance and Windows Extend remain unfinished.

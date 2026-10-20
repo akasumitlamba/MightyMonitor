@@ -84,8 +84,8 @@ and production release signing are still separate unfinished work.
 The next packaging checks also install and reinstall the Linux package on an
 isolated CI runner, initialize the installed decoder, validate the desktop entry
 and remove the app/assets. Windows setup is exercised twice before its runtime,
-URI registration and uninstall checks. These additional checks are awaiting a
-fresh run; same-version reinstall is not proof of all future version upgrades.
+URI registration and uninstall checks. These checks passed at checkpoint 27173aa on Linux and Windows; same-version
+reinstall is not proof of all future version upgrades.
 
 
 ## Build identity and file checks
