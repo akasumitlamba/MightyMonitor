@@ -103,7 +103,13 @@ impl WindowsCapture {
         if let Some(first) = self.first.take() {
             return Ok(first);
         }
-        let (bytes, source_dimensions, dimensions) = rgba(&self.sample()?)?;
+        let sample = self.sample()?;
+        // A sample wait can span a display change. Recheck before returning it.
+        #[cfg(target_os = "windows")]
+        if let Some(display) = &self.display {
+            display.validate().map_err(error)?;
+        }
+        let (bytes, source_dimensions, dimensions) = rgba(&sample)?;
         if source_dimensions != self.source_dimensions || dimensions != self.dimensions {
             return Err(error(
                 "display dimensions changed; reconnect to renegotiate video",

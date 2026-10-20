@@ -1,5 +1,6 @@
 //! Read-only Windows display snapshots. No display configuration or driver install.
 //! Native pointers stay inside the adapter; callers receive owned snapshot data.
+#![deny(unsafe_op_in_unsafe_fn)]
 use std::io;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -82,7 +83,7 @@ pub fn displays() -> io::Result<Vec<Display>> {
         info.monitorInfo.cbSize = std::mem::size_of::<MONITORINFOEXW>() as u32;
         // SAFETY: MONITORINFOEXW is repr(C), starts with MONITORINFO, and cbSize
         // advertises its full initialized allocation. The handle comes from Windows.
-        if !unsafe { GetMonitorInfoW(handle, &mut info.monitorInfo) }.as_bool() {
+        if !unsafe { GetMonitorInfoW(handle, std::ptr::addr_of_mut!(info).cast()) }.as_bool() {
             state.failed = true;
             return BOOL(0);
         }
