@@ -228,4 +228,6 @@ disconnect. Active viewing keeps the display awake; background/disconnect clears
 that request. Java main/debug/instrumentation sources compile locally. The actual
 video test now requires three more rendered frames both entering and leaving
 full screen; fresh emulator results must be checked before claiming acceptance.
+Android Share controls now scroll on small/landscape screens; desktop discovery
+uses a compact scrolling list. Full-screen transitions release held input.
 No new PR is requested: continue on `codex/device-discovery` and create one later.

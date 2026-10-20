@@ -77,6 +77,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         }
     };
     private LinearLayout viewPage, sharePage;
+    private android.widget.ScrollView shareContainer;
     private TextView shareStatus;
     private Button share;
     private final Runnable refreshSharing = new Runnable() {
@@ -104,9 +105,11 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         navigation.addView(shareTab, new LinearLayout.LayoutParams(0, dp(56), 1)); layout.addView(navigation);
         viewPage = column(); sharePage = column();
         layout.addView(viewPage, new LinearLayout.LayoutParams(-1, 0, 1));
-        layout.addView(sharePage, new LinearLayout.LayoutParams(-1, 0, 1)); sharePage.setVisibility(View.GONE);
-        viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); sharePage.setVisibility(View.GONE); styleTab(viewTab, true); styleTab(shareTab, false); });
-        shareTab.setOnClickListener(v -> { disconnect("Not connected"); viewPage.setVisibility(View.GONE); sharePage.setVisibility(View.VISIBLE); styleTab(viewTab, false); styleTab(shareTab, true); });
+        shareContainer = new android.widget.ScrollView(this); shareContainer.setFillViewport(true);
+        shareContainer.addView(sharePage, new android.widget.ScrollView.LayoutParams(-1, -2));
+        layout.addView(shareContainer, new LinearLayout.LayoutParams(-1, 0, 1)); shareContainer.setVisibility(View.GONE);
+        viewTab.setOnClickListener(v -> { viewPage.setVisibility(View.VISIBLE); shareContainer.setVisibility(View.GONE); styleTab(viewTab, true); styleTab(shareTab, false); });
+        shareTab.setOnClickListener(v -> { disconnect("Not connected"); viewPage.setVisibility(View.GONE); shareContainer.setVisibility(View.VISIBLE); styleTab(viewTab, false); styleTab(shareTab, true); });
         address = new EditText(this); address.setId(ADDRESS_ID); address.setSingleLine(true);
         address.setHint("Paste a connection link");
         address.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(512)});
@@ -328,6 +331,9 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private void setFullscreen(boolean enabled) {
         if (enabled == fullscreenActive || (enabled && handle == 0)) return;
         fullscreenActive = enabled;
+        if (handle != 0 && remoteControlActive) {
+            try {NativeBridge.releaseInput(handle);} catch (Exception error) {disconnect("Connection closed"); return;}
+        }
         if (enabled) {
             hiddenControls.clear();
             for (int i = 0; i < viewPage.getChildCount(); i++) {

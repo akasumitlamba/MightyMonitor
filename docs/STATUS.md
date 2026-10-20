@@ -245,3 +245,9 @@ regressions are awaiting fresh runs. No new PR was opened per the user request.
 aspect-ratio fitting on viewport resize, restored controls/system bars on exit
 and disconnect, and live-video enter/exit regression assertions. Main/debug/test
 Java compilation passed locally; fresh emulator execution is pending.
+
+
+2026-10-20: Follow-up usability changes bound desktop discovery to a compact
+scrolling list and keep Android Share controls reachable with scrolling on small
+or landscape displays. Full-screen transitions explicitly release remote input.
+Local Java compilation and workspace Clippy with warnings denied passed.
