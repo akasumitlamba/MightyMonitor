@@ -36,6 +36,8 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     private EditText address;
     private CheckBox trusted, viewControl, shareControl, discoverable, scanNearby;
     private NearbyDevices nearby;
+    private String selectedAddress;
+    private Button networkButton;
     private Button keyboard;
     private boolean updatingControl, remoteControlActive;
     public boolean isRemoteControlActive() {return remoteControlActive;}
@@ -76,6 +78,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
             share.setText(ScreenShareService.sharing ? "Stop sharing" : "Share this screen");
             shareStatus.setText(ScreenShareService.summary);
             discoverable.setEnabled(!ScreenShareService.sharing);
+            networkButton.setEnabled(!ScreenShareService.sharing);
             shareControl.setEnabled(!ScreenShareService.sharing || ScreenShareService.allowControl);
             if (ScreenShareService.sharing && !ScreenShareService.allowControl) shareControl.setChecked(false);
             handler.postDelayed(this, 500);
@@ -115,6 +118,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         viewPage.addView(buttons);
         LinearLayout controlBar = new LinearLayout(this);
         android.widget.TextView nearbyStatus = text("", 13, Color.rgb(61,91,77));
+        nearbyStatus.setMaxLines(4);nearbyStatus.setVerticalScrollBarEnabled(true);nearbyStatus.setMovementMethod(android.text.method.ScrollingMovementMethod.getInstance());
         nearby = new NearbyDevices(this, nearbyStatus::setText);
         scanNearby = new CheckBox(this);scanNearby.setText("Find nearby sharing devices");viewPage.addView(scanNearby);viewPage.addView(nearbyStatus);
         scanNearby.setOnCheckedChangeListener((v,enabled)->{nearbyStatus.setText("");if(enabled)nearby.start();else nearby.stop();});
@@ -157,7 +161,14 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
         viewport.addView(emptyPreview, new android.widget.FrameLayout.LayoutParams(-1, -1)); viewPage.addView(viewport, new LinearLayout.LayoutParams(-1, 0, 1));
         TextView heading = text("Share this screen", 24, Color.rgb(30, 39, 35)); heading.setPadding(0, dp(24), 0, dp(12)); sharePage.addView(heading);
         sharePage.addView(text("Share a private link with your other device.", 15, Color.rgb(83, 94, 88)));
-        TextView ownAddress = text(ScreenShareService.localAddress(), 22, Color.rgb(30, 39, 35)); ownAddress.setTextIsSelectable(true); ownAddress.setPadding(0, dp(12), 0, dp(12)); sharePage.addView(ownAddress);
+        selectedAddress=ScreenShareService.sharing?ScreenShareService.sharingAddress:ScreenShareService.localAddress();
+        TextView ownAddress = text(selectedAddress, 22, Color.rgb(30, 39, 35)); ownAddress.setTextIsSelectable(true); ownAddress.setPadding(0, dp(12), 0, dp(12));
+        LinearLayout networkRow=new LinearLayout(this);networkRow.addView(ownAddress,new LinearLayout.LayoutParams(0,-2,1));
+        networkButton=new Button(this);networkButton.setText("Network");styleButton(networkButton,false);networkRow.addView(networkButton);sharePage.addView(networkRow);
+        networkButton.setOnClickListener(v->{java.util.LinkedHashMap<String,String> choices=LocalNetworks.addresses();String[] labels=choices.keySet().toArray(new String[0]);String[] endpoints=choices.values().toArray(new String[0]);
+            if(labels.length==0){shareStatus.setText("Connect devices to the same local network first");return;}
+            new android.app.AlertDialog.Builder(this).setTitle("Sharing network").setItems(labels,(dialog,index)->{selectedAddress=endpoints[index];ownAddress.setText(selectedAddress);}).setNegativeButton("Cancel",null).show();
+        });
         Button copyLink = new Button(this); copyLink.setText("Copy connection link"); styleButton(copyLink, false); sharePage.addView(copyLink);
         copyLink.setOnClickListener(v -> {
             String link = ScreenShareService.invitation;
@@ -213,7 +224,7 @@ public final class MainActivity extends Activity implements SurfaceHolder.Callba
     @Override protected void onActivityResult(int request, int result, android.content.Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 200 && result == RESULT_OK && data != null) {
-            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked()).putExtra("discoverable", discoverable.isChecked());
+            android.content.Intent service = new android.content.Intent(this, ScreenShareService.class).putExtra("resultCode", result).putExtra("permission", data).putExtra("allowControl", shareControl.isChecked()).putExtra("discoverable", discoverable.isChecked()).putExtra("sharingAddress",selectedAddress);
             startForegroundService(service);
         } else if (request == 200) shareStatus.setText("Sharing cancelled");
     }

@@ -68,6 +68,18 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: dtolnay/rust-toolchain@stable
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
+      - name: Preinstall the test platform with bounded download retries
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 120s sdkmanager "platforms;android-${{ matrix.api }}" > /tmp/mm-android-sdk-install.log 2>&1; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/mm-android-sdk-install.log
+          exit 1
       - name: Install real desktop video dependencies
         run: |
           sudo apt-get update
@@ -129,4 +141,5 @@ jobs:
             /tmp/mm-android-logcat.log
             /tmp/mm-ime-install-logcat.log
             /tmp/mm-input-methods.log
+            /tmp/mm-android-sdk-install.log
             /tmp/mm-screenshots

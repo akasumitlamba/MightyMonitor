@@ -1,6 +1,6 @@
 ; Per-user app installer. Runtime is downloaded from its original vendor, not bundled.
 #ifndef AppVersion
-  #define AppVersion "0.0.1-alpha.1"
+  #define AppVersion "0.0.1-alpha.7"
 #endif
 #define RuntimeVersion "1.28.8"
 #define RuntimeInstaller "gstreamer-1.0-msvc-x86_64-" + RuntimeVersion + ".exe"
@@ -27,6 +27,7 @@ InfoBeforeFile=installer-info.txt
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+ChangesAssociations=yes
 [Files]
 Source: "..\..\target\release\mm-viewer.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\target\release\mm-host.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -34,6 +35,11 @@ Source: "..\..\target\release\mm-launcher.exe"; DestDir: "{app}"; Flags: ignorev
 Source: "mightymonitor.ico"; DestDir: "{app}"
 Source: "..\..\LICENSE"; DestDir: "{app}"
 Source: "..\..\NOTICE"; DestDir: "{app}"
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\mightymonitor"; ValueType: string; ValueData: "URL:MightyMonitor connection"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\mightymonitor"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\mightymonitor\DefaultIcon"; ValueType: string; ValueData: """{app}\mightymonitor.ico"""
+Root: HKCU; Subkey: "Software\Classes\mightymonitor\shell\open\command"; ValueType: string; ValueData: """{app}\mm-launcher.exe"" ""%1"""
 [Icons]
 Name: "{group}\MightyMonitor"; Filename: "{app}\mm-launcher.exe"; IconFilename: "{app}\mightymonitor.ico"
 Name: "{autodesktop}\MightyMonitor"; Filename: "{app}\mm-launcher.exe"; IconFilename: "{app}\mightymonitor.ico"; Tasks: desktopicon

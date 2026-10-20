@@ -1,11 +1,16 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+mod launch_args;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    if std::env::args().nth(1).as_deref() == Some("--check-runtime") {
+    let launch = launch_args::parse(std::env::args_os().skip(1))?;
+    if matches!(launch, launch_args::Launch::CheckRuntime) {
         let _decoder = codec_gst::decoder::Decoder::new()?;
         return Ok(());
     }
-    let app = mightymonitor_viewer::app::App::new()?;
+    let mut app = mightymonitor_viewer::app::App::new()?;
+    if let launch_args::Launch::Invitation(link) = launch {
+        app.prefill_invitation(&link);
+    }
     let icon = eframe::icon_data::from_png_bytes(include_bytes!("../../assets/mightymonitor.png"))?;
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()

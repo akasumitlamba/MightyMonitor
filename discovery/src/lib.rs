@@ -52,6 +52,32 @@ fn service(address: SocketAddr, platform: &str, extend: bool) -> io::Result<Serv
     )
     .map_err(error)
 }
+/// Local interface choices for Wi-Fi, Ethernet and existing USB networking.
+/// Enumeration only: never changes routes, adapters, firewalls or permissions.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LocalAddress {
+    pub interface: String,
+    pub address: std::net::Ipv4Addr,
+}
+pub fn local_addresses() -> io::Result<Vec<LocalAddress>> {
+    let mut addresses = if_addrs::get_if_addrs()?
+        .into_iter()
+        .filter(|interface| interface.is_oper_up() && !interface.is_loopback())
+        .filter_map(|interface| match interface.ip() {
+            IpAddr::V4(address) if routable(address.into()) && !address.is_broadcast() => {
+                Some(LocalAddress {
+                    interface: interface.name,
+                    address,
+                })
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    addresses.sort_by(|a, b| (&a.interface, a.address).cmp(&(&b.interface, b.address)));
+    addresses.dedup();
+    addresses.truncate(64);
+    Ok(addresses)
+}
 pub struct Advertisement {
     daemon: ServiceDaemon,
     name: String,
@@ -142,6 +168,7 @@ pub struct Browser {
     daemon: ServiceDaemon,
     stop: Arc<AtomicBool>,
     worker: Option<JoinHandle<()>>,
+    unavailable: Arc<AtomicBool>,
     peers: Arc<Mutex<BTreeMap<String, Peer>>>,
 }
 impl Browser {
@@ -154,6 +181,15 @@ impl Browser {
                 return Err(error(e));
             }
         };
+        let monitor = match daemon.monitor() {
+            Ok(rx) => rx,
+            Err(e) => {
+                let _ = daemon.shutdown();
+                return Err(error(e));
+            }
+        };
+        let unavailable = Arc::new(AtomicBool::new(false));
+        let failed = unavailable.clone();
         let stop = Arc::new(AtomicBool::new(false));
         let peers = Arc::new(Mutex::new(BTreeMap::new()));
         let flag = stop.clone();
@@ -162,7 +198,20 @@ impl Browser {
             .name("mm-discovery".into())
             .spawn(move || {
                 while !flag.load(Ordering::Acquire) {
-                    if let Ok(event) = receiver.recv_timeout(Duration::from_millis(200)) {
+                    for event in monitor.try_iter().take(16) {
+                        if matches!(event, mdns_sd::DaemonEvent::Error(_)) {
+                            failed.store(true, Ordering::Release);
+                        }
+                    }
+                    let event = match receiver.recv_timeout(Duration::from_millis(200)) {
+                        Ok(event) => event,
+                        Err(mdns_sd::RecvTimeoutError::Timeout) => continue,
+                        Err(_) => {
+                            failed.store(true, Ordering::Release);
+                            break;
+                        }
+                    };
+                    {
                         let mut state = state.lock().unwrap_or_else(|e| e.into_inner());
                         match event {
                             ServiceEvent::ServiceResolved(info) => {
@@ -171,6 +220,8 @@ impl Browser {
                                     {
                                         state.insert(info.fullname.clone(), found);
                                     }
+                                } else {
+                                    state.remove(&info.fullname);
                                 }
                             }
                             ServiceEvent::ServiceRemoved(_, name) => {
@@ -191,8 +242,12 @@ impl Browser {
             daemon,
             stop,
             worker: Some(worker),
+            unavailable,
             peers,
         })
+    }
+    pub fn unavailable(&self) -> bool {
+        self.unavailable.load(Ordering::Acquire)
     }
     pub fn peers(&self) -> Vec<Peer> {
         self.peers

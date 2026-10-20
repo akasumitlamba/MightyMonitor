@@ -52,3 +52,12 @@ viewers, including the shared Wayland portal input backend.
 The CLI requires both `--secure --allow-control`; desktop monitor selection is
 currently limited to the primary screen for control. This feature controls an
 existing screen. It does not create a virtual extended monitor.
+
+
+The desktop viewer also offers **Keyboard** while control is active. Its local
+text field supports composed/Unicode input; Send text releases held keys before
+sending bounded text chunks, and Enter is explicit. Closing the panel or losing
+the control grant clears its text and editor undo state. Raw keyboard forwarding
+still uses HID keys and the remote keyboard layout; use Keyboard or explicit Paste
+for text that should not depend on that layout. Physical cross-platform layout
+acceptance remains required.

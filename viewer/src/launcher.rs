@@ -2,6 +2,8 @@
 #![forbid(unsafe_code)]
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 #[cfg(target_os = "windows")]
+mod launch_args;
+#[cfg(target_os = "windows")]
 fn launch() -> Result<i32, Box<dyn std::error::Error>> {
     use std::{env, path::PathBuf, process::Command};
     let root = PathBuf::from(
@@ -34,10 +36,15 @@ fn launch() -> Result<i32, Box<dyn std::error::Error>> {
                 .join("gst-plugin-scanner.exe"),
         );
     let args: Vec<_> = env::args_os().skip(1).collect();
-    if !args.is_empty() && args != [std::ffi::OsString::from("--check-runtime")] {
-        return Err("Unsupported launcher argument".into());
-    }
-    command.args(args);
+    let forwarded = match launch_args::parse(args)? {
+        launch_args::Launch::App => Vec::new(),
+        launch_args::Launch::CheckRuntime => vec![std::ffi::OsString::from("--check-runtime")],
+        launch_args::Launch::Invitation(link) => vec![
+            std::ffi::OsString::from("--invite"),
+            std::ffi::OsString::from(link),
+        ],
+    };
+    command.args(forwarded);
     Ok(command.status()?.code().unwrap_or(1))
 }
 #[cfg(target_os = "windows")]

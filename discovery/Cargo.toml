@@ -7,3 +7,5 @@ license.workspace = true
 
 [dependencies]
 mdns-sd = { version = "=0.21.6", default-features = false }
+
+if-addrs = "=0.15.0"

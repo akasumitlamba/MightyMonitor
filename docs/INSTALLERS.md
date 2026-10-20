@@ -72,3 +72,10 @@ The workflow exercises silent install, installed decoder initialization with the
 build SDK removed from PATH, and app uninstall. An installer artifact is not a
 signed stable release or proof of physical Windows 11 screen capture. Clean-device
 installation, firewall approval and real Wi-Fi use still require acceptance.
+
+
+Development alpha.7 adds local discovery, network selection and desktop private-link
+handling. Opening a private URI prefills the viewer, with Connect still explicit.
+The Windows handler is registered per user and removed on uninstall; the Linux
+desktop file declares x-scheme-handler/mightymonitor. APK signing/update continuity
+and production release signing are still separate unfinished work.

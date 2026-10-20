@@ -15,6 +15,9 @@ pub struct App {
     page: Page,
     themed: bool,
     fullscreen: bool,
+    show_keyboard: bool,
+    keyboard_text: String,
+    keyboard_editor: Option<egui::Id>,
     address: String,
     share_address: String,
     share_fps: u32,
@@ -25,6 +28,7 @@ pub struct App {
     discoverable: bool,
     discovery: Option<mightymonitor_discovery::Browser>,
     discovery_error: Option<String>,
+    networks: Vec<mightymonitor_discovery::LocalAddress>,
     commands: Option<tokio::sync::mpsc::Sender<crate::net::Command>>,
     input_focused: bool,
     input_modifiers: egui::Modifiers,
@@ -45,6 +49,9 @@ impl App {
             page: Page::View,
             themed: false,
             fullscreen: false,
+            show_keyboard: false,
+            keyboard_text: String::new(),
+            keyboard_editor: None,
             address: String::new(),
             share_address: local_endpoint(),
             share_fps: 30,
@@ -55,6 +62,7 @@ impl App {
             discoverable: false,
             discovery: None,
             discovery_error: None,
+            networks: mightymonitor_discovery::local_addresses().unwrap_or_default(),
             commands: None,
             input_focused: false,
             input_modifiers: egui::Modifiers::NONE,
@@ -88,6 +96,21 @@ impl App {
             state: State::Closed,
             ..Default::default()
         }));
+    }
+    fn close_keyboard(&mut self, ctx: &egui::Context) {
+        self.show_keyboard = false;
+        self.keyboard_text.clear();
+        if let Some(id) = self.keyboard_editor.take() {
+            ctx.data_mut(|data| data.remove::<egui::text_edit::TextEditState>(id));
+        }
+    }
+    /// Prefill only: the user must still press Connect and request input separately.
+    pub fn prefill_invitation(&mut self, link: &str) {
+        if link.len() <= 512 && link.parse::<mightymonitor_security::Invitation>().is_ok() {
+            self.address = link.to_owned();
+        } else {
+            self.output.lock().unwrap_or_else(|e|e.into_inner()).error=Some("This connection link is invalid. Copy a fresh private link from the sharing device.".into());
+        }
     }
     fn command(&mut self, action: crate::net::ControlAction) {
         let command = crate::net::Command {
@@ -284,7 +307,8 @@ impl eframe::App for App {
                     if let Some(error)=&self.discovery_error {ui.label(error);}
                     if let Some(browser)=&self.discovery {
                         let peers=browser.peers();
-                        if peers.is_empty(){ui.label("Looking for devices. Enable Show on local network on the sharing device.");}
+                        if browser.unavailable(){ui.label("Discovery unavailable on this network. You can still paste a private link.");}
+                        else if peers.is_empty(){ui.label("Looking for devices. Enable Show on local network on the sharing device.");}
                         else {
                             for peer in peers {ui.horizontal_wrapped(|ui|{ui.label(format!("{} · {}",peer.platform,if peer.extend {"Extra display"}else{"Screen"})); for address in peer.addresses {ui.label(address.to_string());}});}
                             ui.label("Paste the private link from the sharing device to connect.");
@@ -448,6 +472,17 @@ impl eframe::App for App {
                 ui.add_space(20.0);
                 ui.collapsing("Settings", |ui| {
                     ui.add_enabled_ui(self.host.is_none(), |ui| {
+                        ui.horizontal(|ui| {
+                            egui::ComboBox::from_id_salt("sharing_network").selected_text("Choose network").show_ui(ui,|ui|{
+                                for network in &self.networks {
+                                    if ui.selectable_label(false,format!("{} · {}",network.interface,network.address)).clicked(){
+                                        let port=self.share_address.parse::<std::net::SocketAddr>().map(|address|address.port()).unwrap_or(5000);
+                                        self.share_address=std::net::SocketAddr::new(network.address.into(),port).to_string();
+                                    }
+                                }
+                            });
+                            if ui.button("Refresh networks").clicked(){self.networks=mightymonitor_discovery::local_addresses().unwrap_or_default();}
+                        });
                         ui.label("Sharing address");
                         ui.text_edit_singleline(&mut self.share_address);
                         ui.add(
@@ -479,6 +514,7 @@ impl eframe::App for App {
                             self.command(crate::net::ControlAction::Control(enabled));
                         }
                     }
+                    if controlling && ui.button("Keyboard").clicked(){self.close_keyboard(ctx);self.show_keyboard=true;}
                     if state == State::Connected {
                         ui.collapsing("Details", |ui| {
                             ui.label(format!(
@@ -512,7 +548,7 @@ impl eframe::App for App {
                     {
                         response.request_focus();
                     }
-                    let focused = controlling && response.has_focus() && ctx.input(|i| i.focused);
+                    let focused = controlling && !self.show_keyboard && response.has_focus() && ctx.input(|i| i.focused);
                     if focused {
                         let (mut events, modifiers) =
                             ctx.input(|i| (i.events.clone(), i.modifiers));
@@ -573,6 +609,71 @@ impl eframe::App for App {
                 }
             }
         });
+        if self.show_keyboard {
+            if state != State::Connected || !controlling || self.page != Page::View {
+                self.close_keyboard(ctx);
+            } else {
+                let mut open = true;
+                let mut send = false;
+                let mut enter = false;
+                let mut cancel = false;
+
+                egui::Window::new("Keyboard")
+                    .open(&mut open)
+                    .collapsible(false)
+                    .resizable(false)
+                    .default_width(360.0)
+                    .show(ctx, |ui| {
+                        let response = ui.add(
+                            egui::TextEdit::multiline(&mut self.keyboard_text)
+                                .hint_text("Type on the other device")
+                                .char_limit(4096)
+                                .desired_rows(3),
+                        );
+                        if self.keyboard_editor.is_none() {
+                            response.request_focus();
+                        }
+                        self.keyboard_editor = Some(response.id);
+                        if self.keyboard_text.contains('\0') {
+                            ui.colored_label(
+                                egui::Color32::from_rgb(166, 48, 36),
+                                "Text contains an unsupported character.",
+                            );
+                        }
+                        let valid =
+                            !self.keyboard_text.is_empty() && !self.keyboard_text.contains('\0');
+                        ui.horizontal(|ui| {
+                            send = ui
+                                .add_enabled(valid, egui::Button::new("Send text"))
+                                .clicked();
+                            enter = ui.button("Enter").clicked();
+                            cancel = ui.button("Cancel").clicked();
+                        });
+                    });
+                if send {
+                    let mut modifiers = egui::Modifiers::NONE;
+                    let events = crate::input::translate(
+                        &[egui::Event::Paste(std::mem::take(&mut self.keyboard_text))],
+                        egui::Rect::NOTHING,
+                        &mut modifiers,
+                        egui::Modifiers::NONE,
+                    );
+                    for event in events {
+                        self.command(crate::net::ControlAction::Input(event));
+                    }
+                }
+                if enter {
+                    for pressed in [true, false] {
+                        self.command(crate::net::ControlAction::Input(
+                            mightymonitor_core::InputEvent::Key { code: 40, pressed },
+                        ));
+                    }
+                }
+                if send || cancel || !open {
+                    self.close_keyboard(ctx);
+                }
+            }
+        }
         ctx.request_repaint_after(std::time::Duration::from_millis(16));
     }
 }

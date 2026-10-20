@@ -2,8 +2,9 @@
 Type=Application
 Name=MightyMonitor
 Comment=Share and view screens on your local network
-Exec=mightymonitor
+Exec=mightymonitor %u
 Icon=mightymonitor
 Terminal=false
 Categories=Network;RemoteAccess;
 StartupNotify=true
+MimeType=x-scheme-handler/mightymonitor;

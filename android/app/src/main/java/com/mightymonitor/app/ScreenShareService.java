@@ -12,9 +12,7 @@ import android.os.*;
 import android.util.DisplayMetrics;
 import android.view.*;
 import java.io.ByteArrayOutputStream;
-import java.net.*;
 import java.nio.ByteBuffer;
-import java.util.Collections;
 
 /** Android consent/capture/codec adapter. Rust owns the screen-sharing server. */
 public final class ScreenShareService extends Service {
@@ -22,6 +20,7 @@ public final class ScreenShareService extends Service {
     public static volatile boolean sharing, allowControl;
     public static volatile int captureWidth, captureHeight;
     public static volatile String invitation = "";
+    public static volatile String sharingAddress = "";
     public static volatile String summary = "Not sharing";
     public static volatile long capturedFrames;
     private static volatile ScreenShareService current;
@@ -48,6 +47,7 @@ public final class ScreenShareService extends Service {
         PendingIntent stop = PendingIntent.getService(this, 1, new Intent(this, ScreenShareService.class).setAction(STOP), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         Notification notification = new Notification.Builder(this, "sharing").setSmallIcon(android.R.drawable.presence_video_online).setContentTitle("Sharing your screen").setContentText("Tap Stop to end sharing").setContentIntent(open).setOngoing(true).addAction(new Notification.Action.Builder(null, "Stop", stop).build()).build();
         if (Build.VERSION.SDK_INT >= 29) startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION); else startForeground(1, notification);
+        sharingAddress = LocalNetworks.validate(intent.getStringExtra("sharingAddress"));
         discoverable = intent.getBooleanExtra("discoverable",false);
         allowControl = intent.getBooleanExtra("allowControl", false) && RemoteControlService.available();
         sharing = true; summary = "Starting sharing…"; capturedFrames = 0;
@@ -77,7 +77,7 @@ public final class ScreenShareService extends Service {
         android.util.Log.i("MightyMonitor", "Capture " + width + "x" + height + " at " + fps + " fps");
         captureWidth = width; captureHeight = height;
         host = NativeBridge.startHost("0.0.0.0:5000", width, height, fps);
-        invitation = NativeBridge.hostInvite(host, localAddress());
+        invitation = NativeBridge.hostInvite(host, sharingAddress);
         NativeBridge.allowHostControl(host, allowControl);
         if(discoverable)advertisement=new NearbyDevices.Advertisement(this,5000);
         worker.post(drainInput);
@@ -164,13 +164,10 @@ public final class ScreenShareService extends Service {
             worker.postDelayed(this, 16);
         }
     };
-    public static String localAddress() {
-        try { for (NetworkInterface network : Collections.list(NetworkInterface.getNetworkInterfaces())) for (InetAddress address : Collections.list(network.getInetAddresses())) if (address instanceof Inet4Address && address.isSiteLocalAddress() && !address.isLoopbackAddress()) return address.getHostAddress() + ":5000"; } catch (Exception ignored) { }
-        return "Connect to Wi-Fi to see your address";
-    }
+    public static String localAddress() { return LocalNetworks.defaultAddress(); }
     @Override public void onDestroy() {
         if (current == this) current = null;
-        sharing = false; allowControl = false; invitation = ""; RemoteControlService.stopInput();
+        sharing = false; allowControl = false; invitation = ""; sharingAddress = ""; RemoteControlService.stopInput();
         worker.post(() -> {
             closed = true; if(advertisement!=null){advertisement.close();advertisement=null;} worker.removeCallbacks(update); worker.removeCallbacks(drainInput);
             if (projection != null && projectionCallback != null) projection.unregisterCallback(projectionCallback);

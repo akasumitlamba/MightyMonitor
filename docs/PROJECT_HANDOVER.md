@@ -101,8 +101,9 @@ ANDROID instructions in `android/README.md` before changing their features.
    OS permission dialogs require the user; do independent work while waiting.
 2. **Discovery and pairing UX:** opt-in desktop/Android presence discovery is
    implemented on the current development branch. A real local Rust advertise/
-   resolve/remove test passed and confirmed no TCP connection. Android NSD tests
-   and physical cross-device discovery remain unverified. Continue toward smooth
+   resolve/remove test passed and confirmed no TCP connection. Android 11/14/16 NSD tests passed; Android 10 failed before app installation due
+   to a corrupt SDK download and is being retried. Physical cross-device discovery
+   remains unverified. Continue toward smooth
    pairing without broadcasting tokens
    or treating nearby peers as trusted. Preserve explicit sharing/control consent.
    Plan certificate identity, pairing confirmation, revocation and persistence
@@ -115,7 +116,10 @@ ANDROID instructions in `android/README.md` before changing their features.
 4. **Concurrent product behavior:** explicit source selection, independent session
    identities and opposite-direction streams; prevent recursive capture/input;
    increase phone-host peers only with bounded-resource and lifecycle acceptance.
-5. **Wired setup:** discover usable IP interfaces, explain Wi-Fi/Ethernet/USB
+5. **Wired setup:** read-only desktop and Android IPv4 interface pickers are
+   implemented in development; see NETWORK_SETUP.md. Deep links now prefill the
+   desktop viewer and per-user installer handlers are implemented, with validation
+   still running. Continue to test Wi-Fi/Ethernet/USB
    networking, and test supported USB4/Thunderbolt plus Android tethering/tunnels.
    Document actual hardware support instead of assuming a Type-C cable works.
 6. **Production delivery:** stable Android signing/update keys, Windows signing,
@@ -145,7 +149,7 @@ node website/tests/downloads.cjs
 not automatic passes. Run `host/tests/x11_input.rs` only on an isolated Xvfb with
 `MM_ALLOW_INPUT_SMOKE=1` and sequential tests. Current platform workflows also
 check Windows, PipeWire and MSRV. Android's workflow builds three ABIs and runs
-three real video/control tests on APIs 29/30/34/36. Instrumentation must grant
+four real video/control/discovery tests on APIs 29/30/34/36. Instrumentation must grant
 Accessibility **after** its process restart and wait for the specific target
 editor's IME connection; prebinding or accepting any stale IME caused failures.
 
@@ -198,3 +202,8 @@ project sufficiently for a contributor with no access to previous chats.
 Current development note: the user has asked to keep implementing/testing without
 pausing for PRs or merges, and to create PRs later. Continue on the working branch
 with normal commits/checkpoints; do not treat an unopened PR as a work blocker.
+
+The current development branch also adds desktop Keyboard text entry for Unicode/
+composition, with held-input release and dialog text/undo cleanup. Its text path
+uses the existing bounded Unicode protocol. The Android control acceptance test
+now includes non-ASCII text. Do not claim its new test result until it completes.

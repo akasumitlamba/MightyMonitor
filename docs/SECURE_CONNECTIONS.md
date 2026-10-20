@@ -47,3 +47,16 @@ stalled-peer cancellation, Android Rust client/server video events, and real des
 H.264 encoding/transport/decoding through TLS. Android emulator checks exercise
 MediaCodec in both directions on Android 10, 11, 14 and 16. See the workflow results
 for the current commit; physical-device acceptance is a separate check.
+
+## Open a private link in the app
+
+The Windows installer registers a per-user `mightymonitor:` handler through the
+runtime launcher. The Linux desktop file declares the same URI scheme; desktop
+association support depends on the installed desktop environment. Android already
+accepts private-link intents. Opening a link only fills View's connection field:
+you still press Connect, and control requires its own separate grant.
+
+For an unpackaged desktop build, run `mm-viewer --invite PRIVATE_LINK` (a single
+bare private URI is also accepted). Keep the link out of shared shell history,
+logs and screenshots. Startup rejects unrelated/extra action flags and oversized
+links; malformed credentials show a generic error instead of echoing the secret.

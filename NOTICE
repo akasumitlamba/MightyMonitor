@@ -81,3 +81,6 @@ Local presence discovery uses mdns-sd 0.21.6 (Apache-2.0 OR MIT), with default
 features disabled, and its permissive dependencies recorded in Cargo.lock.
 Android discovery uses the public Android NSD API; its adapter is original.
 https://github.com/keepsimple1/mdns-sd
+
+Read-only interface selection additionally uses if-addrs 0.15.0 (MIT OR
+BSD-3-Clause). No network configuration or privileged operations are performed.

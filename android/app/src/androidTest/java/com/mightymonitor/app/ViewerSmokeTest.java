@@ -151,10 +151,11 @@ public final class ViewerSmokeTest {
             // tap is in flight. Wait for this actual editor, not just any IME client.
             while (!RemoteKeyboardService.readyFor(InputTestActivity.EDITOR_ID) && System.currentTimeMillis() < deadline) Thread.sleep(20);
             assertTrue("Remote tap did not focus the test editor and connect its keyboard", RemoteKeyboardService.readyFor(InputTestActivity.EDITOR_ID));
-            NativeBridge.typeText(client, "MightyMonitor");
+            String expectedText="MightyMonitor नमस्ते ✓";
+            NativeBridge.typeText(client, expectedText);
             java.util.concurrent.atomic.AtomicReference<String> text = new java.util.concurrent.atomic.AtomicReference<>("");
-            while (!"MightyMonitor".equals(text.get()) && System.currentTimeMillis() < deadline) {InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> text.set(editor.getText().toString())); Thread.sleep(20);}
-            assertTrue("Remote keyboard did not type into the actual Android editor: " + text.get(), "MightyMonitor".equals(text.get()));
+            while (!expectedText.equals(text.get()) && System.currentTimeMillis() < deadline) {InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> text.set(editor.getText().toString())); Thread.sleep(20);}
+            assertTrue("Remote keyboard did not type into the actual Android editor: " + text.get(), expectedText.equals(text.get()));
             ScreenShareService.revokeControl();
             while (controlling.get() && System.currentTimeMillis() < deadline) Thread.sleep(20);
             assertTrue("Revoked phone control stayed active", !controlling.get());

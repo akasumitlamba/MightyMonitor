@@ -214,3 +214,19 @@ credentials; a private link is still required to connect. Rust unit tests and
 real local multicast advertise/resolve/remove/no-TCP tests passed. Android source
 and resources compile; NSD emulator and physical cross-device acceptance remain
 unverified. Work continues without waiting for PR creation per the user request.
+
+
+2026-10-20: Continued development without waiting for PRs: desktop/Android
+read-only IPv4 network selection, desktop private-link prefill, Linux URI-scheme
+declaration and Windows per-user URI registration are implemented. Links do not
+auto-connect or enable control. Startup argument tests and installer association
+checks were added. Local Java/resources and warning-free Rust checks pass; full
+updated platform/installer/device checks are still running.
+
+
+2026-10-20: First discovery emulator results: Android 11/14/16 passed all four
+video/control/presence tests. Android 10 failed before app installation while
+downloading its SDK platform (invalid archive), not in an app assertion. Bounded
+SDK-download retry/preflight was added. Continued work adds a desktop Keyboard
+panel for Unicode/composed text; the next Android control run includes Hindi and
+a check mark in its real editor assertion. Updated tests are pending.
