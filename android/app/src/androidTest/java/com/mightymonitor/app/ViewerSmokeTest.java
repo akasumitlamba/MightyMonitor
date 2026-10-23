@@ -195,6 +195,15 @@ public final class ViewerSmokeTest {
                 while(InputTestActivity.taps.get()==before && System.currentTimeMillis()<clickDeadline)Thread.sleep(20);
                 assertTrue("Quick remote tap did not complete: "+inputDiagnostic(button),InputTestActivity.taps.get()==before+1);
             }
+            float[] cancelledPoint=capturePoint(button);
+            int beforeCancel=InputTestActivity.taps.get();
+            // A cancelled press that has not started must not become a click.
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+                RemoteControlService.accept(touchEvent(cancelledPoint[0],cancelledPoint[1],0));
+                RemoteControlService.accept(touchEvent(cancelledPoint[0],cancelledPoint[1],3));
+            });
+            Thread.sleep(300);
+            assertTrue("Cancelled pending touch became a click",InputTestActivity.taps.get()==beforeCancel);
             checkDrag(client,target.findViewById(InputTestActivity.DRAG_ID));
             android.app.Activity testTarget=target;
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
@@ -277,6 +286,7 @@ public final class ViewerSmokeTest {
         }
         throw new AssertionError("Capture consent did not appear");
     }
+    private static byte[] touchEvent(float x,float y,int phase){return java.nio.ByteBuffer.allocate(10).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)3).put((byte)phase).putFloat(x).putFloat(y).array();}
     private static byte[] mouseMove(float x,float y){return java.nio.ByteBuffer.allocate(9).order(java.nio.ByteOrder.LITTLE_ENDIAN).put((byte)1).putFloat(x).putFloat(y).array();}
     private void awaitRotation(boolean landscape)throws Exception{
         long deadline=System.currentTimeMillis()+15000;

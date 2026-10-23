@@ -434,3 +434,15 @@ emulator UI is busy, requiring revocation plus UP for its held editor key; first
 two sessions still exercise explicit local revocation. App/debug/test Java compile;
 the confirming emulator run is pending. These limits do not establish physical
 acceptance or complete Windows Extend.
+
+
+2026-10-23 touch-release ordering fix: review found Touch End called point(),
+which immediately drained the pending press while DOWN was still true. This
+bypassed quick-tap coalescing and created the very continued stroke the earlier
+change intended to avoid. End now updates coordinates without dispatching, sets
+UP, then drains once. Touch Cancel is handled separately: it clears a pending
+press rather than treating Cancel as End and synthesizing a click. The emulator
+suite now asserts an immediately cancelled pending touch does not click. Main,
+debug and instrumentation Java compile. This is a concrete ordering defect;
+confirming all gesture reliability and the new drag/held-key/overload assertions
+still requires the latest emulator run. No failed remote action is retried.

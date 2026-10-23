@@ -103,7 +103,12 @@ public final class RemoteControlService extends AccessibilityService {
         if (!down && (px < 0 || py < 0 || px >= metrics.widthPixels || py >= metrics.heightPixels)) return null;
         return new PointF(Math.max(0, Math.min(metrics.widthPixels - 1, px)), Math.max(0, Math.min(metrics.heightPixels - 1, py)));
     }
-    private void point(float nx, float ny) { PointF p = map(nx, ny); pointerValid = p != null; if(p==null)invalidPoints++; if (p != null) {x = p.x; y = p.y; changed = true; drainGesture();} }
+    private void point(float nx, float ny) {point(nx,ny,true);}
+    private void point(float nx,float ny,boolean flush) {
+        PointF p=map(nx,ny);pointerValid=p!=null;
+        if(p==null)invalidPoints++;
+        if(p!=null){x=p.x;y=p.y;changed=true;if(flush)drainGesture();}
+    }
     private void press() {
         down = true; changed = true;
         if (!busy && stroke == null) {
@@ -154,7 +159,13 @@ public final class RemoteControlService extends AccessibilityService {
                 if (event.length != 10) break;
                 if (event[1] == 0) {PointF p = map(bytes.getFloat(2), bytes.getFloat(6)); if (p == null) {invalidPoints++;pointerValid=false;break;} pointerValid=true; x = p.x; y = p.y; press();}
                 else if (event[1] == 1) point(bytes.getFloat(2), bytes.getFloat(6));
-                else {point(bytes.getFloat(2), bytes.getFloat(6)); down = false; changed = true; drainGesture();}
+                else if(event[1]==2) {
+                    // Updating the release position must not flush a still-down
+                    // pending press into a continued stroke before setting UP.
+                    point(bytes.getFloat(2),bytes.getFloat(6),false);
+                    down=false;changed=true;drainGesture();
+                }
+                else if(event[1]==3) release();
                 break;
             case 4: if (event.length == 6) key(bytes.getInt(1), event[5] != 0); break;
             case 5: if (event.length > 1 && event.length <= 4097) {release(); type(new String(event, 1, event.length - 1, StandardCharsets.UTF_8));} break;
