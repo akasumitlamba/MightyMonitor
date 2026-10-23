@@ -49,8 +49,11 @@ GStreamer to NULL. The codec adapter remains safe Rust; the separate small
 `display-windows` crate contains documented Win32 enumeration FFI.
 
 The Share page now offers Main screen or an explicitly selected existing screen,
-with Refresh screens after connecting a monitor. Explicit selection is view-only;
-use Main screen for the existing primary-screen control implementation.
+with Refresh screens after connecting a monitor. Main screen and explicit screen
+selection both pin a snapshot when sharing starts. Optional control now maps
+pointer positions into that screen's physical desktop rectangle, including a
+monitor to the left/above the main screen. This path has geometry and build
+checks; physical multi-monitor and mixed-DPI acceptance remain required.
 
 ```powershell
 .\target\release\mm-host.exe --list-displays
@@ -62,7 +65,8 @@ HMONITOR snapshot and passes `monitor-handle` to GStreamer. It rechecks identity
 bounds and primary status before each frame. If the screen changes/disconnects,
 capture ends without substitution; stop, refresh and select again. The legacy
 index option remains available but cannot be combined with `--display`. Screen
-selection cannot be combined with `--extend` or `--allow-control`.
+selection cannot be combined with `--extend`. Add `--allow-control` only when
+intentionally granting control over this secure share.
 Local geometry/identity rejection tests and Windows cross-compilation do not
 replace physical hotplug/multi-monitor tests.
 

@@ -445,3 +445,13 @@ a stale system-permission UI handle, which blocked later fixture launches; that
 helper now re-resolves stale handles within its original timeout. API 36 missed
 a rotated valid click in the third session; the rotated assertion now includes
 dispatch/target counters. This cause remains unproven, not reported as fixed.
+
+
+Development follow-up: Implemented explicit Windows screen input mapping using
+physical display offsets and virtual-desktop absolute pointer coordinates. Main
+screen also pins its snapshot. Odd-edge video cropping is accounted for; changed
+or removed display snapshots fail before input, while ReleaseAll remains allowed.
+Geometry tests cover monitors left/above the main screen, offsets, corners and
+invalid/out-of-desktop coordinates; snapshot tests and adapter cross-Clippy pass.
+No input was injected on the developer desktop. Native Windows builds and
+physical mixed-DPI/hotplug acceptance remain separate; no virtual driver added.

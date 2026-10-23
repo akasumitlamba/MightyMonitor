@@ -1,7 +1,12 @@
-//! Read-only Windows display snapshots. No display configuration or driver install.
+//! Windows display snapshots and explicitly requested pointer movement.
+//! No display configuration or driver installation.
 //! Native pointers stay inside the adapter; callers receive owned snapshot data.
 #![deny(unsafe_op_in_unsafe_fn)]
 use std::io;
+#[cfg(any(target_os = "windows", test))]
+mod pointer;
+#[cfg(target_os = "windows")]
+pub use pointer::move_pointer;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Display {
@@ -43,6 +48,14 @@ fn validate_snapshot(selected: &Display, current: &[Display]) -> io::Result<()> 
             "Selected screen changed or disconnected. Stop sharing and select it again.",
         ))
     }
+}
+pub fn primary() -> io::Result<Display> {
+    displays()?
+        .into_iter()
+        .find(|display| display.primary)
+        .ok_or_else(|| {
+            io::Error::other("The main screen is unavailable. Refresh screens and try again.")
+        })
 }
 pub fn select(device: &str) -> io::Result<Display> {
     displays()?

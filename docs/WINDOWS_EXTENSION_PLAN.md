@@ -13,15 +13,17 @@ only its own monitor when sharing stops. Validate cleanup on errors, reconnect,
 application exit and crashes. Existing monitors and their layout must survive.
 Add display-layout/resolution controls only after ownership and targeting work.
 
-The current host accepts a GStreamer monitor index, but controller input remains
-limited to the primary/default monitor. An index inferred from enumeration order
-is not a safe way to identify a newly created virtual display during hotplug.
+The host now pins main/explicitly selected screens and maps optional pointer
+input through the entire Windows virtual desktop. Legacy numeric monitor indices
+remain view-only. An index inferred from enumeration order is not a safe way to
+identify a newly created virtual display during hotplug.
 Use a verified monitor identity and the capture source's `monitor-handle` property.
-Map normalized input into that display's full desktop rectangle, including negative
-coordinates and DPI changes. The current Enigo Windows absolute-pointer path uses
-primary-display dimensions without MOUSEEVENTF_VIRTUALDESK; it cannot simply be
-reused with a secondary-display offset. Keep the existing control restriction
-until the replacement path is implemented and tested.
+The original display adapter's pointer path uses absolute virtual-desktop mapping
+with the display's physical rectangle, including negative coordinates and the
+codec's odd-edge cropping. Input rechecks its pinned snapshot before applying
+events; held input can still be released if the display disappears. Unit geometry
+and cross-build checks are evidence, but physical mixed-DPI, hotplug and Windows
+11 input acceptance remain required before calling this release-ready.
 
 ## Compatible Rust driver research
 
@@ -35,7 +37,8 @@ IDs/modes. The read-only audit pins commit `22fcd2e065aac13745cb27dc869848091b9e
 compatibility is not implemented.
 
 The original `display-windows` adapter now enumerates existing GDI screens and
-checks exact handle/device/geometry snapshots for view-only capture. It is a
+checks exact handle/device/geometry snapshots for capture and explicitly granted
+input. It is a
 prerequisite, not driver integration or permission to select an unrelated screen.
 
 Important correctness details from the public source:

@@ -65,9 +65,9 @@ impl HostProcess {
         discoverable: bool,
         display: Option<&str>,
     ) -> io::Result<Self> {
-        if display.is_some() && (!cfg!(target_os = "windows") || allow_control || extend) {
+        if display.is_some() && (!cfg!(target_os = "windows") || extend) {
             return Err(io::Error::other(
-                "Screen selection requires Windows mirror mode with remote control off.",
+                "Screen selection requires Windows mirror mode.",
             ));
         }
         if !cfg!(any(target_os = "linux", target_os = "windows")) {

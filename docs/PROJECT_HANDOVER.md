@@ -40,7 +40,7 @@ viewers; #45 added experimental Wayland extension. Check newer PRs before editin
 | Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
 | Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
 | Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing not implemented; opt-in discovery passes Rust LAN and Android emulator tests on the development branch |
-| Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; primary/default desktop control only |
+| Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; Windows explicit-screen mapping is implemented in development |
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
 | Linux Extend | Portal Virtual source, advertised capability and returned type checked; Mirror/Extend UI | Live KDE Wayland: real extra output appeared, three H.264 frames decoded over secure loopback, normal Stop removed output and restored original active displays. Layout/window movement, virtual-display input, other compositors and physical Wi-Fi unverified |
@@ -60,8 +60,9 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 - `security/`: TLS 1.3, certificate pinning, private session invitations and
   asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
-- `display-windows/`: small read-only Win32 display snapshot/identity adapter;
-  owns the documented unsafe enumeration boundary, with no driver installation.
+- `display-windows/`: small Win32 display snapshot/identity and explicit-pointer
+  adapter; owns documented unsafe enumeration/SendInput boundaries, with no driver
+  installation or display configuration changes.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.
 - `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
@@ -283,8 +284,8 @@ existing-screen picker and refresh. `mm-host --list-displays` lists GDI device
 names; `--display DEVICE` resolves a snapshot to its exact HMONITOR for GStreamer.
 The snapshot is checked before startup and each frame; disappearance, handle,
 geometry or primary-status changes stop that capture instead of falling back.
-Explicit screen selection is view-only; primary/default control retains its
-existing restriction. No virtual monitor is created. Local snapshot rejection
+At that checkpoint explicit selection was view-only; the later Windows input
+follow-up below supersedes that restriction. No virtual monitor is created. Local snapshot rejection
 tests and Windows adapter cross-Clippy passed; native Windows/Linux, MSRV and PipeWire checks passed at 893a490 in
 run 39399148245. Linux installer/guide checks passed in 39399148203. Physical
 multi-monitor/hotplug acceptance remains unverified.
@@ -334,3 +335,15 @@ three successful initial taps; its cause is not yet proven. The rotated assertio
 now includes the same bounded dispatch/target counters. Main/test Java compile.
 No failed remote gesture is retried. Full device testing remains deferred while
 implementation and installer work continue.
+
+
+**Windows selected-screen input follow-up:** main/default and explicit screens
+are pinned at host start. Optional control maps the negotiated picture into the
+selected screen's physical rectangle, then into absolute virtual-desktop input;
+negative monitor origins and the codec's cropped odd edge are accounted for.
+All input events revalidate the selected snapshot except ReleaseAll, which must
+always be allowed to clean up held input. Legacy monitor indices remain view-only.
+The UI retains two explicit control grants and view-only defaults. Three snapshot/
+geometry tests and Windows-adapter cross-Clippy pass without injecting input;
+native Windows and physical mixed-DPI/hotplug acceptance are still required.
+Windows virtual-monitor creation remains unimplemented.

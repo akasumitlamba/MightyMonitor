@@ -158,9 +158,14 @@ mod desktop {
             width: u32,
             height: u32,
         ) -> Result<Option<Box<dyn mightymonitor_host::input::InputTarget>>, Error> {
-            Ok(Some(Box::new(
-                mightymonitor_host::input::desktop::DesktopInput::new(width, height)?,
-            )))
+            let input = if let Some(display) = &self.display {
+                mightymonitor_host::input::desktop::DesktopInput::for_display(
+                    display, width, height,
+                )?
+            } else {
+                mightymonitor_host::input::desktop::DesktopInput::new(width, height)?
+            };
+            Ok(Some(Box::new(input)))
         }
         fn capture(
             &self,
@@ -278,8 +283,11 @@ mod desktop {
         }
         // Obtain Wayland system consent before publishing an invitation or starting
         // network handshake deadlines. The portal lives for this sharing lifetime.
-        if allow_control && (!secure || monitor != -1 || display_device.is_some()) {
-            return Err("Remote control requires --secure and the primary/default screen".into());
+        if allow_control && (!secure || monitor != -1) {
+            return Err(
+                "Remote control requires --secure; use --display instead of a legacy monitor index"
+                    .into(),
+            );
         }
         if discoverable && !secure {
             return Err("Discovery requires secure sharing".into());
@@ -297,6 +305,8 @@ mod desktop {
             let mut factory = factory;
             if let Some(device) = display_device {
                 factory.display = Some(mightymonitor_display_windows::select(&device)?);
+            } else if monitor == -1 {
+                factory.display = Some(mightymonitor_display_windows::primary()?);
             }
             factory
         };

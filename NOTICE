@@ -88,3 +88,7 @@ BSD-3-Clause). No network configuration or privileged operations are performed.
 Read-only Windows display enumeration uses windows 0.61.3 (MIT OR Apache-2.0),
 through documented Win32 APIs. The original small adapter owns the unsafe FFI
 boundary; it neither installs drivers nor changes display configuration.
+
+The original Windows adapter also provides explicitly requested pointer movement
+using the public SendInput virtual-desktop API. Local sharing consent and a
+separate authenticated viewer control grant remain at the host/session layer.

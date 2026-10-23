@@ -106,6 +106,8 @@ pub mod desktop {
         buttons: Vec<Button>,
         touch: bool,
         scroll: (f32, f32),
+        #[cfg(target_os = "windows")]
+        display: Option<mightymonitor_display_windows::Display>,
     }
     impl DesktopInput {
         pub fn new(width: u32, height: u32) -> Result<Self, Error> {
@@ -123,9 +125,35 @@ pub mod desktop {
                 buttons: vec![],
                 touch: false,
                 scroll: (0.0, 0.0),
+                #[cfg(target_os = "windows")]
+                display: None,
             })
         }
+        #[cfg(target_os = "windows")]
+        pub fn for_display(
+            display: &mightymonitor_display_windows::Display,
+            width: u32,
+            height: u32,
+        ) -> Result<Self, Error> {
+            display.validate()?;
+            if width != (display.width & !1) || height != (display.height & !1) {
+                return Err("Input dimensions do not match the selected screen".into());
+            }
+            let mut input = Self::new(width, height)?;
+            input.display = Some(display.clone());
+            Ok(input)
+        }
         fn point(&mut self, x: f32, y: f32) -> Result<(), Error> {
+            #[cfg(target_os = "windows")]
+            if let Some(display) = &self.display {
+                // The codec crops the final odd row/column. Point only into the
+                // pixels actually visible in this session's negotiated picture.
+                let x = x * (self.width - 1) as f32 / (display.width - 1) as f32;
+                let y = y * (self.height - 1) as f32 / (display.height - 1) as f32;
+                mightymonitor_display_windows::move_pointer(display, x, y)?;
+                return Ok(());
+            }
+
             self.backend.move_mouse(
                 (x * (self.width - 1) as f32).round() as i32,
                 (y * (self.height - 1) as f32).round() as i32,
@@ -156,6 +184,12 @@ pub mod desktop {
         fn apply(&mut self, event: &InputEvent) -> Result<(), Error> {
             if !event.validate() {
                 return Err("Invalid remote input".into());
+            }
+            #[cfg(target_os = "windows")]
+            if !matches!(event, InputEvent::ReleaseAll) {
+                if let Some(display) = &self.display {
+                    display.validate()?;
+                }
             }
             match event {
                 InputEvent::MouseMove { x, y } => self.point(*x, *y)?,

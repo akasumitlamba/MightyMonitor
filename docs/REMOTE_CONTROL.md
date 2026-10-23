@@ -19,7 +19,9 @@ current controller relinquishes control or disconnects.
 
 ## Platforms
 
-- Windows: primary desktop control through the native input API. Windows security
+- Windows: main or explicitly selected screen through the native input API.
+  Pointer coordinates include the monitor's desktop offset; geometry/build checks
+  do not establish physical multi-monitor or mixed-DPI acceptance. Windows security
   screens and applications running with higher privileges may reject input.
 - Linux X11: desktop keyboard/mouse input. Actual key/button delivery and two-viewer
   handoff have passed tests on an isolated X server.
@@ -53,8 +55,9 @@ control request. Focus loss, revocation, disconnect and normal managed-host stop
 release held remote input. Desktop controller ownership is exclusive across all
 viewers, including the shared Wayland portal input backend.
 
-The CLI requires both `--secure --allow-control`; desktop monitor selection is
-currently limited to the primary screen for control. This feature controls an
+The CLI requires both `--secure --allow-control`. On Windows, use `--display`
+with a device name from `--list-displays` to control a selected existing screen.
+Legacy numeric `--monitor` selection remains view-only. This feature controls an
 existing screen. It does not create a virtual extended monitor.
 
 

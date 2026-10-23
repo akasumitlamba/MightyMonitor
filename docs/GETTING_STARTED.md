@@ -41,8 +41,9 @@ the app does not enable them automatically. Android may restrict protected scree
 or certain system actions. Notification permission is optional; screen-capture
 permission is separate.
 
-Windows control currently uses the main/default screen. An explicitly selected
-screen is view-only. Wayland asks for input permission through its system portal.
+Windows can share its main screen or a screen selected in the Share page. Optional
+control follows that screen; this new path still needs physical multi-monitor
+acceptance. Wayland asks for input permission through its system portal.
 If you started without control permission, stop sharing before enabling it.
 
 ## Use another device as an extra monitor

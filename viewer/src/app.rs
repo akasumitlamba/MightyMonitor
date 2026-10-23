@@ -477,7 +477,7 @@ impl eframe::App for App {
                             if self.screen.is_some() { "Screen unavailable".into() } else { "Main screen".into() }
                         });
                         egui::ComboBox::from_id_salt("sharing_screen").selected_text(label).show_ui(ui, |ui| {
-                            ui.selectable_value(&mut self.screen, None, "Main screen");
+                            if ui.selectable_value(&mut self.screen, None, "Main screen").clicked() { self.allow_control = false; }
                             for screen in &self.screens {
                                 if ui.selectable_value(&mut self.screen, Some(screen.device().to_owned()), screen.label()).clicked() { self.allow_control = false; }
                             }
@@ -492,11 +492,9 @@ impl eframe::App for App {
                     if let Some(error) = &self.screen_error { ui.label(error); }
                 });
                 let control_available = self.host.is_none();
-                #[cfg(target_os = "windows")]
-                let control_available = control_available && self.screen.is_none();
                 ui.add_enabled(control_available,
                     egui::Checkbox::new(&mut self.allow_control, "Allow remote control"),
-                ).on_disabled_hover_text("Control is currently available for the main screen.");
+                );
                 ui.add_enabled(self.host.is_none(),egui::Checkbox::new(&mut self.discoverable,"Show on local network")).on_hover_text("Lets nearby devices find this sharing address. Your private link and control permission are not broadcast.");
                 if self.host.is_some() {
                     if self.allow_control && ui.button("Stop control").clicked() {
