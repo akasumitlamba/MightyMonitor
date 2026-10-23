@@ -49,7 +49,7 @@ public final class RemoteControlService extends AccessibilityService {
     private final Runnable watch = new Runnable() {
         @Override public void run() { if (!allowed()) release(); if (current == RemoteControlService.this) main.postDelayed(this, 100); }
     };
-    private void release() { releases++; pendingPress=false; main.removeCallbacks(beginPress); pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
+    private void release() { RemoteKeyboardService.releaseKeys(); releases++; pendingPress=false; main.removeCallbacks(beginPress); pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
     private PointF map(float nx, float ny) {
         if (!Float.isFinite(nx) || !Float.isFinite(ny) || nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
         android.util.DisplayMetrics metrics = new android.util.DisplayMetrics();

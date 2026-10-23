@@ -227,7 +227,14 @@ public final class ViewerSmokeTest {
             java.util.concurrent.atomic.AtomicReference<String> text = new java.util.concurrent.atomic.AtomicReference<>("");
             while (!expectedText.equals(text.get()) && System.currentTimeMillis() < deadline) {InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> text.set(editor.getText().toString())); Thread.sleep(20);}
             assertTrue("Remote keyboard did not type into the actual Android editor: " + text.get(), expectedText.equals(text.get()));
+            assertTrue("Held key was not queued",NativeBridge.key(client,79,true));
+            long keyDeadline=System.currentTimeMillis()+10000;
+            while(InputTestActivity.keyDowns.get()==0 && System.currentTimeMillis()<keyDeadline)Thread.sleep(20);
+            assertTrue("Remote key did not reach the editor",InputTestActivity.keyDowns.get()==1 && InputTestActivity.keyUps.get()==0);
             ScreenShareService.revokeControl();
+            keyDeadline=System.currentTimeMillis()+10000;
+            while(InputTestActivity.keyUps.get()==0 && System.currentTimeMillis()<keyDeadline)Thread.sleep(20);
+            assertTrue("Local revocation left a key held in the Android editor",InputTestActivity.keyUps.get()==1);
             while (controlling.get() && System.currentTimeMillis() < deadline) Thread.sleep(20);
             assertTrue("Revoked phone control stayed active", !controlling.get());
             boolean rejected = false; try {NativeBridge.typeText(client, "forbidden");} catch (IllegalStateException expected) {rejected = true;}

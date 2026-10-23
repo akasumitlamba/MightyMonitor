@@ -507,3 +507,15 @@ failed actions. Main/debug/test Java compile locally; emulator execution of this
 new drag assertion is pending. The dependency-install step now has a six-minute
 limit and bounded APT transfer timeouts/retries to avoid consuming the whole
 emulator job before any test runs. Physical device tests remain deferred.
+
+
+2026-10-23 Android held-key cleanup: the optional IME now tracks at most 64
+keys it delivered, with their original input connection and DOWN time. ReleaseAll,
+local control revocation, sharing stop and IME input finish/destroy send best-effort
+UP to the original connection even after the grant is false. A held key is never
+transferred to a new editor. Tracking clears before cleanup delivery; disconnected
+connections cannot prevent the remaining releases. The repeated encrypted-control
+instrumentation now holds Right in the actual editor, revokes locally, and requires
+its matching UP. Main/debug/instrumentation Java compile locally; emulator and
+physical execution of this new assertion are pending. Physical testing remains
+deferred by the user. Windows virtual-display creation/signing remains missing.
