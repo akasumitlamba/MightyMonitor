@@ -665,3 +665,9 @@ Responsive browser checks covered 320/390/768-pixel widths and desktop; installe
 filter/offline/rate-limit tests pass. This website milestone is isolated on current
 upstream main so it can merge independently of ongoing app/driver work. See
 website/DESIGN.md for design decisions and website/README.md for maintenance.
+
+Website PR #47 is open at https://github.com/reduckyLang/MightyMonitor/pull/47.
+Its independent branch is codex/website-motion-redesign, based on upstream
+main a51cdcd. The application branch retains a local copy of the same website
+checkpoint. After squash-merging #47, account for that duplicate website patch
+when synchronizing app changes; do not stack another website PR on #47.
