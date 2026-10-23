@@ -545,3 +545,18 @@ suite now asserts an immediately cancelled pending touch does not click. Main,
 debug and instrumentation Java compile. This is a concrete ordering defect;
 confirming all gesture reliability and the new drag/held-key/overload assertions
 still requires the latest emulator run. No failed remote action is retried.
+
+
+2026-10-23 confirming result: 8c927c1 Android run 39959846805 passed APK assembly
+and every emulator job (API 29/30/34/36). The repeated actual-control tests passed
+quick taps, pending-touch cancellation, held drags, rotated input, Unicode text,
+held-key UP on local revocation and input-overload revocation/cleanup, alongside
+both directions of real encoded/decoded video. These are emulator results, not
+physical-phone acceptance. Local current-development packages now contain desktop
+1a65e8b (verified Windows/Linux installers) and Android 8c927c1; source manifests
+and installer/APK hashes were checked. Windows/Linux/PipeWire checks at 8c927c1
+passed; the minimum-Rust-version job stalled downloading Ubuntu dependencies.
+Native CI dependency transfers now have bounded timeouts/retries and six-minute
+steps, with 25-minute job caps. Its confirming run is required. Windows/X11
+virtual-output creation, persistent pairing, production signing/publication,
+opposite-direction loop prevention and deferred physical acceptance remain open.
