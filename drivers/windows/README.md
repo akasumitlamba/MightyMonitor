@@ -19,8 +19,10 @@ idle timeout or malformed framing drops its lease. Failed departure is retried
 without reusing the connector slot. The driver returns the actual OS adapter LUID
 and target ID, not a connector index. A dedicated pipe and hardware ID keep it
 separate from the original driver. Local interactive users may connect; remote
-pipe clients are rejected. A host adapter must authenticate the pipe server before
-trusting its output identity. The native endpoint is not yet wired to the app.
+pipe clients are rejected. The development host adapter authenticates the UMDF server process/account
+before trusting its output identity. The native endpoint is not yet wired to the
+app Share/Extend flow. WDF handle/context lifetime during device removal/restart
+and monitor destruction still requires an explicit audit before enabling it.
 
 The reference's event-log registry dependency/startup retry is removed. Native
 creation uses a ten-second response deadline; a late successful task result drops

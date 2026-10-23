@@ -7,6 +7,5 @@ fn main() {
         )
         .compile()
         .expect("compile driver version resource");
-    println!("cargo:rustc-link-lib=static=ucrt");
     println!("cargo:rerun-if-changed=build.rs");
 }

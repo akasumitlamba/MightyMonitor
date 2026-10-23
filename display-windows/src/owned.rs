@@ -95,6 +95,15 @@ impl<B: Backend> Drop for OwnedOutput<B> {
     }
 }
 
+#[cfg(target_os = "windows")]
+impl OwnedOutput<crate::DriverBackend> {
+    /// Returns only the exact validated screen created by this owner's driver.
+    pub fn display(&mut self) -> io::Result<crate::Display> {
+        self.validate()?;
+        self.backend.display()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

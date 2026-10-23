@@ -230,18 +230,18 @@ async fn serve(mut pipe: NamedPipeServer) {
                 }
             }
             Request::Check { lease: id } if lease.as_ref().is_some_and(|l| l.lease == id) => {
-                Response::Ok
+                Response::Ok {}
             }
             Request::Remove { lease: id } if lease.as_ref().is_some_and(|l| l.lease == id) => {
                 if lease.as_mut().is_some_and(|l| l.stop().is_ok()) {
                     lease = None;
-                    Response::Ok
+                    Response::Ok {}
                 } else {
-                    Response::Rejected
+                    Response::Rejected {}
                 }
             }
-            Request::Ping {} => Response::Ok,
-            _ => Response::Rejected,
+            Request::Ping {} => Response::Ok {},
+            _ => Response::Rejected {},
         };
         let Ok(frame) = mm_display_driver_protocol::encode(&response) else {
             break;

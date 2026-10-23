@@ -1,11 +1,15 @@
 //! Windows display snapshots and explicitly requested pointer movement.
-//! No display configuration or driver installation.
+//! Explicit owned driver outputs are optional; driver installation stays external.
 //! Native pointers stay inside the adapter; callers receive owned snapshot data.
 #![deny(unsafe_op_in_unsafe_fn)]
 use std::io;
+#[cfg(target_os = "windows")]
+mod driver;
 #[cfg(any(target_os = "windows", test))]
 mod identity;
 pub mod owned;
+#[cfg(target_os = "windows")]
+pub use driver::DriverBackend;
 #[cfg(target_os = "windows")]
 pub use identity::resolve_output;
 #[cfg(any(target_os = "windows", test))]

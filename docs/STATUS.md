@@ -591,3 +591,24 @@ CI passed with the official-archive helper; PipeWire tests exposed an implicit
 runtime plugin dependency removed by --no-install-recommends. Its job now explicitly
 installs the GStreamer runtime/test plugins instead of relying on recommendations.
 Native driver and complete CI results are still required.
+
+
+2026-10-23 host driver adapter: `display-windows::DriverBackend` now implements
+owned create/check/remove against the dedicated pipe with a bounded worker queue,
+private runtime thread, whole-exchange deadlines and idle heartbeats. It rejects a
+server unless its token is LocalService/System and its image is the system
+WUDFHost.exe; pipe identification QoS prevents impersonating the viewing user.
+It accepts only the exact driver-returned OS output, waits boundedly for topology
+publication, verifies dimensions/snapshot and rolls creation back on failure.
+Normal app Share/Extend is NOT wired to this adapter yet. Native pipe tests cover
+fake user-process servers, oversized replies and stalled replies without creating
+a display or injecting input. Nine portable adapter tests, protocol tests and
+warning-denied Windows-target adapter Clippy pass locally; native tests need CI.
+The second driver build compiled all Rust code but linked both dynamic ucrt and
+static libucrt from a redundant reference build instruction. That instruction is
+removed; the Rust MSVC CRT-static setting now controls runtime linkage. No linker
+multiple-definition override is used. Existing app CI at a145dc7 passed every job.
+Before enabling the native backend, audit reference WDF context/handle lifetime
+across device removal/restart, monitor destruction and asynchronous endpoint
+calls, in addition to actual OS create/capture/cleanup and production signing.
+An unsigned DLL build alone is insufficient evidence to enable it.

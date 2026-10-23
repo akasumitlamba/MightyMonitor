@@ -45,8 +45,8 @@ pub enum Response {
         adapter_luid: i64,
         target_id: u32,
     },
-    Ok,
-    Rejected,
+    Ok {},
+    Rejected {},
 }
 /// A two-byte little-endian size precedes each strictly bounded JSON payload.
 /// Parsers reject unknown fields/commands and trailing payloads; no old Notify,
@@ -77,6 +77,16 @@ pub fn decode_request(payload: &[u8]) -> io::Result<Request> {
     }
     Ok(request)
 }
+pub fn decode_response(payload: &[u8]) -> io::Result<Response> {
+    if payload.is_empty() || payload.len() > MAX_FRAME {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "Invalid driver frame size",
+        ));
+    }
+    serde_json::from_slice(payload).map_err(io::Error::other)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,6 +102,7 @@ mod tests {
             assert!(decode_request(data.as_bytes()).is_err(), "accepted: {data}");
         }
         assert!(decode_request(&[b' '; MAX_FRAME + 1]).is_err());
+        assert!(decode_response(br#"{"result":"ok","foreign":1}"#).is_err());
     }
     #[test]
     fn round_trips_owned_commands_and_full_os_identity() {
