@@ -1,29 +1,67 @@
-# Revised design: a connected desk
+# Design: devices in the same orbit
 
-Anthropic's frontend-design skill is installed at ~/.codex/skills/frontend-design and was read before this redesign. The previous cosmetic revision was too close to the original split hero. This pass replaces the composition, visual hierarchy, use-case presentation, progress layout, and downloads.
+Reviewed 23 October 2026. Uses the installed frontend-design skill. The site is
+plain HTML/CSS/JS; it needs no package installation, framework, hosted preview or
+build step. Original CSS and inline SVG create the illustrations.
 
-## Plan
+## Direction and tokens
 
-Palette: deep blue #102748 (hero), porcelain #f3f5fa (reading surface), periwinkle #a7baff (actions), mint #a1e7d4 (connected state), ink #182337 (body), slate #56657c (secondary text).
-Typography: locally bundled Sora for display and IBM Plex Sans for body; no remote font service needed when viewing the files.
-Layout: an expansive dark-blue opening with a large left-aligned headline, a concise right-hand purpose statement, and a full-width interactive three-device desk beneath. A pale reading surface follows. A vertical development rail replaces the old four-card roadmap; compact platform download rows replace the old download-card grid.
+The product is about relationships between physical screens. Give those screens
+real visual weight: perspective, layered bezels, cast shadows and soft reflected
+light. Animate the connections and screen content so the visitor understands
+what moves between devices. Keep the surrounding reading experience quiet.
 
-[ logo                      progress / downloads / source ]
-[ One desk. Every device.                purpose + action ]
-[       Linux monitor <-> Windows laptop <-> Android      ]
-[         Mirror       Control       Extend              ]
-[ purpose / use-case detail      vertical progress rail  ]
-[ Downloads: Windows          availability / installers  ]
-[            Linux            availability / installers  ]
-[            Android          availability / installers  ]
-[ practical questions                          footer   ]
+- Porcelain `#f8faf8`: reading surface.
+- White `#ffffff`: windows and download surfaces.
+- Forest `#256a4c`: primary action and selected mode.
+- Mint `#dff3e7`: connection and screen illustration.
+- Ink `#1b3028`: headings and body.
+- Sage `#5c6d65`: secondary text.
+- Sora: restrained, medium-weight display type; whole headlines share one style.
+- IBM Plex Sans: body and controls. Both families are bundled with licenses.
 
-## Critique before implementation
+```
+brand                              progress / downloads / GitHub
 
-Keep the device relationship as the one memorable element, grounded in the actual goal of running Linux, Windows, and Android together. Avoid decorative step numbers on modes, all-caps section eyebrows, repetitive feature cards, and colored half-headlines. The timeline is a real implementation sequence, so its structure carries meaning.
+Your screens.                 dimensional Linux + Windows + phone
+Better together.               animated local connection paths
+purpose + download                 Mirror / Control / Extend
 
-The illustration is explicitly a concept; do not imply Android/control/extension features work. Downloads remain real release-asset links, not placeholders. All reading content and links work without JavaScript; JS adds the mode demo and live release discovery. No build process, application server, account, or hosted platform dependency. Respect file:// paths, GitHub Pages repository subpaths, reduced motion, keyboard focus, and narrow screens.
+three illustrated possibilities: mirror / control / extra desktop
+current platform status               honest development timeline
+Windows EXE                  Linux DEB                 Android APK
+practical questions                                      footer
+```
 
-## Hosting decision
+Desktop: left-aligned copy and one substantial scene. Tablet: centered opening,
+then illustrated horizontal feature rows. Phone: stacked composition and compact
+installer cards. Main navigation and reading content stay available without JS.
 
-Local files and GitHub Pages only, as requested. No Sites manifest, source synchronization, or deployments. A previous private hosted preview is unrelated to this deliverable and is not updated.
+## Critique and revision
+
+The previous layout placed small, mostly static devices below the heading and
+used thin separators everywhere. It gave neither the product nor the graphics a
+clear focal point. This pass moves the device composition beside the copy and
+replaces icon-only feature rows with short visual demonstrations. Perspective,
+material edges and shadows carry the depth; no stock 3D render or WebGL download
+is necessary. The neutral/green direction respects the requested app identity.
+
+Motion has a purpose: moving signals suggest local transport; the Control cursor
+shows interaction; a window crosses displays in the Extend illustration. Slow
+floating establishes depth. Mode switching is user-driven; it never auto-rotates.
+A global pause control stops looping animation. System reduced-motion preferences
+remove animation and smooth scrolling; a hidden page also pauses animation.
+Without JavaScript the artwork starts paused and the inactive pause control is
+hidden. There is no drawing loop, telemetry, permissions request or CDN dependency.
+
+## Product truth and maintenance
+
+The scene is a concept, not a live app screenshot. Keep alpha labels and platform
+limitations visible. Do not imply Windows Extend is ready because a driver builds.
+Installer links still resolve only actual assets in the latest stable upstream
+release. EXE/DEB/APK descriptions match the current packaging configuration.
+
+Update the editorial snapshot as implementation progresses. Keep these files
+relative-path compatible with both file:// and GitHub Pages repository subpaths.
+Use inline SVG rather than font glyph icons. Version asset query strings when
+changing cache-sensitive styles/scripts. Do not add Sites hosting or remote fonts.

@@ -188,3 +188,17 @@ status copy. Link this guide from README and keep AGENTS.md pointing here. Keep
 personal conversation history, local machine identifiers, secrets and transient
 execution-session details out of the repository. This guide should explain the
 project sufficiently for a contributor with no access to previous chats.
+
+
+2026-10-23 website redesign: the static site now uses a split opening with
+original CSS perspective devices, moving local-connection paths, animated screen
+widgets and user-selected Mirror/Control/Extend previews. Three original animated
+feature illustrations replace the icon-only feature treatment. Neutral/green
+styling, locally bundled fonts, inline SVG, keyboard focus and real GitHub release
+installer filtering remain. Download cards now describe the actual EXE/DEB/APK
+formats. A global pause control and system reduced-motion rule cover looping
+artwork; the page pauses while hidden and starts paused without JavaScript.
+Responsive browser checks covered 320/390/768-pixel widths and desktop; installer
+filter/offline/rate-limit tests pass. This website milestone is isolated on current
+upstream main so it can merge independently of ongoing app/driver work. See
+website/DESIGN.md for design decisions and website/README.md for maintenance.

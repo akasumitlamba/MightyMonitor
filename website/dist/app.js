@@ -2,9 +2,9 @@
 const PROJECT = 'reduckyLang/MightyMonitor';
 const RELEASES_URL = `https://github.com/${PROJECT}/releases`;
 const descriptions = {
-  mirror: ['Same screen.\nNew perspective.', 'View Windows, Linux or Android screens. Physical-device Wi-Fi testing remains.'],
-  control: ['Your touch.\nTheir workspace.', 'Optional control is implemented. Android touch, typing and revocation passed on Android 10/11/14/16 emulators.'],
-  extend: ['A little\nmore room.', 'Create extra desktop space on supported Linux Wayland desktops. Live KDE creation, video and cleanup passed; Windows extension remains unfinished.']
+  mirror: ['Same screen.\nNew perspective.', 'Mirror a screen across your devices. Alpha software.'],
+  control: ['Your touch.\nTheir workspace.', 'Click, type and touch from another device. Control requires permission.'],
+  extend: ['A little\nmore room.', 'Real extra desktop space. Linux Wayland alpha; Windows integration in progress.']
 };
 for (const button of document.querySelectorAll('.mode-switch button')) {
   button.addEventListener('click', () => {
@@ -42,7 +42,7 @@ async function loadRelease() {
   const status = document.getElementById('release-status');
   const refresh = document.getElementById('refresh-releases');
   refresh.disabled = true;
-  document.getElementById('download-availability').textContent = 'Alpha builds exist. Published installer availability is listed below.';
+  document.getElementById('download-availability').textContent = 'Alpha builds. Stable installers appear below when published.';
   resetDownloads('Checking availability…');
   status.textContent = 'Checking for published installers…';
   const controller = new AbortController();

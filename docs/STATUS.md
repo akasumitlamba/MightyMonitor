@@ -206,3 +206,17 @@ decoded three real H.264 frames, managed-host Stop exited with status zero, and
 the virtual monitor disappeared with the original active display set restored.
 This test used loopback and view-only sharing. Layout/window movement, virtual
 monitor input, other compositors and physical cross-device Wi-Fi remain unverified.
+
+
+2026-10-23 website redesign: the static site now uses a split opening with
+original CSS perspective devices, moving local-connection paths, animated screen
+widgets and user-selected Mirror/Control/Extend previews. Three original animated
+feature illustrations replace the icon-only feature treatment. Neutral/green
+styling, locally bundled fonts, inline SVG, keyboard focus and real GitHub release
+installer filtering remain. Download cards now describe the actual EXE/DEB/APK
+formats. A global pause control and system reduced-motion rule cover looping
+artwork; the page pauses while hidden and starts paused without JavaScript.
+Responsive browser checks covered 320/390/768-pixel widths and desktop; installer
+filter/offline/rate-limit tests pass. This website milestone is isolated on current
+upstream main so it can merge independently of ongoing app/driver work. See
+website/DESIGN.md for design decisions and website/README.md for maintenance.
