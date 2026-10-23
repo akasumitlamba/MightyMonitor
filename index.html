@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="0; url=website/dist/" />
+    <title>Opening MightyMonitor</title>
+    <script>
+      // Support Pages “Deploy from a branch → / (root)” without duplicating the site.
+      // A fixed relative destination also works under a repository-name subpath.
+      const website = new URL("./website/dist/", location.href);
+      website.search = location.search;
+      website.hash = location.hash;
+      location.replace(website.href);
+    </script>
+  </head>
+  <body>
+    <p><a href="website/dist/">Open the MightyMonitor website</a></p>
+  </body>
+</html>
