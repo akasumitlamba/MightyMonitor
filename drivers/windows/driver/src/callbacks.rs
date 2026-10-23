@@ -54,7 +54,10 @@ pub extern "C-unwind" fn device_d0_entry(
     let mut initialized = Err(NTSTATUS::STATUS_UNSUCCESSFUL);
     if let Err(error) = unsafe {
         DeviceContext::get_mut(device.cast(), |context| {
-            initialized = context.init_adapter().map_err(Into::into);
+            initialized = context.init_adapter().map_err(|error| {
+                error!("Adapter initialization failed: {error}");
+                NTSTATUS::STATUS_UNSUCCESSFUL
+            });
         })
     } {
         return error.into();
