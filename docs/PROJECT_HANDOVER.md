@@ -600,3 +600,9 @@ https://github.com/reduckyLang/MightyMonitor/pull/48 (codex/screen-playground).
 It starts from 89404f0 and contains no application/driver branch dependency.
 The development checkout retains a duplicate website/brand checkpoint; account
 for squash merges when syncing app changes. Do not open stacked website PRs.
+
+A thread heartbeat (mightymonitor-pr-48-merge-readiness) now checks #48 every
+five minutes, quietly while checks run, and reports readiness/failure once before
+pausing itself. Do not create a duplicate monitor or merge upstream automatically.
+The PR branch is also checked out at /tmp/mightymonitor-screen-playground while
+validation is pending; preserve its separation from this app-development branch.
