@@ -539,3 +539,16 @@ passed in 39968447344. Both desktop installers passed. Android API 30/34/36 pass
 API 29 timed out on Azure package installation before tests, with no app assertion
 failure. Android now reuses the verified official-HTTPS archive helper so the
 same infrastructure issue is addressed there too. Physical tests remain deferred.
+
+
+2026-10-23 follow-up audit: native build 39972839303 exposed a missing Tokio
+macro feature and unsupported ContextError-to-NTSTATUS conversion. Both are
+fixed in 02e58b1; native rebuild 39973559898 passed compilation, exports, INF
+validation and unsigned catalog generation. Initialization failures
+now log the actual error and return STATUS_UNSUCCESSFUL. A further publication/
+cleanup race is fixed: after a context Arc is published, only EvtDestroy may
+release the slot's reference, even if initialization then observes closing.
+Otherwise a concurrent cleanup borrow could increment an already freed Arc.
+Seven portable protocol/lifecycle tests and Clippy pass, including 256 concurrent
+initialization/cleanup interleavings. This is concurrency coverage, not proof of
+native WDF acceptance. No driver installation or signing bypass was performed.

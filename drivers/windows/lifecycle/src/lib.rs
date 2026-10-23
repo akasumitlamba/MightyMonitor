@@ -55,11 +55,10 @@ impl<T> ContextSlot<T> {
             return Err(Error::AlreadyInitialized);
         }
         if self.is_closing() {
-            self.value.store(ptr::null_mut(), Ordering::Release);
-            // SAFETY: caller prevents destruction; install is the sole writer.
-            unsafe {
-                drop(Arc::from_raw(raw));
-            }
+            // Once published, the slot's Arc belongs to EvtDestroy. Cleanup may
+            // already be borrowing it, even though ordinary borrows now fail.
+            // Removing/freeing it here would race that borrow's strong-count
+            // increment. Report closing but retain ownership until destruction.
             return Err(Error::Closing);
         }
         Ok(())
@@ -165,6 +164,37 @@ mod tests {
             Err(Error::Closing)
         );
         assert_eq!(count.load(Ordering::SeqCst), 3);
+    }
+    #[test]
+    fn initialization_racing_cleanup_keeps_published_storage_pinned() {
+        for _ in 0..256 {
+            let count = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+            let slot = ContextSlot::<Count>::default();
+            let barrier = std::sync::Barrier::new(2);
+            std::thread::scope(|scope| {
+                let initializer = scope.spawn(|| {
+                    barrier.wait();
+                    // SAFETY: scoped threads retain the simulated native object;
+                    // destruction waits for both native operations to finish.
+                    unsafe { slot.install(Arc::new(RwLock::new(Count(count.clone())))) }
+                });
+                barrier.wait();
+                slot.mark_closing();
+                let borrowed = unsafe { slot.borrow_during_cleanup() }.ok();
+                let result = initializer.join().unwrap();
+                assert!(matches!(result, Ok(()) | Err(Error::Closing)));
+                // A cleanup borrow may precede publication. After the initializer
+                // returns, any published value must remain safely borrowable.
+                let published = unsafe { slot.borrow_during_cleanup() }.ok();
+                if published.is_some() {
+                    assert_eq!(count.load(Ordering::SeqCst), 0);
+                }
+                unsafe { slot.destroy() };
+                drop(borrowed);
+                drop(published);
+            });
+            assert_eq!(count.load(Ordering::SeqCst), 1);
+        }
     }
     #[test]
     fn parent_and_child_slots_keep_shared_context_until_last_owner() {
