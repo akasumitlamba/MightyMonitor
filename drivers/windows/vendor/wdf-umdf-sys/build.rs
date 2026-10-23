@@ -236,6 +236,7 @@ fn generate() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .blocklist_type("_?P?IMAGE_TLS_DIRECTORY.*")
         // we will use our own custom type
+        .blocklist_function("^(memcmp|memcpy|memset|strlen|memmove)$")
         .blocklist_item("NTSTATUS")
         .blocklist_item("IddMinimumVersionRequired")
         .blocklist_item("WdfMinimumVersionRequired")

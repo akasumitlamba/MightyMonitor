@@ -579,3 +579,15 @@ SDK/WDK build packages in the ephemeral runner. It creates no trusted certificat
 The native CI installer now uses Ubuntu's official HTTPS archive to avoid the
 observed slow Azure HTTP package bodies (39961458944 failed before code checks);
 existing signing checks and OS consent remain intact. Both changes need CI results.
+
+
+Native build follow-up: the pinned Microsoft SDK/WDK archives and NuGet signatures
+validated on the Windows runner. The first driver build reached generated bindings
+but modern Rust rejected C runtime memory/string declarations emitted with the
+reference binding generator's blanket C-unwind ABI. These unused CRT functions
+are now excluded from WDF bindings; the normal Rust runtime supplies them. No
+runtime-symbol diagnostic is suppressed. Protocol CI passed. Ubuntu minimum-version
+CI passed with the official-archive helper; PipeWire tests exposed an implicit
+runtime plugin dependency removed by --no-install-recommends. Its job now explicitly
+installs the GStreamer runtime/test plugins instead of relying on recommendations.
+Native driver and complete CI results are still required.
