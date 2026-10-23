@@ -572,3 +572,31 @@ Its independent branch is codex/website-motion-redesign, based on upstream
 main a51cdcd. The application branch retains a local copy of the same website
 checkpoint. After squash-merging #47, account for that duplicate website patch
 when synchronizing app changes; do not stack another website PR on #47.
+
+
+2026-10-23 screen-playground identity and Pages root fix: the user rejected the
+first linked-frame logo; the refined folded-screen M now has an editable SVG
+master under assets/brand and synchronized PNG/Windows ICO exports for the
+website, desktop/Linux packaging and Android. The website now renders original
+3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
+content with a locally vendored MIT Three.js build (integrity/license recorded).
+A manual rearrangement control and pointer perspective replace continuous device
+bobbing. Rendering is limited to 30fps and stops offscreen, in hidden tabs and
+when paused/reduced motion is active; manual changes still render while paused.
+The CSS illustration remains the fallback. Alternating feature stories give the
+graphics more space. Product alpha limitations and real release filtering stay.
+
+Root index.html and .nojekyll support Pages configured as main / (root), instead
+of showing README. The fixed relative redirect preserves repository subpaths,
+query strings and anchors. The Actions deployment still uploads website/dist.
+A real local browser check of /MightyMonitor/?preview=root#download reached
+/MightyMonitor/website/dist/?preview=root#download with all assets. Automated
+root-route and installer filtering tests pass; new website checks run on PRs.
+Do not claim this is deployed until the PR is merged and Pages finishes.
+
+Website PR #47 was squash-merged as upstream 89404f0. The screen playground,
+refined icon and Pages root entry are in independent PR #48:
+https://github.com/reduckyLang/MightyMonitor/pull/48 (codex/screen-playground).
+It starts from 89404f0 and contains no application/driver branch dependency.
+The development checkout retains a duplicate website/brand checkpoint; account
+for squash merges when syncing app changes. Do not open stacked website PRs.

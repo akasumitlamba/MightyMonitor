@@ -102,3 +102,8 @@ and PROVENANCE.json. This attributed component is separate from the original
 screen-sharing engine; it is unsigned, not app-integrated or production-approved.
 Microsoft SDK/WDK are build dependencies under Microsoft's own licenses and are
 not included in source or redistributed by the normal app installers.
+
+Website 3D illustration uses Three.js 0.160.1 (MIT), vendored as a local classic
+script for file:// compatibility. See website/dist/vendor/THREE-LICENSE.txt and
+PROVENANCE.json for the upstream package, integrity hash and license. Device
+geometry, landscape artwork, motion choreography and interaction code are original.
