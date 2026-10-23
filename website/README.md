@@ -74,3 +74,7 @@ Additional root Pages regression checks:
 ```sh
 node website/tests/pages-root.cjs
 ```
+
+Revision: removed the rejected floating-window animation. The hero stays still;
+Mirror, Control and Extend buttons select the corresponding generated scene.
+The separate window image is retained only among local generation originals.

@@ -251,3 +251,9 @@ Removed the Three.js runtime; root Pages entry and refined app icon are preserve
 Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
 root Pages regression checks pass. Artwork is illustrative; app acceptance status
 is unchanged. Physical-device tests remain deferred by the user.
+
+## Website refinement — 23 October 2026
+
+Removed the rejected window-transfer animation and its playback controls.
+Mode buttons now switch between generated concept scenes. No continuous hero
+animation or render loop remains. Generated originals stay in local output.

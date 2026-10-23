@@ -27,3 +27,7 @@ geometry. All objects fully framed.
 
 The website animates the separate window asset between screens. The studio
 backgrounds remain still; playback can be paused and respects reduced motion.
+
+Revision: removed the rejected floating-window animation. The hero stays still;
+Mirror, Control and Extend buttons select the corresponding generated scene.
+The separate window image is retained only among local generation originals.
