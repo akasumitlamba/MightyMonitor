@@ -19,22 +19,27 @@ use wdf_umdf_sys::{
 use crate::{
     context::{DeviceContext, MonitorContext},
     edid::Edid,
-    ipc::{AdapterObject, FlattenModes, ADAPTER, MONITOR_MODES},
+    ipc::{FlattenModes, MONITOR_MODES},
 };
 
 pub extern "C-unwind" fn adapter_init_finished(
     adapter_object: *mut IDDCX_ADAPTER__,
-    _p_in_args: *const IDARG_IN_ADAPTER_INIT_FINISHED,
+    p_in_args: *const IDARG_IN_ADAPTER_INIT_FINISHED,
 ) -> NTSTATUS {
     let Some(adapter_ptr) = NonNull::new(adapter_object) else {
         error!("Adapter ptr was null");
         return NTSTATUS::STATUS_INVALID_ADDRESS;
     };
 
-    // store adapter object for listener to use
-    if ADAPTER.set(AdapterObject(adapter_ptr)).is_err() {
-        error!("Failed to set adapter");
-        return NTSTATUS::STATUS_ADAPTER_HARDWARE_ERROR;
+    if p_in_args.is_null() {
+        return NTSTATUS::STATUS_INVALID_PARAMETER;
+    }
+    let status = unsafe { (*p_in_args).AdapterInitStatus };
+    if !status.is_success() {
+        return status;
+    }
+    if let Err(error) = crate::ipc::publish_adapter(adapter_ptr) {
+        return error.into();
     }
 
     DeviceContext::finish_init();
@@ -46,19 +51,25 @@ pub extern "C-unwind" fn device_d0_entry(
     device: WDFDEVICE,
     _previous_state: WDF_POWER_DEVICE_STATE,
 ) -> NTSTATUS {
-    let status: NTSTATUS = unsafe {
+    let mut initialized = Err(NTSTATUS::STATUS_UNSUCCESSFUL);
+    if let Err(error) = unsafe {
         DeviceContext::get_mut(device.cast(), |context| {
-            if let Err(e) = context.init_adapter() {
-                error!("Failed to init adapter: {e:?}");
-            }
+            initialized = context.init_adapter().map_err(Into::into);
         })
-        .into()
-    };
-
-    if !status.is_success() {
+    } {
+        return error.into();
+    }
+    if let Err(status) = initialized {
         return status;
     }
-
+    crate::ipc::power_up(device);
+    NTSTATUS::STATUS_SUCCESS
+}
+pub extern "C-unwind" fn device_d0_exit(
+    device: WDFDEVICE,
+    _target: WDF_POWER_DEVICE_STATE,
+) -> NTSTATUS {
+    crate::ipc::power_down(device);
     NTSTATUS::STATUS_SUCCESS
 }
 

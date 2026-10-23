@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["driver", "protocol", "vendor/wdf-umdf", "vendor/wdf-umdf-sys"]
+members = ["driver", "protocol", "lifecycle", "vendor/wdf-umdf", "vendor/wdf-umdf-sys"]
 [profile.release]
 panic = "abort"
 strip = true

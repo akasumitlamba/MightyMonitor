@@ -149,284 +149,77 @@ macro_rules! WdfCall {
 macro_rules! WDF_DECLARE_CONTEXT_TYPE {
     ($sv:vis $context_type:ident) => {
         $crate::paste! {
-            // keep it in a mod block to disallow access to private types
             #[allow(non_snake_case)]
             mod [<WdfObject $context_type>] {
                 use super::$context_type;
-
-                // Require `T: Sync` for safety. User has to uphold the invariant themselves
                 #[repr(transparent)]
-                #[allow(non_camel_case_types)]
-                struct [<_WDF_ $context_type _STATIC_WRAPPER>]<T> {
+                struct TypeInfo<T> {
                     cell: ::std::cell::UnsafeCell<$crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO>,
-                    _phantom: ::std::marker::PhantomData<T>
+                    marker: ::std::marker::PhantomData<T>,
                 }
-
-                // SAFETY: `T` impls Sync too
-                unsafe impl<T: Sync> Sync for [<_WDF_ $context_type _STATIC_WRAPPER>]<T> {}
-
-                // Unsure if C mutates this data, but it's in an unsafecell just in case
-                #[allow(non_upper_case_globals)]
-                static [<_WDF_ $context_type _TYPE_INFO>]: [<_WDF_ $context_type _STATIC_WRAPPER>]<$context_type> =
-                    [<_WDF_ $context_type _STATIC_WRAPPER>] {
-                        cell: ::std::cell::UnsafeCell::new(
-                            $crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO {
-                                Size: ::std::mem::size_of::<$crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO>() as u32,
-                                ContextName: concat!(stringify!($context_type), "\0")
-                                    .as_ptr().cast::<::std::ffi::c_char>(),
-                                ContextSize: ::std::mem::size_of::<[<WdfObject $context_type>]>(),
-                                // SAFETY:
-                                // StaticWrapper and UnsafeCell are both repr(transparent), so cast to underlying _WDF_OBJECT_CONTEXT_TYPE_INFO is ok
-                                UniqueType: &[<_WDF_ $context_type _TYPE_INFO>] as *const _ as *const _,
-                                EvtDriverGetUniqueContextType: ::std::option::Option::None,
-                            }
-                        ),
-
-                        _phantom: ::std::marker::PhantomData
-                    };
-
-                /// Allows us to keep ONE main Arc allocation while handing out weak pointers to the rest of the clones.
-                /// In this way, we can drop the allocation by dropping 1 arc, while letting others still access it
-                enum ArcPointer<T> {
-                    Strong(::std::sync::Arc<T>),
-                    Weak(::std::sync::Weak<T>)
-                }
-
-                #[repr(transparent)]
-                struct [<WdfObject $context_type>](ArcPointer<::std::sync::RwLock<$context_type>>);
-
+                // SAFETY: immutable type metadata, independent of context instances.
+                unsafe impl<T: Sync> Sync for TypeInfo<T> {}
+                static TYPE_INFO: TypeInfo<$context_type> = TypeInfo {
+                    cell: ::std::cell::UnsafeCell::new($crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO {
+                        Size: ::std::mem::size_of::<$crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO>() as u32,
+                        ContextName: concat!(stringify!($context_type), "\0").as_ptr().cast(),
+                        ContextSize: ::std::mem::size_of::<$crate::ContextSlot<$context_type>>(),
+                        UniqueType: &TYPE_INFO as *const _ as *const _,
+                        EvtDriverGetUniqueContextType: None,
+                    }),
+                    marker: ::std::marker::PhantomData,
+                };
                 impl $context_type {
-                    /// Initialize and place context into internal WdfObject
-                    ///
-                    /// SAFETY:
-                    /// - handle must be a fresh unused object with no data in its context already
-                    /// - context type must already have been set up for handle
-                    /// - Must be set only once regardless of the object. For all other objects, use clone_into()
-                    $sv unsafe fn init(
-                        self,
-                        handle: $crate::wdf_umdf_sys::WDFOBJECT,
-                    ) -> ::std::result::Result<(), $crate::WdfError> {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle, [<_WDF_ $context_type _TYPE_INFO>].cell.get())?
-                        } as *mut ::std::mem::MaybeUninit<[<WdfObject $context_type>]>;
-
-                        let context = &mut *context;
-
-                        // Write to the memory location, making the data in it init
-                        context.write(
-                            [<WdfObject $context_type>](
-                                ArcPointer::Strong(::std::sync::Arc::new(::std::sync::RwLock::new(self)))
-                            )
-                        );
-
-                        Ok(())
+                    /// Caller pins this live WDF object through the returned borrow.
+                    unsafe fn slot<'a>(handle: $crate::wdf_umdf_sys::WDFOBJECT) -> Result<&'a $crate::ContextSlot<Self>, $crate::WdfError> {
+                        let ptr=unsafe{$crate::WdfObjectGetTypedContextWorker(handle,TYPE_INFO.cell.get())?}.cast::<$crate::ContextSlot<Self>>();
+                        let ptr=::std::ptr::NonNull::new(ptr).ok_or($crate::WdfError::Unknown)?;
+                        // SAFETY: WDF allocated zeroed, aligned context of ContextSize.
+                        Ok(unsafe{ptr.as_ref()})
                     }
-
-                    /// Initialize handle's context and clone a Weak pointer to self context into it.
-                    /// Internally, these are Arc's, so they will always point to the same data.
-                    /// When the main Arc drops, none of these may access memory any longer
-                    ///
-                    /// SAFETY:
-                    /// - handle must be a fresh unused object with no data in its context already
-                    /// - to_handle must have set context_type for this type via WDF_OBJECT_ATTRIBUTES when it was created
-                    /// - to_handle must be a valid T
-                    $sv unsafe fn clone_into(
-                        &self,
-                        handle: $crate::wdf_umdf_sys::WDFOBJECT
-                    ) -> ::std::result::Result<(), $crate::WdfError> {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle, [<_WDF_ $context_type _TYPE_INFO>].cell.get())?
-                        } as *mut ::std::mem::MaybeUninit<[<WdfObject $context_type>]>;
-
-                        let context = &mut *context;
-
-                        let from_context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(self.device as *mut _, [<_WDF_ $context_type _TYPE_INFO>].cell.get())?
-                        } as *mut [<WdfObject $context_type>];
-
-                        let from_context = match &(*from_context).0 {
-                            ArcPointer::Strong(a) => a.clone(),
-                            ArcPointer::Weak(a) => a.upgrade().ok_or($crate::WdfError::UpgradeFailed)?.clone(),
-                        };
-
-                        // Write to the memory location, making the data in it init
-                        // clones the arc into new handle
-                        context.write(
-                            [<WdfObject $context_type>](ArcPointer::Weak(::std::sync::Arc::downgrade(&from_context)))
-                        );
-
-                        Ok(())
+                    unsafe fn arc(handle:$crate::wdf_umdf_sys::WDFOBJECT)->Result<::std::sync::Arc<::std::sync::RwLock<Self>>,$crate::WdfError> {
+                        unsafe{Self::slot(handle)?.borrow()}.map_err(|_|$crate::WdfError::UpgradeFailed)
                     }
-
-                    /// NOTE: Dropping memory that was created via `clone_into` will never drop the main allocation.
-                    ///       To drop the main allocation, you need to drop the instance made via `init`.
-                    ///       That instance can be obtained through the original handle you created it through
-                    ///
-                    /// SAFETY:
-                    /// - Data in context is assumed to already be init and a valid T
-                    /// - Therefore, init for the context must already have been done on this handle
-                    /// - No other mutable/non-mutable refs can exist to data when this is called, or it will alias
-                    ///
-                    /// This may overwrite data in the handle's context memory, it is UB to read it after drop (e.g. get*)
-                    $sv unsafe fn drop(
-                        handle: $crate::wdf_umdf_sys::WDFOBJECT,
-                    ) -> ::std::result::Result<(), $crate::WdfError> {
-                        let context = $crate::WdfObjectGetTypedContextWorker(
-                            handle,
-                            [<_WDF_ $context_type _TYPE_INFO>].cell.get(),
-                        )? as *mut [<WdfObject $context_type>];
-
-                        // drop the memory
-                        ::std::ptr::drop_in_place(context);
-
-                        Ok(())
+                    /// Pin the newly created WDF object before initializing it.
+                    $sv unsafe fn init(self,handle:$crate::wdf_umdf_sys::WDFOBJECT)->Result<(),$crate::WdfError> {
+                        unsafe{Self::slot(handle)?.install(::std::sync::Arc::new(::std::sync::RwLock::new(self)))}.map_err(|_|$crate::WdfError::Unknown)
                     }
-
-                    /// Borrow the context immutably
-                    /// Function returns with error and won't call cb if it failed to lock
-                    ///
-                    /// SAFETY:
-                    /// - Must have initialized WdfObject first
-                    /// - Data must not have been dropped
-                    /// - Object must not have been destroyed
-                    $sv unsafe fn get<F>(
-                        handle: *mut $crate::wdf_umdf_sys::WDFDEVICE__,
-                        cb: F
-                    ) -> ::std::result::Result<(), $crate::WdfError>
-                    where
-                        F: ::std::ops::FnOnce(&$context_type)
-                    {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle as *mut _,
-                                // SAFETY: Reading is always fine, since user cannot obtain mutable reference
-                                (&*[<_WDF_ $context_type _TYPE_INFO>].cell.get()).UniqueType
-                            )?
-                        } as *mut [<WdfObject $context_type>];
-
-                        let context = &*context;
-
-                        let context = match &context.0 {
-                            ArcPointer::Strong(a) => a.clone(),
-                            ArcPointer::Weak(a) => a.upgrade().ok_or($crate::WdfError::UpgradeFailed)?.clone(),
-                        };
-
-                        let guard = context.read().map_err(|_| $crate::WdfError::LockFailed)?;
-
-                        cb(&*guard);
-
-                        Ok(())
+                    /// Both source and fresh destination objects must be pinned.
+                    $sv unsafe fn clone_into(&self,handle:$crate::wdf_umdf_sys::WDFOBJECT)->Result<(),$crate::WdfError> {
+                        let value=unsafe{Self::arc(self.device.cast())?};
+                        unsafe{Self::slot(handle)?.install(value)}.map_err(|_|$crate::WdfError::Unknown)
                     }
-
-                    /// Borrow the context mutably
-                    /// Function returns with error and won't call cb if it failed to lock
-                    ///
-                    /// SAFETY:
-                    /// - Must have initialized WdfObject first
-                    /// - Data must not have been dropped
-                    /// - Object must not have been destroyed
-                    $sv unsafe fn get_mut<F>(
-                        handle: *mut $crate::wdf_umdf_sys::WDFDEVICE__,
-                        cb: F
-                    ) -> ::std::result::Result<(), $crate::WdfError>
-                    where
-                        F: ::std::ops::FnOnce(&mut $context_type)
-                    {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle as *mut _,
-                                // SAFETY: Reading is always fine, since user cannot obtain mutable reference
-                                (&*[<_WDF_ $context_type _TYPE_INFO>].cell.get()).UniqueType
-                            )?
-                        } as *mut [<WdfObject $context_type>];
-
-                        let context = &*context;
-
-                        let context = match &context.0 {
-                            ArcPointer::Strong(a) => a.clone(),
-                            ArcPointer::Weak(a) => a.upgrade().ok_or($crate::WdfError::UpgradeFailed)?.clone(),
-                        };
-
-                        let mut guard = context.write().map_err(|_| $crate::WdfError::LockFailed)?;
-
-                        cb(&mut *guard);
-
-                        Ok(())
+                    /// Cleanup closes access; it does not free context still in use.
+                    $sv unsafe fn mark_closing(handle:$crate::wdf_umdf_sys::WDFOBJECT)->Result<(),$crate::WdfError> {
+                        unsafe{Self::slot(handle)?}.mark_closing();Ok(())
                     }
-
-                                        /// Borrow the context immutably
-                    /// Function returns with error and won't call cb if it failed to lock
-                    ///
-                    /// SAFETY:
-                    /// - Must have initialized WdfObject first
-                    /// - Data must not have been dropped
-                    /// - Object must not have been destroyed
-                    $sv unsafe fn try_get<F>(
-                        handle: *mut $crate::wdf_umdf_sys::WDFDEVICE__,
-                        cb: F
-                    ) -> ::std::result::Result<(), $crate::WdfError>
-                    where
-                        F: ::std::ops::FnOnce(&$context_type)
-                    {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle as *mut _,
-                                // SAFETY: Reading is always fine, since user cannot obtain mutable reference
-                                (&*[<_WDF_ $context_type _TYPE_INFO>].cell.get()).UniqueType
-                            )?
-                        } as *mut [<WdfObject $context_type>];
-
-                        let context = &*context;
-
-                        let context = match &context.0 {
-                            ArcPointer::Strong(a) => a.clone(),
-                            ArcPointer::Weak(a) => a.upgrade().ok_or($crate::WdfError::UpgradeFailed)?.clone(),
-                        };
-
-                        let guard = context.try_read().map_err(|_| $crate::WdfError::LockFailed)?;
-
-                        cb(&*guard);
-
-                        Ok(())
+                    $sv unsafe fn is_closing(handle:$crate::wdf_umdf_sys::WDFOBJECT)->bool {
+                        unsafe{Self::slot(handle)}.map_or(true,|slot|slot.is_closing())
                     }
-
-                    /// Try to borrow the context mutably. Immediately returns if it's locked
-                    /// Function returns with error and won't call cb if it failed to lock
-                    ///
-                    /// SAFETY:
-                    /// - Must have initialized WdfObject first
-                    /// - Data must not have been dropped
-                    /// - Object must not have been destroyed
-                    $sv unsafe fn try_get_mut<F>(
-                        handle: *mut $crate::wdf_umdf_sys::WDFDEVICE__,
-                        cb: F
-                    ) -> ::std::result::Result<(), $crate::WdfError>
-                    where
-                        F: ::std::ops::FnOnce(&mut $context_type)
-                    {
-                        let context = unsafe {
-                            $crate::WdfObjectGetTypedContextWorker(handle as *mut _,
-                                // SAFETY: Reading is always fine, since user cannot obtain mutable reference
-                                (&*[<_WDF_ $context_type _TYPE_INFO>].cell.get()).UniqueType
-                            )?
-                        } as *mut [<WdfObject $context_type>];
-
-                        let context = &*context;
-
-                        let context = match &context.0 {
-                            ArcPointer::Strong(a) => a.clone(),
-                            ArcPointer::Weak(a) => a.upgrade().ok_or($crate::WdfError::UpgradeFailed)?.clone(),
-                        };
-
-                        let mut guard = context.try_write().map_err(|_| $crate::WdfError::LockFailed)?;
-
-                        cb(&mut *guard);
-
-                        Ok(())
+                    /// EvtCleanup only; reject new calls before releasing owned resources.
+                    $sv unsafe fn cleanup_mut<F:FnOnce(&mut Self)>(handle:$crate::wdf_umdf_sys::WDFOBJECT,cb:F)->Result<(),$crate::WdfError> {
+                        let slot=unsafe{Self::slot(handle)?};slot.mark_closing();
+                        let arc=unsafe{slot.borrow_during_cleanup()}.map_err(|_|$crate::WdfError::UpgradeFailed)?;
+                        let mut guard=arc.write().map_err(|_|$crate::WdfError::LockFailed)?;cb(&mut guard);Ok(())
                     }
-
-                    // SAFETY:
-                    // - No other mutable refs must exist to target type
-                    // - Underlying memory must remain immutable and unchanged until reference is dropped
-                    $sv unsafe fn get_type_info() -> &'static $crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO {
-                        unsafe { &*[<_WDF_ $context_type _TYPE_INFO>].cell.get() }
+                    /// EvtDestroy only. No native object references remain.
+                    $sv unsafe fn drop(handle:$crate::wdf_umdf_sys::WDFOBJECT)->Result<(),$crate::WdfError> {
+                        unsafe{Self::slot(handle)?.destroy()};Ok(())
+                    }
+                    $sv unsafe fn get<F:FnOnce(&Self)>(handle:*mut $crate::wdf_umdf_sys::WDFDEVICE__,cb:F)->Result<(),$crate::WdfError> {
+                        let arc=unsafe{Self::arc(handle.cast())?};let guard=arc.read().map_err(|_|$crate::WdfError::LockFailed)?;cb(&guard);Ok(())
+                    }
+                    $sv unsafe fn get_mut<F:FnOnce(&mut Self)>(handle:*mut $crate::wdf_umdf_sys::WDFDEVICE__,cb:F)->Result<(),$crate::WdfError> {
+                        let arc=unsafe{Self::arc(handle.cast())?};let mut guard=arc.write().map_err(|_|$crate::WdfError::LockFailed)?;cb(&mut guard);Ok(())
+                    }
+                    $sv unsafe fn try_get<F:FnOnce(&Self)>(handle:*mut $crate::wdf_umdf_sys::WDFDEVICE__,cb:F)->Result<(),$crate::WdfError> {
+                        let arc=unsafe{Self::arc(handle.cast())?};let guard=arc.try_read().map_err(|_|$crate::WdfError::LockFailed)?;cb(&guard);Ok(())
+                    }
+                    $sv unsafe fn try_get_mut<F:FnOnce(&mut Self)>(handle:*mut $crate::wdf_umdf_sys::WDFDEVICE__,cb:F)->Result<(),$crate::WdfError> {
+                        let arc=unsafe{Self::arc(handle.cast())?};let mut guard=arc.try_write().map_err(|_|$crate::WdfError::LockFailed)?;cb(&mut guard);Ok(())
+                    }
+                    $sv unsafe fn get_type_info()->&'static $crate::wdf_umdf_sys::_WDF_OBJECT_CONTEXT_TYPE_INFO {
+                        unsafe{&*TYPE_INFO.cell.get()}
                     }
                 }
             }
@@ -591,4 +384,13 @@ pub unsafe fn WdfMemoryGetBuffer(
             BufferSize.map_or(std::ptr::null_mut(), std::ptr::from_mut)
         )
     }
+}
+
+/// Caller owns a live framework handle; balances with Dereference after use.
+pub unsafe fn WdfObjectReference(Object: WDFOBJECT) -> Result<(), WdfError> {
+    WdfCall! { WdfObjectReferenceActual(Object, std::ptr::null_mut(), 0, std::ptr::null()) }
+}
+/// Caller owns exactly one reference obtained by WdfObjectReference.
+pub unsafe fn WdfObjectDereference(Object: WDFOBJECT) -> Result<(), WdfError> {
+    WdfCall! { WdfObjectDereferenceActual(Object, std::ptr::null_mut(), 0, std::ptr::null()) }
 }

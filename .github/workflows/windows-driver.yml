@@ -20,8 +20,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
-      - run: cargo test --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol --locked
-      - run: cargo clippy --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol --all-targets --locked -- -D warnings
+      - run: cargo test --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol -p mm-driver-lifecycle --locked
+      - run: cargo clippy --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol -p mm-driver-lifecycle --all-targets --locked -- -D warnings
   driver:
     runs-on: windows-2022
     timeout-minutes: 25
@@ -53,8 +53,10 @@ jobs:
           Copy-Item drivers/windows/driver/MightyMonitorDisplay.inf $out
           & "$env:MM_WDK_ROOT/tools/10.0.26100.0/x64/infverif.exe" /v "$out/MightyMonitorDisplay.inf"
           if ($LASTEXITCODE -ne 0) { throw 'INF validation failed' }
-          Copy-Item drivers/windows/README.md,drivers/windows/LICENSE.virtual-display-rs,drivers/windows/PROVENANCE.json $out
-          python scripts/artifact-manifest.py --output $out "$out/MightyMonitorDisplay.dll" "$out/MightyMonitorDisplay.inf"
+          & "$env:MM_WDK_ROOT/bin/10.0.26100.0/x86/Inf2Cat.exe" "/driver:$((Resolve-Path $out).Path)" /os:10_GE_X64
+          if ($LASTEXITCODE -ne 0) { throw 'Driver catalog generation failed' }
+          Copy-Item drivers/windows/README.md,drivers/windows/SIGNING.md,drivers/windows/LICENSE.virtual-display-rs,drivers/windows/PROVENANCE.json $out
+          python scripts/artifact-manifest.py --output $out "$out/MightyMonitorDisplay.dll" "$out/MightyMonitorDisplay.inf" "$out/MightyMonitorDisplay.cat"
       - uses: actions/upload-artifact@v4
         with:
           name: experimental-windows-driver-unsigned

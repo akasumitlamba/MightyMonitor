@@ -4,34 +4,37 @@ use mm_display_driver_protocol::{Mode, Request, Response, MAX_CLIENTS, MAX_FRAME
 use std::{
     ptr::NonNull,
     sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc, LazyLock, Mutex, OnceLock,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
+        Arc, LazyLock, Mutex,
     },
     time::Duration,
 };
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::windows::named_pipe::{NamedPipeServer, ServerOptions},
-    sync::Semaphore,
+    sync::{watch, Semaphore},
     time::timeout,
 };
 use wdf_umdf::{IddCxMonitorDeparture, WdfObjectDelete};
 use wdf_umdf_sys::{IDDCX_ADAPTER__, IDDCX_MONITOR__};
 
-pub static ADAPTER: OnceLock<AdapterObject> = OnceLock::new();
+static ADAPTER: Mutex<Option<AdapterObject>> = Mutex::new(None);
+static POWERED_DEVICE: AtomicUsize = AtomicUsize::new(0);
 pub static MONITOR_MODES: LazyLock<Mutex<Vec<MonitorObject>>> =
     LazyLock::new(|| Mutex::new(Vec::new()));
 static MUTATIONS: Mutex<()> = Mutex::new(());
 static NEXT_LEASE: AtomicU64 = AtomicU64::new(1);
-static ORPHANS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
-#[derive(Debug)]
-pub struct AdapterObject(pub NonNull<IDDCX_ADAPTER__>);
-// SAFETY: handle belongs to WDF; mutations are serialized, not dereferenced here.
-unsafe impl Send for AdapterObject {}
-unsafe impl Sync for AdapterObject {}
+static ORPHANS: Mutex<Vec<(u32, u64)>> = Mutex::new(Vec::new());
+#[derive(Clone, Debug)]
+struct AdapterObject {
+    reference: Arc<crate::reference::Reference>,
+    parent: usize,
+}
 #[derive(Debug)]
 pub struct MonitorObject {
     pub object: Option<NonNull<IDDCX_MONITOR__>>,
+    pub reference: Option<Arc<crate::reference::Reference>>,
+    pub lease: u64,
     pub data: Monitor,
     pub arrived: bool,
 }
@@ -90,8 +93,14 @@ impl Lease {
             .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |v| v.checked_add(1))
             .map_err(|_| anyhow::anyhow!("Lease IDs exhausted"))?;
         let adapter = ADAPTER
-            .get()
+            .lock()
+            .map_err(|_| anyhow::anyhow!("Adapter unavailable"))?
+            .as_ref()
+            .cloned()
             .ok_or_else(|| anyhow::anyhow!("Adapter not ready"))?;
+        if POWERED_DEVICE.load(Ordering::Acquire) != adapter.parent {
+            return Err(anyhow::anyhow!("Adapter is powered down"));
+        }
         let id = {
             let mut monitors = MONITOR_MODES
                 .lock()
@@ -101,6 +110,8 @@ impl Lease {
                 .ok_or_else(|| anyhow::anyhow!("No free display slots"))?;
             monitors.push(MonitorObject {
                 object: None,
+                reference: None,
+                lease,
                 arrived: false,
                 data: Monitor {
                     id,
@@ -117,37 +128,58 @@ impl Lease {
         // SAFETY: WDF owns the adapter handle. It was published only after init;
         // all endpoint create/remove operations are serialized by MUTATIONS.
         let context = unsafe {
-            DeviceContext::get_mut(adapter.0.as_ptr().cast(), |context| {
+            DeviceContext::get_mut(adapter.reference.raw().cast(), |context| {
                 result = context.create_monitor(id).map_err(Into::into);
             })
         };
         if context.is_err() {
-            let _ = remove_monitor(id);
+            let _ = remove_monitor(id, lease);
             return Err(anyhow::anyhow!("Adapter context unavailable"));
         }
         match result {
-            Ok(identity) => Ok(Self {
-                id,
-                lease,
-                identity,
-                live: true,
-            }),
+            Ok(identity) => {
+                let present = MONITOR_MODES
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!("Driver state unavailable"))?
+                    .iter()
+                    .any(|m| m.data.id == id && m.lease == lease && m.reference.is_some());
+                if !present {
+                    return Err(anyhow::anyhow!("Display removed during creation"));
+                }
+                Ok(Self {
+                    id,
+                    lease,
+                    identity,
+                    live: true,
+                })
+            }
             Err(error) => {
-                if remove_monitor(id).is_err() {
+                if remove_monitor(id, lease).is_err() {
                     if let Ok(mut orphans) = ORPHANS.lock() {
-                        orphans.push(id);
+                        orphans.push((id, lease));
                     }
                 }
                 Err(error)
             }
         }
     }
+    fn present(&self) -> bool {
+        POWERED_DEVICE.load(Ordering::Acquire) != 0
+            && MONITOR_MODES.lock().is_ok_and(|records| {
+                records.iter().any(|m| {
+                    m.data.id == self.id
+                        && m.lease == self.lease
+                        && m.arrived
+                        && m.reference.is_some()
+                })
+            })
+    }
     fn stop(&mut self) -> anyhow::Result<()> {
         if self.live {
             let _mutation = MUTATIONS
                 .lock()
                 .map_err(|_| anyhow::anyhow!("Driver state unavailable"))?;
-            remove_monitor(self.id)?;
+            remove_monitor(self.id, self.lease)?;
             self.live = false;
         }
         Ok(())
@@ -157,29 +189,40 @@ impl Drop for Lease {
     fn drop(&mut self) {
         if self.stop().is_err() {
             if let Ok(mut orphans) = ORPHANS.lock() {
-                if !orphans.contains(&self.id) {
-                    orphans.push(self.id);
+                if !orphans.contains(&(self.id, self.lease)) {
+                    orphans.push((self.id, self.lease));
                 }
             }
         }
     }
 }
-fn remove_monitor(id: u32) -> anyhow::Result<()> {
+fn remove_monitor(id: u32, lease: u64) -> anyhow::Result<()> {
     let record = {
         let mut monitors = MONITOR_MODES
             .lock()
             .map_err(|_| anyhow::anyhow!("Driver state unavailable"))?;
-        let Some(index) = monitors.iter().position(|m| m.data.id == id) else {
+        let Some(index) = monitors
+            .iter()
+            .position(|m| m.data.id == id && m.lease == lease)
+        else {
             return Ok(());
         };
         monitors.remove(index)
     };
     if let Some(object) = record.object {
+        // The record owns a WDF reference; cleanup may mark closing but cannot
+        // destroy this handle/context while the operation retains that reference.
+        if unsafe { crate::context::MonitorContext::is_closing(object.as_ptr().cast()) } {
+            return Ok(());
+        }
         // SAFETY: this exact live WDF monitor was removed from our registry under
         // MUTATIONS. No endpoint can delete it concurrently; no physical output
         // or another driver's monitor is enumerated/removed by this module.
         if record.arrived {
             if let Err(error) = unsafe { IddCxMonitorDeparture(object.as_ptr()) } {
+                if unsafe { crate::context::MonitorContext::is_closing(object.as_ptr().cast()) } {
+                    return Ok(());
+                }
                 MONITOR_MODES
                     .lock()
                     .map_err(|_| anyhow::anyhow!("Driver state unavailable"))?
@@ -192,7 +235,77 @@ fn remove_monitor(id: u32) -> anyhow::Result<()> {
     }
     Ok(())
 }
-async fn serve(mut pipe: NamedPipeServer) {
+pub fn publish_adapter(object: NonNull<IDDCX_ADAPTER__>) -> Result<(), wdf_umdf::WdfError> {
+    let reference = Arc::new(unsafe { crate::reference::Reference::new(object.as_ptr().cast())? });
+    let mut parent = 0;
+    unsafe { DeviceContext::get(object.as_ptr().cast(), |ctx| parent = ctx.parent_device())? };
+    let mut registry = ADAPTER.lock().map_err(|_| wdf_umdf::WdfError::LockFailed)?;
+    if registry.is_some() || unsafe { DeviceContext::is_closing(reference.raw()) } {
+        return Err(wdf_umdf::WdfError::Unknown);
+    }
+    *registry = Some(AdapterObject { reference, parent });
+    Ok(())
+}
+pub fn adapter_removed(object: wdf_umdf_sys::WDFOBJECT) {
+    let removed = if let Ok(mut registry) = ADAPTER.lock() {
+        if registry
+            .as_ref()
+            .is_some_and(|a| a.reference.raw() == object)
+        {
+            registry.take()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    drop(removed);
+}
+pub fn device_removed(device: wdf_umdf_sys::WDFOBJECT) {
+    let _ =
+        POWERED_DEVICE.compare_exchange(device as usize, 0, Ordering::AcqRel, Ordering::Acquire);
+    let removed = if let Ok(mut registry) = ADAPTER.lock() {
+        if registry
+            .as_ref()
+            .is_some_and(|a| a.parent == device as usize)
+        {
+            registry.take()
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    drop(removed);
+}
+pub fn monitor_removed(object: wdf_umdf_sys::WDFOBJECT) {
+    let removed = if let Ok(mut records) = MONITOR_MODES.lock() {
+        records
+            .iter()
+            .position(|m| m.object.is_some_and(|p| p.as_ptr().cast() == object))
+            .map(|i| records.remove(i))
+    } else {
+        None
+    };
+    if let Some(record) = removed {
+        if let Ok(mut orphans) = ORPHANS.lock() {
+            orphans.retain(|key| *key != (record.data.id, record.lease));
+        }
+        drop(record); // Last native reference is released outside the registry lock.
+    }
+}
+pub fn power_up(device: wdf_umdf_sys::WDFDEVICE) {
+    POWERED_DEVICE.store(device as usize, Ordering::Release);
+}
+pub fn power_down(device: wdf_umdf_sys::WDFDEVICE) {
+    let Ok(_mutation) = MUTATIONS.lock() else {
+        return;
+    };
+    let _ =
+        POWERED_DEVICE.compare_exchange(device as usize, 0, Ordering::AcqRel, Ordering::Acquire);
+}
+
+async fn serve(mut pipe: NamedPipeServer, mut stop: watch::Receiver<bool>) {
     let mut lease: Option<Lease> = None;
     loop {
         let request = async {
@@ -204,7 +317,8 @@ async fn serve(mut pipe: NamedPipeServer) {
             pipe.read_exact(&mut bytes).await?;
             mm_display_driver_protocol::decode_request(&bytes)
         };
-        let Ok(Ok(request)) = timeout(Duration::from_secs(45), request).await else {
+        let result = tokio::select! {biased; _=stop.changed()=>break, result=timeout(Duration::from_secs(45),request)=>result};
+        let Ok(Ok(request)) = result else {
             break;
         };
         let response = match request {
@@ -229,7 +343,9 @@ async fn serve(mut pipe: NamedPipeServer) {
                     _ => break,
                 }
             }
-            Request::Check { lease: id } if lease.as_ref().is_some_and(|l| l.lease == id) => {
+            Request::Check { lease: id }
+                if lease.as_ref().is_some_and(|l| l.lease == id && l.present()) =>
+            {
                 Response::Ok {}
             }
             Request::Remove { lease: id } if lease.as_ref().is_some_and(|l| l.lease == id) => {
@@ -256,104 +372,96 @@ async fn serve(mut pipe: NamedPipeServer) {
     // EOF, malformed/oversized input, idle/write timeout all drop this connection's
     // only Lease. There is no command to access another connection's lease.
 }
+
+struct Running {
+    stop: watch::Sender<bool>,
+    thread: std::thread::JoinHandle<()>,
+}
+static RUNNING: Mutex<Option<Running>> = Mutex::new(None);
+static UNLOADING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 pub fn startup() {
-    std::thread::spawn(|| {
-        // Retry failed departures without making their connector slots reusable.
-        std::thread::spawn(|| loop {
-            std::thread::sleep(Duration::from_secs(1));
-            let ids = if let Ok(mut orphans) = ORPHANS.lock() {
-                std::mem::take(&mut *orphans)
-            } else {
-                continue;
-            };
-            for id in ids {
-                let Ok(_mutation) = MUTATIONS.lock() else {
-                    return;
-                };
-                if remove_monitor(id).is_err() {
-                    if let Ok(mut orphans) = ORPHANS.lock() {
-                        orphans.push(id);
-                    }
-                }
-            }
-        });
-        let Ok(runtime) = tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(2)
-            .enable_all()
-            .build()
-        else {
-            return;
+    if UNLOADING.load(Ordering::Acquire) {
+        return;
+    }
+    let Ok(mut running) = RUNNING.lock() else {
+        return;
+    };
+    if running.is_some() {
+        return;
+    }
+    let (stop, receiver) = watch::channel(false);
+    if let Ok(thread) = std::thread::Builder::new()
+        .name("mm-display-endpoint".into())
+        .spawn(move || run(receiver))
+    {
+        *running = Some(Running { stop, thread });
+    }
+}
+/// Called by EvtDriverUnload: no Rust thread may execute code from an unloaded DLL.
+/// Never forcibly terminate a native framework call or detach its worker thread.
+pub fn shutdown() {
+    UNLOADING.store(true, Ordering::Release);
+    let running = RUNNING.lock().ok().and_then(|mut running| running.take());
+    if let Some(running) = running {
+        running.stop.send_replace(true);
+        let _ = running.thread.join();
+    }
+}
+async fn reap(mut stop: watch::Receiver<bool>) {
+    let mut interval = tokio::time::interval(Duration::from_secs(1));
+    loop {
+        tokio::select! {biased; _=stop.changed()=>break, _=interval.tick()=>{}}
+        let ids = if let Ok(mut orphans) = ORPHANS.lock() {
+            std::mem::take(&mut *orphans)
+        } else {
+            continue;
         };
-        runtime.block_on(async {
-            use windows::{
-                core::w,
-                Win32::{
-                    Foundation::{LocalFree, HLOCAL},
-                    Security::{
-                        Authorization::{
-                            ConvertStringSecurityDescriptorToSecurityDescriptorW, SDDL_REVISION_1,
-                        },
-                        PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES,
-                    },
-                },
-            };
-            let mut descriptor = PSECURITY_DESCRIPTOR::default();
-            // SAFETY: fixed SDDL, valid exclusive output. SYSTEM/admins and local
-            // interactive users only; no NULL DACL and remote clients are rejected.
-            if unsafe {
-                ConvertStringSecurityDescriptorToSecurityDescriptorW(
-                    w!("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;IU)"),
-                    SDDL_REVISION_1,
-                    &mut descriptor,
-                    None,
-                )
-            }
-            .is_err()
-            {
+        for (id, lease) in ids {
+            let Ok(_mutation) = MUTATIONS.lock() else {
                 return;
-            }
-            let mut attributes = SECURITY_ATTRIBUTES {
-                nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
-                lpSecurityDescriptor: descriptor.0,
-                bInheritHandle: false.into(),
             };
-            let slots = Arc::new(Semaphore::new(MAX_CLIENTS));
-            let mut first = true;
-            loop {
-                let Ok(permit) = slots.clone().acquire_owned().await else {
-                    break;
-                };
-                // SAFETY: attributes/descriptor remain live throughout synchronous
-                // creation. Windows copies the descriptor. The name is dedicated.
-                let server = unsafe {
-                    ServerOptions::new()
-                        .first_pipe_instance(first)
-                        .max_instances(MAX_CLIENTS)
-                        .reject_remote_clients(true)
-                        .in_buffer_size(512)
-                        .out_buffer_size(512)
-                        .create_with_security_attributes_raw(
-                            PIPE,
-                            std::ptr::addr_of_mut!(attributes).cast(),
-                        )
-                };
-                let Ok(server) = server else {
-                    break;
-                };
-                first = false;
-                if server.connect().await.is_err() {
-                    continue;
+            if remove_monitor(id, lease).is_err() {
+                if let Ok(mut orphans) = ORPHANS.lock() {
+                    orphans.push((id, lease));
                 }
-                tokio::spawn(async move {
-                    let _permit = permit;
-                    serve(server).await;
-                });
             }
-            // SAFETY: descriptor is the allocation returned by the conversion API;
-            // no pending create retains it after the synchronous call returns.
-            unsafe {
-                let _ = LocalFree(HLOCAL(descriptor.0));
-            }
-        });
+        }
+    }
+}
+fn run(mut stop: watch::Receiver<bool>) {
+    let Ok(runtime) = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+    else {
+        return;
+    };
+    runtime.block_on(async {
+        use windows::{core::w,Win32::{Security::{Authorization::{ConvertStringSecurityDescriptorToSecurityDescriptorW,SDDL_REVISION_1},PSECURITY_DESCRIPTOR,SECURITY_ATTRIBUTES},Foundation::{LocalFree,HLOCAL}}};
+        struct Descriptor(PSECURITY_DESCRIPTOR);
+        impl Drop for Descriptor {fn drop(&mut self){
+            // SAFETY: exactly the allocation returned by the conversion API.
+            unsafe{let _=LocalFree(HLOCAL(self.0.0));}
+        }}
+        let mut descriptor=PSECURITY_DESCRIPTOR::default();
+        // SAFETY: constant local-only ACL and valid exclusive output pointer.
+        if unsafe{ConvertStringSecurityDescriptorToSecurityDescriptorW(w!("D:P(A;;GA;;;SY)(A;;GA;;;BA)(A;;GRGW;;;IU)"),SDDL_REVISION_1,&mut descriptor,None)}.is_err(){return;}
+        let descriptor=Descriptor(descriptor);
+        let mut attributes=SECURITY_ATTRIBUTES{nLength:std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,lpSecurityDescriptor:descriptor.0.0,bInheritHandle:false.into()};
+        let slots=Arc::new(Semaphore::new(MAX_CLIENTS));let mut first=true;
+        let _reaper=tokio::spawn(reap(stop.clone()));
+        loop {
+            let permit=tokio::select!{biased; _=stop.changed()=>break, result=slots.clone().acquire_owned()=>match result {Ok(permit)=>permit,Err(_)=>break}};
+            // SAFETY: descriptor and attributes remain live until the synchronous
+            // create finishes. The OS copies them; no task captures raw pointers.
+            let server=unsafe{ServerOptions::new().first_pipe_instance(first).max_instances(MAX_CLIENTS).reject_remote_clients(true).in_buffer_size(512).out_buffer_size(512).create_with_security_attributes_raw(PIPE,std::ptr::addr_of_mut!(attributes).cast())};
+            let Ok(server)=server else{break;};first=false;
+            let connected=tokio::select!{biased; _=stop.changed()=>break, result=server.connect()=>result};
+            if connected.is_err(){continue;}
+            let cancelled=stop.clone();
+            tokio::spawn(async move{let _permit=permit;serve(server,cancelled).await;});
+        }
     });
+    // Runtime drop aborts async work and joins its threads, including any late
+    // native creation task and that task's owned rollback, before DLL unload.
 }

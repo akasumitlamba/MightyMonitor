@@ -10,7 +10,8 @@ use wdf_umdf_sys::{
 
 use crate::callbacks::{
     adapter_commit_modes, adapter_init_finished, assign_swap_chain, device_d0_entry,
-    monitor_get_default_modes, monitor_query_modes, parse_monitor_description, unassign_swap_chain,
+    device_d0_exit, monitor_get_default_modes, monitor_query_modes, parse_monitor_description,
+    unassign_swap_chain,
 };
 use crate::context::DeviceContext;
 
@@ -29,6 +30,7 @@ extern "C-unwind" fn DriverEntry(
     let mut attributes = WDF_OBJECT_ATTRIBUTES::init();
 
     let mut config = WDF_DRIVER_CONFIG::init(Some(driver_add));
+    config.EvtDriverUnload = Some(driver_unload);
 
     unsafe {
         WdfDriverCreate(
@@ -49,6 +51,7 @@ extern "C-unwind" fn driver_add(
     let mut callbacks = WDF_PNPPOWER_EVENT_CALLBACKS::init();
 
     callbacks.EvtDeviceD0Entry = Some(device_d0_entry);
+    callbacks.EvtDeviceD0Exit = Some(device_d0_exit);
 
     unsafe {
         _ = WdfDeviceInitSetPnpPowerEventCallbacks(init, &mut callbacks);
@@ -79,6 +82,7 @@ extern "C-unwind" fn driver_add(
         WDF_OBJECT_ATTRIBUTES::init_context_type(unsafe { DeviceContext::get_type_info() });
 
     attributes.EvtCleanupCallback = Some(event_cleanup);
+    attributes.EvtDestroyCallback = Some(event_destroy);
 
     let mut device = std::ptr::null_mut();
 
@@ -88,17 +92,25 @@ extern "C-unwind" fn driver_add(
         return e.into();
     }
 
-    let status = unsafe { IddCxDeviceInitialize(device) };
-    if let Err(e) = status {
-        error!("Failed to init iddcx device: {e:?}");
-        return e.into();
-    }
-
+    let _reference = match unsafe { crate::reference::Reference::new(device.cast()) } {
+        Ok(reference) => reference,
+        Err(error) => return error.into(),
+    };
     let context = DeviceContext::new(device);
-
-    unsafe { context.init(device as WDFOBJECT).into() }
+    if let Err(error) = unsafe { context.init(device.cast()) } {
+        return error.into();
+    }
+    unsafe { IddCxDeviceInitialize(device) }.map_or_else(Into::into, |_| NTSTATUS::STATUS_SUCCESS)
 }
 
 unsafe extern "C-unwind" fn event_cleanup(wdf_object: WDFOBJECT) {
-    _ = unsafe { DeviceContext::drop(wdf_object) };
+    let _ = unsafe { DeviceContext::mark_closing(wdf_object) };
+    crate::ipc::device_removed(wdf_object);
+}
+unsafe extern "C-unwind" fn event_destroy(wdf_object: WDFOBJECT) {
+    let _ = unsafe { DeviceContext::drop(wdf_object) };
+}
+
+unsafe extern "C-unwind" fn driver_unload(_driver: *mut WDFDRIVER__) {
+    crate::ipc::shutdown();
 }

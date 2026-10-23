@@ -44,7 +44,7 @@ viewers; #45 added experimental Wayland extension. Check newer PRs before editin
 | Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
 | Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
 | Linux Extend | Portal Virtual source, advertised capability and returned type checked; Mirror/Extend UI | Live KDE Wayland: real extra output appeared, three H.264 frames decoded over secure loopback, normal Stop removed output and restored original active displays. Layout/window movement, virtual-display input, other compositors and physical Wi-Fi unverified |
-| Windows/X11 Extend | Explicit unsupported error | Actual virtual-output/driver implementation missing |
+| Windows/X11 Extend | Explicit unsupported error | App integration missing; experimental Rust driver builds, lifetime hardening in progress |
 | Installers | Linux DEB, Windows per-user setup, Android debug/test APK | Builds pass, including Windows install/runtime/uninstall; Android release-signing build path verified with a disposable key; production keys, stable release publication and update continuity not established |
 | Website | Static `website/dist`; latest stable GitHub installer asset lookup | Keep status current; do not confuse workflow artifacts with published releases |
 
@@ -62,7 +62,7 @@ percentage. Builds, emulator tests and a local live test are distinct evidence.
 - `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
 - `display-windows/`: small Win32 display snapshot/identity and explicit-pointer
   adapter; owns documented unsafe enumeration/SendInput boundaries, with no driver
-  installation or display configuration changes.
+  installation; optional owned-driver client remains outside the app Share flow.
 - `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
   optional RemoteDesktop portal input and Virtual monitor support.
 - `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
@@ -513,3 +513,29 @@ Before enabling the native backend, audit reference WDF context/handle lifetime
 across device removal/restart, monitor destruction and asynchronous endpoint
 calls, in addition to actual OS create/capture/cleanup and production signing.
 An unsigned DLL build alone is insufficient evidence to enable it.
+
+
+2026-10-23 Windows driver lifetime audit: the reference Arc/Weak context wrapper
+is replaced with original zero-initialized atomic context slots. Cleanup marks
+closing and rejects new borrows; only EvtDestroy releases the allocation, including
+safe partial initialization. Native adapter/monitor registry entries and in-flight
+adapter calls now retain balanced WDF references. Monitor cleanup stops processing
+and removes only its exact handle. Orphan cleanup checks connector PLUS monotonic
+lease generation, so delayed cleanup cannot remove a later owner reusing that slot.
+D0 exit serializes with endpoint mutation and prevents creation while powered down;
+resume avoids duplicate adapter initialization. Init status is checked. Driver
+unload cancels endpoint work and joins runtime/native workers instead of leaving
+threads executing unloaded DLL code. The unused hardware-cursor/event path is
+removed, retaining Windows' default software cursor. Six portable lifecycle/
+protocol tests and Clippy pass; native compilation and real WDF removal/restart
+acceptance remain required. Do not enable the app feature from these tests alone.
+
+The maintainer can handle Microsoft driver signing (explicit user answer). The
+signing handoff guide and unsigned catalog generation are being prepared; no
+private keys, certificate trust changes, submission or external message is used.
+At 29b5a7c every application CI job passed, including actual Windows fake-server,
+reply-bound and stalled-pipe tests; the unsigned DLL exports and INF validation
+passed in 39968447344. Both desktop installers passed. Android API 30/34/36 passed;
+API 29 timed out on Azure package installation before tests, with no app assertion
+failure. Android now reuses the verified official-HTTPS archive helper so the
+same infrastructure issue is addressed there too. Physical tests remain deferred.

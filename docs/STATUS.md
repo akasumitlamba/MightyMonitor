@@ -612,3 +612,29 @@ Before enabling the native backend, audit reference WDF context/handle lifetime
 across device removal/restart, monitor destruction and asynchronous endpoint
 calls, in addition to actual OS create/capture/cleanup and production signing.
 An unsigned DLL build alone is insufficient evidence to enable it.
+
+
+2026-10-23 Windows driver lifetime audit: the reference Arc/Weak context wrapper
+is replaced with original zero-initialized atomic context slots. Cleanup marks
+closing and rejects new borrows; only EvtDestroy releases the allocation, including
+safe partial initialization. Native adapter/monitor registry entries and in-flight
+adapter calls now retain balanced WDF references. Monitor cleanup stops processing
+and removes only its exact handle. Orphan cleanup checks connector PLUS monotonic
+lease generation, so delayed cleanup cannot remove a later owner reusing that slot.
+D0 exit serializes with endpoint mutation and prevents creation while powered down;
+resume avoids duplicate adapter initialization. Init status is checked. Driver
+unload cancels endpoint work and joins runtime/native workers instead of leaving
+threads executing unloaded DLL code. The unused hardware-cursor/event path is
+removed, retaining Windows' default software cursor. Six portable lifecycle/
+protocol tests and Clippy pass; native compilation and real WDF removal/restart
+acceptance remain required. Do not enable the app feature from these tests alone.
+
+The maintainer can handle Microsoft driver signing (explicit user answer). The
+signing handoff guide and unsigned catalog generation are being prepared; no
+private keys, certificate trust changes, submission or external message is used.
+At 29b5a7c every application CI job passed, including actual Windows fake-server,
+reply-bound and stalled-pipe tests; the unsigned DLL exports and INF validation
+passed in 39968447344. Both desktop installers passed. Android API 30/34/36 passed;
+API 29 timed out on Azure package installation before tests, with no app assertion
+failure. Android now reuses the verified official-HTTPS archive helper so the
+same infrastructure issue is addressed there too. Physical tests remain deferred.

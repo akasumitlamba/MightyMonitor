@@ -7,7 +7,7 @@
       "file": "vendor/wdf-umdf/Cargo.toml",
       "upstream_file": "rust/wdf-umdf/Cargo.toml",
       "upstream_sha256": "3c817a11c552869b7fa571dfea6e0af81660c038ab55db83044bb1ab11026633",
-      "modified": false
+      "modified": true
     },
     {
       "file": "vendor/wdf-umdf/src/wdf.rs",
@@ -19,7 +19,7 @@
       "file": "vendor/wdf-umdf/src/lib.rs",
       "upstream_file": "rust/wdf-umdf/src/lib.rs",
       "upstream_sha256": "01104dbdb40eb6e2862a2382488cc899fd151dd7e26f9079be080f10273c8cbb",
-      "modified": false
+      "modified": true
     },
     {
       "file": "vendor/wdf-umdf/src/iddcx.rs",
@@ -79,7 +79,7 @@
       "file": "driver/src/lib.rs",
       "upstream_file": "rust/virtual-display-driver/src/lib.rs",
       "upstream_sha256": "a231aa2cb7ea6cccddeea983c1aaca09f5d24c5644bc81a9a041c3ab8e7c093d",
-      "modified": false
+      "modified": true
     },
     {
       "file": "driver/src/helpers.rs",

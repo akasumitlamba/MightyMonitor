@@ -28,3 +28,5 @@ fn is_nt_error(val: &dyn Any, other_is_error: bool) -> bool {
 
     false
 }
+
+pub use mm_driver_lifecycle::ContextSlot;
