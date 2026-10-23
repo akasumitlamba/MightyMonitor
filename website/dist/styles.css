@@ -2023,3 +2023,8 @@ details p {
   right: 0;
   margin: 0 0 12px;
 }
+/* Pausing during the opening must never leave text or artwork half visible. */
+.motion-paused.page-enter .hero-copy,
+.motion-paused.page-enter .desk {
+  animation: none !important;
+}
