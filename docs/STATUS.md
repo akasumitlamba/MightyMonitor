@@ -483,3 +483,13 @@ validation, exact OS identity, rollback and scoped idempotent cleanup. Four mock
 lifecycle tests pass (independent owners/preservation, invalid mode, rollback,
 cleanup retry), plus existing snapshot/geometry checks. This is a tested
 foundation, not a Windows virtual-display driver or working Extend capability.
+
+
+2026-10-23: Added the native read-only resolve_output adapter for a future
+owned-driver backend. It matches the exact OS adapter LUID/target ID to one active
+source, rejects cloned/ambiguous/inactive paths, obtains its GDI source name, and
+resolves the existing HMONITOR snapshot. Native arrays are bounded; topology
+buffer growth retries at most three times. Nine synthetic identity/lifecycle/
+geometry tests pass, with warning-denied local and Windows-target adapter Clippy.
+This adapter is not wired to a driver yet and creates no monitor. Native runtime,
+hotplug races and physical acceptance still require Windows testing.

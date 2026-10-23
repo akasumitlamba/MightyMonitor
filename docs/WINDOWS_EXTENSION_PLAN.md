@@ -100,3 +100,12 @@ QueryDisplayConfig to a source GDI name, then to the enumerated HMONITOR and
 rectangle. Reject inactive/cloned output rather than changing all other monitors
 to a new topology. Driver signing, lifecycle cleanup and secondary-screen input
 still require implementation and Windows testing.
+
+
+The native `resolve_output(OutputId)` prerequisite is now implemented using
+[QueryDisplayConfig](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-querydisplayconfig)
+and [the GDI source-name query](https://learn.microsoft.com/en-us/windows/win32/api/wingdi/ns-wingdi-displayconfig_source_device_name).
+It bounds allocations/retries and rejects an inactive, cloned or ambiguous owned
+output. Synthetic identity tests and Windows-target Clippy pass. It changes no
+OS display configuration and is not yet connected to a creating driver. Driver
+arrival/OS topology settling and later hotplug need native integration acceptance.
