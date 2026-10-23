@@ -359,7 +359,9 @@
     draw(0, true);
   }
   function draw(now, once = false) {
-    frame = 0;
+    // A synchronous resize redraw does not consume the pending animation frame.
+    // Clearing its ID here would let wake() start a second, uncancellable loop.
+    if (!once) frame = 0;
     const running = !paused && !reduced.matches && visible && !document.hidden;
     if (!once && running && last && now - last < 33) {
       frame = requestAnimationFrame(draw);
