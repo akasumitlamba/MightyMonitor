@@ -493,3 +493,17 @@ buffer growth retries at most three times. Nine synthetic identity/lifecycle/
 geometry tests pass, with warning-denied local and Windows-target adapter Clippy.
 This adapter is not wired to a driver yet and creates no monitor. Native runtime,
 hotplug races and physical acceptance still require Windows testing.
+
+
+2026-10-23 drag acceptance follow-up: native Windows/Linux CI at 1a65e8b
+(39957445665) passed, and Windows installer creation/install/private-runtime/
+uninstall passed (39957445548); Linux installer passed (39957445566). Android
+9dce0b1 APK and API 30/34/36 emulator jobs passed (39957065889), while API 29
+remained in dependency installation when checked. Do not call the timing change
+fully confirmed. The test now sends a single held drag through JNI/TLS/Rust host
+to a debug-only Android touch target in each of three control sessions, requiring
+one DOWN, movement across the target, one UP and no CANCEL. It does not retry
+failed actions. Main/debug/test Java compile locally; emulator execution of this
+new drag assertion is pending. The dependency-install step now has a six-minute
+limit and bounded APT transfer timeouts/retries to avoid consuming the whole
+emulator job before any test runs. Physical device tests remain deferred.

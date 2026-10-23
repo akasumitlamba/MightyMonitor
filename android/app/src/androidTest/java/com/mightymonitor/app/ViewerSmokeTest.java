@@ -195,6 +195,7 @@ public final class ViewerSmokeTest {
                 while(InputTestActivity.taps.get()==before && System.currentTimeMillis()<clickDeadline)Thread.sleep(20);
                 assertTrue("Quick remote tap did not complete: "+inputDiagnostic(button),InputTestActivity.taps.get()==before+1);
             }
+            checkDrag(client,target.findViewById(InputTestActivity.DRAG_ID));
             android.app.Activity testTarget=target;
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
             androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationLeft();
@@ -323,7 +324,27 @@ public final class ViewerSmokeTest {
         });
         return diagnostic.get();
     }
-    private float[] capturePoint(android.view.View view) throws Exception {
+    private void checkDrag(long client, android.view.View target) throws Exception {
+        float[] start=capturePoint(target,.2f), end=capturePoint(target,.8f);
+        assertTrue("Drag press was not queued",NativeBridge.pointer(client,start[0],start[1],0));
+        // Hold across several native gesture segments; these are distinct movement
+        // events, never retries of a failed action.
+        Thread.sleep(200);
+        for(int step=1;step<=6;step++) {
+            float x=start[0]+(end[0]-start[0])*step/6;
+            assertTrue("Drag movement was not queued",NativeBridge.pointer(client,x,start[1],1));
+            Thread.sleep(60);
+        }
+        assertTrue("Drag release was not queued",NativeBridge.pointer(client,end[0],end[1],2));
+        long deadline=System.currentTimeMillis()+10000;
+        while(InputTestActivity.dragUps.get()==0 && InputTestActivity.dragCancels.get()==0 && System.currentTimeMillis()<deadline)Thread.sleep(20);
+        assertTrue("Remote drag was interrupted: "+inputDiagnostic(target),InputTestActivity.dragDowns.get()==1 && InputTestActivity.dragUps.get()==1 && InputTestActivity.dragCancels.get()==0);
+        java.util.concurrent.atomic.AtomicInteger width=new java.util.concurrent.atomic.AtomicInteger();
+        InstrumentationRegistry.getInstrumentation().runOnMainSync(()->width.set(target.getWidth()));
+        assertTrue("Remote drag did not traverse the target",InputTestActivity.dragDistance.get()>width.get()*.4f);
+    }
+    private float[] capturePoint(android.view.View view) throws Exception {return capturePoint(view,.5f);}
+    private float[] capturePoint(android.view.View view,float horizontal) throws Exception {
         awaitTarget(view);
         int[] location=new int[2];java.util.concurrent.atomic.AtomicReference<float[]> point=new java.util.concurrent.atomic.AtomicReference<>();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
@@ -331,7 +352,7 @@ public final class ViewerSmokeTest {
             androidx.test.uiautomator.UiDevice device=androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
             android.util.DisplayMetrics metrics=new android.util.DisplayMetrics();metrics.widthPixels=device.getDisplayWidth();metrics.heightPixels=device.getDisplayHeight();
             float cw=ScreenShareService.captureWidth,ch=ScreenShareService.captureHeight,scale=Math.min(cw/metrics.widthPixels,ch/metrics.heightPixels);
-            point.set(new float[]{((location[0]+view.getWidth()/2f)*scale+(cw-metrics.widthPixels*scale)/2)/cw,((location[1]+view.getHeight()/2f)*scale+(ch-metrics.heightPixels*scale)/2)/ch});
+            point.set(new float[]{((location[0]+view.getWidth()*horizontal)*scale+(cw-metrics.widthPixels*scale)/2)/cw,((location[1]+view.getHeight()/2f)*scale+(ch-metrics.heightPixels*scale)/2)/ch});
         });return point.get();
     }
     private void tap(long client, android.view.View view) throws Exception {float[] point=capturePoint(view);NativeBridge.pointer(client,point[0],point[1],0);NativeBridge.pointer(client,point[0],point[1],2);}
