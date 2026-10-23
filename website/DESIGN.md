@@ -17,3 +17,7 @@ starts enabled, has an explicit Pause/Play control, respects reduced motion and
 suspends offscreen. All assets are local for disk and GitHub Pages use.
 
 Artwork prompts and provenance: `dist/assets/artwork/README.md`.
+
+Revision: removed the rejected floating-window animation. The hero stays still;
+Mirror, Control and Extend buttons select the corresponding generated scene.
+The separate window image is retained only among local generation originals.
