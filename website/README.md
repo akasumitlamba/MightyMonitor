@@ -16,14 +16,28 @@ Then open http://localhost:8765.
 
 ## GitHub Pages
 
-The repository includes `.github/workflows/website.yml`, which uploads `website/dist` directly. No package installation or build command is needed.
+Both GitHub Pages publishing methods are supported:
 
-1. Merge this branch into the repository's main branch.
-2. In GitHub, open **Settings → Pages** and choose **GitHub Actions** as the source.
-3. Open **Actions → Publish project website → Run workflow**. Later changes to `website/dist` on main deploy automatically.
-4. GitHub displays the website address on the successful deployment. A project repository typically uses `https://OWNER.github.io/MightyMonitor/`.
+### Deploy from a branch: main, / (root)
 
-All asset paths are relative, so the page supports GitHub Pages repository subpaths. The workflow uses the repository where it runs; download discovery intentionally points to the original application's releases at `reduckyLang/MightyMonitor`. Change `PROJECT` in `dist/app.js` only if you intentionally distribute installers from another repository.
+This works with the root-directory setting. The repository's root `index.html`
+opens `website/dist/` automatically. `.nojekyll` keeps Pages from treating the
+repository as a Jekyll documentation site. A plain link also works without
+JavaScript; the redirect preserves query strings and section anchors when JS is
+available. Keep the website files in `website/dist`; do not copy a second site
+into the root or remove the root entry point.
+
+### GitHub Actions
+
+The existing `.github/workflows/website.yml` uploads `website/dist` directly.
+Choose **Settings → Pages → Source → GitHub Actions** to use this method instead.
+Later changes to `website/dist` on main deploy automatically, or run **Publish
+project website** manually. There is no package installation or build command.
+
+All site assets use relative paths and support GitHub Pages repository subpaths.
+The workflow uses the repository where it runs; download discovery intentionally
+points to upstream `reduckyLang/MightyMonitor` releases. Change `PROJECT` in
+`dist/app.js` only when intentionally distributing installers from another repo.
 
 ## Real installer links
 
@@ -44,9 +58,17 @@ See DESIGN.md for the frontend-design skill's design plan and critique. The icon
 
 ## Motion and artwork
 
-The dimensional device scene and three feature illustrations are original CSS/SVG.
-Mirror, Control and Extend switch the concept preview. Pause motion stops looping
-artwork across the page; operating-system reduced motion disables animation and
-smooth scrolling. Artwork starts paused without JavaScript. The page uses no
-WebGL library, external model, remote font or build pipeline. `dist/motion.js`
-handles only animation preferences and background-tab pausing.
+`dist/assets/artwork/` contains generated studio illustrations and prompt notes.
+`dist/artwork.js` switches the hero image when a visitor chooses Mirror, Control
+or Extend. There are no floating overlays, continuous animation, playback
+controls, WebGL dependency or external asset CDN. The initial workspace artwork
+remains visible without JavaScript. These are concept images, not app screenshots.
+
+The editable app icon master is `../assets/brand/mightymonitor.svg`; see that
+folder's README for the design, provenance and synchronized export locations.
+
+Additional root Pages regression checks:
+
+```sh
+node website/tests/pages-root.cjs
+```

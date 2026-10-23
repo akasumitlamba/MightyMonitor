@@ -202,3 +202,40 @@ Responsive browser checks covered 320/390/768-pixel widths and desktop; installe
 filter/offline/rate-limit tests pass. This website milestone is isolated on current
 upstream main so it can merge independently of ongoing app/driver work. See
 website/DESIGN.md for design decisions and website/README.md for maintenance.
+
+
+2026-10-23 screen-playground identity and Pages root fix: the user rejected the
+first linked-frame logo; the refined folded-screen M now has an editable SVG
+master under assets/brand and synchronized PNG/Windows ICO exports for the
+website, desktop/Linux packaging and Android. The website now renders original
+3D device geometry, a shared landscape and purposeful Mirror/Control/Extend
+content with a locally vendored MIT Three.js build (integrity/license recorded).
+A manual rearrangement control and pointer perspective replace continuous device
+bobbing. Rendering is limited to 30fps and stops offscreen, in hidden tabs and
+when paused/reduced motion is active; manual changes still render while paused.
+The CSS illustration remains the fallback. Alternating feature stories give the
+graphics more space. Product alpha limitations and real release filtering stay.
+
+Root index.html and .nojekyll support Pages configured as main / (root), instead
+of showing README. The fixed relative redirect preserves repository subpaths,
+query strings and anchors. The Actions deployment still uploads website/dist.
+A real local browser check of /MightyMonitor/?preview=root#download reached
+/MightyMonitor/website/dist/?preview=root#download with all assets. Automated
+root-route and installer filtering tests pass; new website checks run on PRs.
+Do not claim this is deployed until the PR is merged and Pages finishes.
+
+## 23 October 2026 — generated website artwork revision
+
+Replaced the rejected homemade devices and vague “make room” copy with five
+image-generated studio assets. The hero moves a separate transparent window
+between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
+Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
+Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
+root Pages regression checks pass. Artwork is illustrative; app acceptance status
+is unchanged. Physical-device tests remain deferred by the user.
+
+## Website refinement — 23 October 2026
+
+Removed the rejected window-transfer animation and its playback controls.
+Mode buttons now switch between generated concept scenes. No continuous hero
+animation or render loop remains. Generated originals stay in local output.

@@ -1,0 +1,34 @@
+name: Check static website
+on:
+  pull_request:
+    paths:
+      [
+        "website/**",
+        "index.html",
+        ".nojekyll",
+        ".github/workflows/website-checks.yml",
+      ]
+  push:
+    branches: ["codex/**", main]
+    paths:
+      [
+        "website/**",
+        "index.html",
+        ".nojekyll",
+        ".github/workflows/website-checks.yml",
+      ]
+permissions:
+  contents: read
+jobs:
+  static-site:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check website/dist/app.js
+      - run: node --check website/dist/artwork.js
+      - run: node website/tests/downloads.cjs
+      - run: node website/tests/pages-root.cjs
