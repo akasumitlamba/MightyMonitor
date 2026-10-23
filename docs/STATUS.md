@@ -466,3 +466,13 @@ not retries. App Java compilation passes; confirming emulator run pending.
 Windows installer run 39951210788 failed before compilation because its official
 SDK download ended prematurely. Bounded network retries are added below; pinned
 checksum verification and install/plugin failure behavior stay strict.
+
+
+2026-10-23 follow-up: Windows checks failed before compilation because the
+vendor SDK response repeatedly ended prematurely, including bounded PowerShell
+retries. Download now uses the runner's curl HTTP/1.1 with timeouts/retries;
+pinned checksum verification is unchanged. Android run 39951349198 showed API 29
+cancelling one complete 16 ms tap before target DOWN (other APIs passed). Complete
+taps now use Android's tap-timeout duration; held drag segments remain short.
+This is a timing hypothesis requiring confirmation, not a resolved reliability
+claim. Main Java compiles locally. No permission bypass or gesture retry added.

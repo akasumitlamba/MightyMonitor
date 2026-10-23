@@ -82,7 +82,10 @@ public final class RemoteControlService extends AccessibilityService {
         Path path = new Path();
         if (stroke == null) path.moveTo(x, y); else {path.moveTo(strokeX, strokeY); path.lineTo(x, y);}
         final boolean continuing = down;
-        GestureDescription.StrokeDescription next = stroke == null ? new GestureDescription.StrokeDescription(path, 0, 16, continuing) : stroke.continueStroke(path, 0, 16, continuing);
+        // Complete taps need enough duration for Android's input sampling. Keep
+        // drag segments short, but do not synthesize a sub-frame tap.
+        long duration = stroke == null && !continuing ? android.view.ViewConfiguration.getTapTimeout() : 16;
+        GestureDescription.StrokeDescription next = stroke == null ? new GestureDescription.StrokeDescription(path, 0, duration, continuing) : stroke.continueStroke(path, 0, duration, continuing);
         strokeX = x; strokeY = y; changed = false; busy = true;
         boolean accepted = dispatchGesture(new GestureDescription.Builder().addStroke(next).build(), new GestureResultCallback() {
             @Override public void onCompleted(GestureDescription description) {completed++; busy = false; stroke = continuing ? next : null; if (changed || !down) drainGesture();}

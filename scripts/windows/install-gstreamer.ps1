@@ -10,7 +10,11 @@ $root = Join-Path $env:RUNNER_TEMP 'gstreamer'
 for ($attempt = 1; $attempt -le 3; $attempt++) {
     Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
     try {
-        Invoke-WebRequest "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc/$filename" -OutFile $installer -TimeoutSec 180
+        # Windows PowerShell's HTTP client repeatedly received truncated responses
+        # from this vendor endpoint. Use the runner's curl with HTTP/1.1; pinned
+        # SHA-256 verification remains mandatory before executing any bytes.
+        & curl.exe --http1.1 --location --fail --silent --show-error --connect-timeout 30 --max-time 180 --output $installer "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc/$filename"
+        if ($LASTEXITCODE -ne 0) { throw "GStreamer download failed (curl exit $LASTEXITCODE)" }
         break
     } catch {
         Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
