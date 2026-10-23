@@ -153,6 +153,8 @@ public final class ScreenShareService extends Service {
         }
         return output.toByteArray();
     }
+    static ScreenShareService inputOwner() {ScreenShareService service=current;return allowsInput(service)?service:null;}
+    static boolean allowsInput(ScreenShareService service) {return service!=null && current==service && sharing && allowControl;}
     public static void revokeControl() {
         allowControl = false; RemoteControlService.stopInput();
         ScreenShareService service = current;
@@ -162,7 +164,7 @@ public final class ScreenShareService extends Service {
         @Override public void run() {
             if (closed || host == 0) return;
             if (allowControl && !RemoteControlService.available()) {allowControl = false; NativeBridge.allowHostControl(host, false);}
-            for (int i = 0; i < 32; i++) {byte[] input = NativeBridge.pollHostInput(host); if (input == null) break; RemoteControlService.accept(input);}
+            for (int i = 0; i < 32; i++) {byte[] input = NativeBridge.pollHostInput(host); if (input == null) break; RemoteControlService.accept(input,ScreenShareService.this);}
             worker.postDelayed(this, 16);
         }
     };

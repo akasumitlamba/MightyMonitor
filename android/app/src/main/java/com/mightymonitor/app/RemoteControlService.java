@@ -21,6 +21,14 @@ public final class RemoteControlService extends AccessibilityService {
     private boolean down, busy, changed, shift, ctrl, alt, pointerValid, pendingPress;
     private final Runnable beginPress = this::drainGesture;
     private GestureDescription.StrokeDescription stroke;
+    private static final int MAX_PENDING_INPUT=128;
+    private static final class PendingInput {
+        final ScreenShareService owner; final byte[] event;
+        PendingInput(ScreenShareService owner,byte[] event){this.owner=owner;this.event=event;}
+    }
+    private final java.util.ArrayDeque<PendingInput> pendingInputs=new java.util.ArrayDeque<>();
+    private boolean inputDrainScheduled;
+    private ScreenShareService overflowOwner;
     private long received, releases, dispatched, completed, cancelled, rejected, invalidPoints, blocked, failed;
     // Bounded counters only: no coordinates, text, keys or invitation data.
     // Called on the main thread by instrumentation, never broadcast or logged by the app.
@@ -37,14 +45,47 @@ public final class RemoteControlService extends AccessibilityService {
     @Override protected void onServiceConnected() { current = this; main.post(watch); }
     @Override public void onAccessibilityEvent(AccessibilityEvent event) { }
     @Override public void onInterrupt() { release(); }
-    @Override public void onDestroy() { if (current == this) current = null; release(); main.removeCallbacksAndMessages(null); super.onDestroy(); }
-    public static void stopInput() { RemoteControlService service = current; if (service != null) service.main.post(service::release); }
-    public static void accept(byte[] event) {
-        RemoteControlService service = current;
-        if (service != null) service.main.post(() -> {
-            if (!allowed()) {service.blocked++;service.release(); return;}
-            try { service.apply(event); } catch (RuntimeException ignored) {service.failed++;service.release();}
-        });
+    @Override public void onDestroy() { if (current == this) current = null; release(); synchronized(pendingInputs){pendingInputs.clear();overflowOwner=null;inputDrainScheduled=false;} main.removeCallbacksAndMessages(null); super.onDestroy(); }
+    public static void stopInput() {
+        RemoteControlService service=current;
+        if(service!=null) {
+            synchronized(service.pendingInputs){service.pendingInputs.clear();}
+            service.main.post(service::release);
+        }
+    }
+    public static void accept(byte[] event) {accept(event,ScreenShareService.inputOwner());}
+    static void accept(byte[] event,ScreenShareService owner) {
+        RemoteControlService service=current;
+        if(service==null || !ScreenShareService.allowsInput(owner) || event==null || event.length==0 || event.length>4097)return;
+        synchronized(service.pendingInputs) {
+            if(service.overflowOwner!=null)return;
+            if(service.pendingInputs.size()>=MAX_PENDING_INPUT) {
+                service.pendingInputs.clear();service.overflowOwner=owner;
+            } else service.pendingInputs.addLast(new PendingInput(owner,event.clone()));
+            if(!service.inputDrainScheduled) {
+                service.inputDrainScheduled=true;service.main.post(service::drainInputs);
+            }
+        }
+    }
+    private void drainInputs() {
+        // One scheduled drain and a bounded queue: a slow UI must not accumulate
+        // unbounded Handler callbacks or replay an old share into a later share.
+        for(int i=0;i<32;i++) {
+            PendingInput input;ScreenShareService overflow;
+            synchronized(pendingInputs) {
+                overflow=overflowOwner;overflowOwner=null;
+                if(overflow!=null){pendingInputs.clear();inputDrainScheduled=false;input=null;}
+                else {input=pendingInputs.pollFirst();if(input==null)inputDrainScheduled=false;}
+            }
+            if(overflow!=null) {
+                if(ScreenShareService.allowsInput(overflow))ScreenShareService.revokeControl();
+                release();return;
+            }
+            if(input==null)return;
+            if(!ScreenShareService.allowsInput(input.owner)){blocked++;release();continue;}
+            try {apply(input.event);} catch(RuntimeException ignored){failed++;release();}
+        }
+        main.post(this::drainInputs);
     }
     private final Runnable watch = new Runnable() {
         @Override public void run() { if (!allowed()) release(); if (current == RemoteControlService.this) main.postDelayed(this, 100); }

@@ -150,10 +150,10 @@ public final class ViewerSmokeTest {
     @Test public void controlsPhoneOnlyAfterBothGrantsAndStopsOnRevocation() throws Exception {
         for(int round=1;round<=3;round++) {
             System.out.println("Remote control share/stop session "+round+" of 3");
-            checkOneControlSession();
+            checkOneControlSession(round==3);
         }
     }
-    private void checkOneControlSession() throws Exception {
+    private void checkOneControlSession(boolean overflowInput) throws Exception {
         MainActivity app = activity.getActivity();
         androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationNatural();
         InstrumentationRegistry.getInstrumentation().runOnMainSync(()->app.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT));
@@ -231,7 +231,16 @@ public final class ViewerSmokeTest {
             long keyDeadline=System.currentTimeMillis()+10000;
             while(InputTestActivity.keyDowns.get()==0 && System.currentTimeMillis()<keyDeadline)Thread.sleep(20);
             assertTrue("Remote key did not reach the editor",InputTestActivity.keyDowns.get()==1 && InputTestActivity.keyUps.get()==0);
-            ScreenShareService.revokeControl();
+            if(overflowInput) {
+                // Hold the UI thread for one synchronous enqueue burst. This
+                // exercises the adapter bound without touching any real desktop.
+                InstrumentationRegistry.getInstrumentation().runOnMainSync(()->{
+                    for(int event=0;event<200;event++)RemoteControlService.accept(mouseMove(.5f,.5f));
+                });
+                long overloadDeadline=System.currentTimeMillis()+10000;
+                while(ScreenShareService.allowControl && System.currentTimeMillis()<overloadDeadline)Thread.sleep(20);
+                assertTrue("Input overload did not revoke control",!ScreenShareService.allowControl);
+            } else ScreenShareService.revokeControl();
             keyDeadline=System.currentTimeMillis()+10000;
             while(InputTestActivity.keyUps.get()==0 && System.currentTimeMillis()<keyDeadline)Thread.sleep(20);
             assertTrue("Local revocation left a key held in the Android editor",InputTestActivity.keyUps.get()==1);

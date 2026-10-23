@@ -420,3 +420,17 @@ instrumentation now holds Right in the actual editor, revokes locally, and requi
 its matching UP. Main/debug/instrumentation Java compile locally; emulator and
 physical execution of this new assertion are pending. Physical testing remains
 deferred by the user. Windows virtual-display creation/signing remains missing.
+
+
+2026-10-23 Android input dispatch bound: the accessibility adapter keeps at most
+128 copied events (each at most 4097 bytes) and one scheduled main-thread drain,
+processing at most 32 events before yielding. Overflow clears pending work and
+revokes the current share's control, releasing its held input; video is not stopped.
+Each queued event carries its originating ScreenShareService object. Both enqueue
+and execution verify that exact live owner and consent, so an old capture worker
+cannot enqueue input into a replacement sharing service. Stop clears pending input.
+The third repeated control test deliberately fills the queue while the isolated
+emulator UI is busy, requiring revocation plus UP for its held editor key; first
+two sessions still exercise explicit local revocation. App/debug/test Java compile;
+the confirming emulator run is pending. These limits do not establish physical
+acceptance or complete Windows Extend.
