@@ -2549,3 +2549,8 @@ h1 {
   }
 }
 @media(max-width:480px) { .scene-hint { display:none; } }
+/* Preserve device proportions in the no-WebGL fallback on wide desktops. */
+.device-stage {
+  max-width: 640px;
+  margin-inline: auto;
+}
