@@ -26,14 +26,8 @@ for (const button of document.querySelectorAll(".mode-switch button")) {
       window.dispatchEvent(
         new CustomEvent("mm-preview-mode", { detail: mode }),
       );
-    document.getElementById("phone-label").innerText = descriptions[mode][0];
     document.getElementById("concept-detail").textContent =
       descriptions[mode][1];
-    document.getElementById("laptop-title").textContent = {
-      mirror: "A second view",
-      control: "Control from here",
-      extend: "An extra display",
-    }[mode];
   });
 }
 // Accept installable packages only. Portable executables and source archives are excluded.

@@ -30,6 +30,6 @@ jobs:
           node-version: "22"
       - run: node --check website/dist/app.js
       - run: node --check website/dist/motion.js
-      - run: node --check website/dist/playground.js
+      - run: node --check website/dist/artwork.js
       - run: node website/tests/downloads.cjs
       - run: node website/tests/pages-root.cjs

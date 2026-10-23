@@ -699,3 +699,13 @@ https://github.com/reduckyLang/MightyMonitor/pull/48 (codex/screen-playground).
 It starts from 89404f0 and contains no application/driver branch dependency.
 The development checkout retains a duplicate website/brand checkpoint; account
 for squash merges when syncing app changes. Do not open stacked website PRs.
+
+## 23 October 2026 — generated website artwork revision
+
+Replaced the rejected homemade devices and vague “make room” copy with five
+image-generated studio assets. The hero moves a separate transparent window
+between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
+Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
+Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
+root Pages regression checks pass. Artwork is illustrative; app acceptance status
+is unchanged. Physical-device tests remain deferred by the user.

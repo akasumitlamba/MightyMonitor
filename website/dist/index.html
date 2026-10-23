@@ -11,11 +11,10 @@
     <title>MightyMonitor — Your screens. Better together.</title>
     <link rel="icon" href="assets/icon.svg" />
     <link rel="stylesheet" href="fonts.css" />
-    <link rel="stylesheet" href="styles.css?v=3" />
-    <script src="motion.js?v=3" defer></script>
-    <script src="vendor/three.min.js" defer></script>
-    <script src="playground.js?v=3" defer></script>
-    <script src="app.js?v=3" defer></script>
+    <link rel="stylesheet" href="styles.css?v=4" />
+    <script src="motion.js?v=4" defer></script>
+    <script src="artwork.js?v=4" defer></script>
+    <script src="app.js?v=4" defer></script>
   </head>
   <body class="motion-paused">
     <a class="skip" href="#main">Skip to content</a>
@@ -53,10 +52,11 @@
               <span class="alpha-badge"
                 ><span></span> Open-source. In development.</span
               >
-              <h1 id="hero-title">Make yourself <br />more room.</h1>
+              <h1 id="hero-title">Every screen.<br />Within reach.</h1>
               <p class="hero-description">
-                Your devices have more to give. Share a screen, take control, or
-                open up a little extra space. All on your local network.
+                See another device. Control it from here. Extend your desktop.
+                Bring your Windows, Linux and Android screens together over
+                Wi-Fi.
               </p>
               <div class="hero-actions">
                 <a class="button primary" href="#download"
@@ -86,7 +86,7 @@
             </div>
             <div
               class="desk"
-              aria-label="Interactive concept illustration, not a live app screenshot"
+              aria-label="Animated concept illustration, not a live app screenshot"
             >
               <div class="desk-heading">
                 <span class="concept-label"
@@ -101,153 +101,35 @@
                   Pause motion
                 </button>
               </div>
-              <div
-                class="playground"
-                aria-label="Interactive 3D concept of a connected workspace"
-              >
-                <div class="scene-hint" aria-hidden="true">
-                  Move your pointer. Change your perspective.
-                </div>
-              </div>
-              <div
-                class="device-stage"
-                data-mode="mirror"
-                id="device-stage"
-                aria-hidden="true"
-              >
-                <div class="scene-halo" aria-hidden="true"></div>
-                <div class="scene-floor" aria-hidden="true"></div>
+              <div class="artwork-stage" id="device-stage" data-mode="mirror">
+                <img
+                  class="workspace-art"
+                  src="assets/artwork/connected-workspace.webp"
+                  width="1792"
+                  height="1024"
+                  fetchpriority="high"
+                  alt="Silver desktop, laptop and Android phone connected by a flowing green landscape. Concept artwork."
+                />
+                <img
+                  class="travelling-window"
+                  src="assets/artwork/window.webp"
+                  width="1536"
+                  height="1024"
+                  alt=""
+                  aria-hidden="true"
+                />
                 <svg
-                  class="connection-paths"
-                  viewBox="0 0 640 460"
-                  fill="none"
+                  class="demo-pointer"
+                  viewBox="0 0 32 40"
                   aria-hidden="true"
                 >
                   <path
-                    class="connection-track"
-                    d="M155 210C120 375 420 390 485 230M325 135C510 40 655 220 524 343"
-                  />
-                  <path
-                    class="connection-flow"
-                    d="M155 210C120 375 420 390 485 230M325 135C510 40 655 220 524 343"
+                    d="M3 2v31l8-8 7 13 6-3-7-13h12Z"
+                    fill="#184c37"
+                    stroke="white"
+                    stroke-width="2"
                   />
                 </svg>
-                <div class="connection-chip" aria-hidden="true">
-                  <svg
-                    class="icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                  >
-                    <path
-                      d="M3 9a14 14 0 0 1 18 0M6 13a9 9 0 0 1 12 0m-9 4a4 4 0 0 1 6 0"
-                    />
-                    <circle cx="12" cy="21" r="1" fill="currentColor" />
-                  </svg>
-                  Local connection
-                </div>
-                <div class="device computer linux-device">
-                  <div class="display-shell">
-                    <div class="screen-toolbar">
-                      <span class="window-dots"><i></i><i></i><i></i></span
-                      ><span>Workspace</span
-                      ><span class="window-minimize" aria-hidden="true"></span>
-                    </div>
-                    <div class="screen linux-screen">
-                      <div class="screen-orbit orbit-one"></div>
-                      <div class="screen-orbit orbit-two"></div>
-                      <div class="screen-widget">
-                        <b></b><i></i><i></i><i></i><i></i><i></i>
-                      </div>
-                      <div class="floating-document">
-                        <span>Space to<br />make things.</span><i></i><i></i
-                        ><i></i>
-                      </div>
-                      <div class="screen-cursor" aria-hidden="true">
-                        <svg
-                          class="icon"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.7"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <path d="m4 3 15 9-7 1-3 7-5-17Z" />
-                        </svg>
-                      </div>
-                      <div class="screen-taskbar">
-                        <i></i><i></i><i></i><i></i>
-                      </div>
-                    </div>
-                    <div class="monitor-chin"></div>
-                  </div>
-                  <div class="monitor-neck"></div>
-                  <div class="monitor-foot"></div>
-                  <p class="device-name">Linux <span>Desktop</span></p>
-                </div>
-                <div class="device laptop windows-device">
-                  <div class="display-shell">
-                    <div class="screen-toolbar">
-                      <span class="window-dots"><i></i><i></i><i></i></span
-                      ><span id="laptop-title">A second view</span
-                      ><span class="window-minimize" aria-hidden="true"></span>
-                    </div>
-                    <div class="screen windows-screen">
-                      <div class="screen-orbit orbit-one"></div>
-                      <div class="screen-orbit orbit-two"></div>
-                      <div class="screen-widget">
-                        <b></b><i></i><i></i><i></i><i></i><i></i>
-                      </div>
-                      <div class="floating-document">
-                        <span>Space to<br />make things.</span><i></i><i></i
-                        ><i></i>
-                      </div>
-                      <div class="screen-cursor" aria-hidden="true">
-                        <svg
-                          class="icon"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          stroke-width="1.7"
-                          stroke-linecap="round"
-                          stroke-linejoin="round"
-                          aria-hidden="true"
-                          focusable="false"
-                        >
-                          <path d="m4 3 15 9-7 1-3 7-5-17Z" />
-                        </svg>
-                      </div>
-                      <div class="screen-taskbar">
-                        <i></i><i></i><i></i><i></i>
-                      </div>
-                      <div class="extension-sheet">
-                        <span>Room for<br />the next idea.</span><i></i><i></i
-                        ><i></i>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="laptop-base"></div>
-                  <p class="device-name">Windows <span>Laptop</span></p>
-                </div>
-                <div class="device phone android-device">
-                  <div class="phone-shell">
-                    <div class="phone-notch"></div>
-                    <div class="phone-screen">
-                      <span class="phone-time">9:41</span>
-                      <div class="phone-app-mark" aria-hidden="true">M</div>
-                      <div class="phone-screen-lines">
-                        <i></i><i></i><i></i>
-                      </div>
-                      <p id="phone-label">Same screen.<br />New perspective.</p>
-                      <div class="phone-home"></div>
-                    </div>
-                  </div>
-                  <p class="device-name">Android <span>Phone</span></p>
-                </div>
               </div>
               <div class="desk-bottom">
                 <div
@@ -271,22 +153,7 @@
                     Extend
                   </button>
                 </div>
-                <button class="rearrange" type="button">
-                  Rearrange the desk
-                  <svg
-                    class="icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.7"
-                    aria-hidden="true"
-                  >
-                    <path
-                      d="m17 2 4 4-4 4M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4m14-1v2a3 3 0 0 1-3 3H3"
-                    />
-                  </svg>
-                </button>
-                <p class="preview-label">Interactive concept</p>
+                <p class="preview-label">Animated concept</p>
                 <p id="concept-detail" aria-live="polite">
                   Mirror a screen across your devices. Alpha software.
                 </p>
@@ -318,11 +185,15 @@
         </div>
         <div class="use-cases">
           <article>
-            <div class="feature-scene feature-mirror" aria-hidden="true">
-              <div class="mini-monitor"><span></span></div>
-              <div class="mini-phone"><span></span></div>
-              <i class="mini-transfer"></i>
-            </div>
+            <figure class="feature-art">
+              <img
+                src="assets/artwork/mirror.webp"
+                width="1536"
+                height="1024"
+                loading="lazy"
+                alt="Phone and laptop displaying the same green landscape. Concept artwork."
+              />
+            </figure>
             <h3>See another screen</h3>
             <p>
               View your phone in a computer window, or your computer on another
@@ -331,14 +202,15 @@
             <small>Windows, Linux and Android alpha implementations.</small>
           </article>
           <article>
-            <div class="feature-scene feature-control" aria-hidden="true">
-              <div class="mini-window"><span></span><i></i><i></i></div>
-              <div class="mini-pointer">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="m3 2 17 10-8 1-3 8z" /></svg
-                ><span>You’re in control</span>
-              </div>
-            </div>
+            <figure class="feature-art">
+              <img
+                src="assets/artwork/control.webp"
+                width="1536"
+                height="1024"
+                loading="lazy"
+                alt="A dimensional cursor reaching a phone screen. Concept artwork."
+              />
+            </figure>
             <h3>Control it from here</h3>
             <p>
               Use the keyboard, mouse or touchscreen in front of you to control
@@ -349,12 +221,16 @@
             >
           </article>
           <article>
-            <div class="feature-scene feature-extend" aria-hidden="true">
-              <div class="mini-monitor first"><span></span></div>
-              <div class="mini-monitor second"><span></span></div>
-              <div class="mini-shared-window"></div>
-            </div>
-            <h3>Make room for more</h3>
+            <figure class="feature-art">
+              <img
+                src="assets/artwork/extend.webp"
+                width="1536"
+                height="1024"
+                loading="lazy"
+                alt="One continuous workspace across two displays. Concept artwork."
+              />
+            </figure>
+            <h3>Extend your desktop</h3>
             <p>
               Use a second computer or phone as an independent extra display,
               with both computers eventually sharing at once.

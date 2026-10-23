@@ -1,29 +1,19 @@
-# Design direction: the screen playground
+# Screen-sharing studio
 
-23 October 2026. Frontend-design skill applied.
+The hero is a precision-device studio composition, with a sculptural green
+landscape connecting desktop, laptop and phone. A separate glass window travels
+between screens, demonstrating the actual product idea. No decorative particle
+field, toy device geometry or repeated entrance effects.
 
-The earlier pastel device diagram lacked a distinctive visual idea. Replace it
-with a real, interactive 3D desk sculpture: graphite and silver screens share a
-single abstract landscape, and a window travels between them in response to the
-visitor. Motion explains sharing, control and extension instead of endlessly
-floating decorative devices.
+Palette: mineral #F5F6F2, white #FFFFFF, evergreen #184C37, leaf #B9E66B,
+graphite #24372D. Existing bundled sans-serif typography stays quiet around the
+artwork. Centered hero; alternating image/text feature stories; practical release
+and alpha status sections below. Direct headline: “Every screen. Within reach.”
 
-Palette: paper #F5F6F2, graphite #202923, evergreen #184C37, leaf #B9E66B,
-metal #C7CEC7, secondary #626C63. Locally bundled Sora carries large, compact
-headlines and Plex Sans supports concise reading text. Centered opening, expansive
-3D stage, a quiet mode control beneath, then alternating illustrated stories and
-clear downloads. Avoid another small-device diagram below a split marketing hero.
+Review against brief: replaced the generic homemade device mockups and vague
+“make room” slogan with generated studio artwork and a visible screen-transfer
+sequence. Mirror, Control and Extend select different movement paths. Playback
+starts enabled, has an explicit Pause/Play control, respects reduced motion and
+suspends offscreen. All assets are local for disk and GitHub Pages use.
 
-[identity                       story / downloads / source]
-[                  Make yourself more room.               ]
-[           sculpted screens / one continuous landscape   ]
-[              Mirror | Control | Extend                 ]
-[   a window that crosses devices / readable capability   ]
-[              status / platform installers / questions   ]
-
-Critique before implementation: generic floating cards, orbiting dots and repeated
-fade-in sections do not tell this product's story. Use a manually authored 3D
-composition with geometric landscapes; pointer interaction changes the view,
-and mode selection changes actual scene behavior. Preserve a static fallback,
-reduced motion, pause, keyboard controls and local file/GitHub Pages compatibility.
-No external runtime assets or hosted service. Show actual alpha limitations.
+Artwork prompts and provenance: `dist/assets/artwork/README.md`.

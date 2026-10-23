@@ -606,3 +606,13 @@ five minutes, quietly while checks run, and reports readiness/failure once befor
 pausing itself. Do not create a duplicate monitor or merge upstream automatically.
 The PR branch is also checked out at /tmp/mightymonitor-screen-playground while
 validation is pending; preserve its separation from this app-development branch.
+
+## 23 October 2026 — generated website artwork revision
+
+Replaced the rejected homemade devices and vague “make room” copy with five
+image-generated studio assets. The hero moves a separate transparent window
+between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
+Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
+Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
+root Pages regression checks pass. Artwork is illustrative; app acceptance status
+is unchanged. Physical-device tests remain deferred by the user.
