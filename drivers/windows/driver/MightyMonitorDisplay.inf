@@ -1,0 +1,77 @@
+;
+; MightyMonitorDisplay.inf
+;
+
+[Version]
+PnpLockdown=1
+Signature="$Windows NT$"
+ClassGUID = {4D36E968-E325-11CE-BFC1-08002BE10318}
+Class = Display
+ClassVer = 2.0
+Provider=%ManufacturerName%
+CatalogFile=MightyMonitorDisplay.cat
+DriverVer = 10/23/2026,0.1.0.0
+
+[Manufacturer]
+%ManufacturerName%=Standard,NTamd64
+
+[Standard.NTamd64]
+%DeviceName%=MightyMonitorDisplay_Install, Root\MightyMonitorDisplay
+
+[SourceDisksFiles]
+MightyMonitorDisplay.dll=1
+
+[SourceDisksNames]
+1 = %DiskName%
+
+; =================== UMDF Device ==================================
+
+[MightyMonitorDisplay_Install.NT]
+CopyFiles=UMDriverCopy
+
+[MightyMonitorDisplay_Install.NT.hw]
+AddReg = MightyMonitorDisplay_HardwareDeviceSettings
+
+[MightyMonitorDisplay_HardwareDeviceSettings]
+HKR,, "UpperFilters",  %REG_MULTI_SZ%, "IndirectKmd"
+HKR, "WUDF", "DeviceGroupId", %REG_SZ%, "MightyMonitorDisplayGroup"
+
+[MightyMonitorDisplay_Install.NT.Services]
+AddService=WUDFRd,0x000001fa,WUDFRD_ServiceInstall
+
+[MightyMonitorDisplay_Install.NT.Wdf]
+UmdfService=MightyMonitorDisplay,MightyMonitorDisplay_Install
+UmdfServiceOrder=MightyMonitorDisplay
+UmdfKernelModeClientPolicy = AllowKernelModeClients
+UmdfHostProcessSharing = ProcessSharingDisabled
+
+[MightyMonitorDisplay_Install]
+UmdfLibraryVersion=2.31.0
+ServiceBinary=%13%\MightyMonitorDisplay.dll
+UmdfExtensions = IddCx0102
+
+[WUDFRD_ServiceInstall]
+DisplayName = %WudfRdDisplayName%
+ServiceType = 1
+StartType = 3
+ErrorControl = 1
+ServiceBinary = %12%\WUDFRd.sys
+
+[DestinationDirs]
+UMDriverCopy=13 ; copy to drivers\umdf
+
+[UMDriverCopy]
+MightyMonitorDisplay.dll
+
+; =================== Generic ==================================
+
+[Strings]
+ManufacturerName="MightyMonitor"
+DiskName = "Virtual Display Installation Disk"
+WudfRdDisplayName="Windows Driver Foundation - User-mode Driver Framework Reflector"
+DeviceName="MightyMonitor Display"
+
+REG_MULTI_SZ  = 0x00010000
+REG_SZ        = 0x00000000
+REG_EXPAND_SZ = 0x00020000
+REG_DWORD     = 0x00010001

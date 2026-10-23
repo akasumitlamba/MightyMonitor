@@ -1,0 +1,121 @@
+{
+  "repository": "https://github.com/MolotovCherry/virtual-display-rs",
+  "revision": "22fcd2e065aac13745cb27dc869848091b9e3a23",
+  "license": "MIT",
+  "files": [
+    {
+      "file": "vendor/wdf-umdf/Cargo.toml",
+      "upstream_file": "rust/wdf-umdf/Cargo.toml",
+      "upstream_sha256": "3c817a11c552869b7fa571dfea6e0af81660c038ab55db83044bb1ab11026633",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf/src/wdf.rs",
+      "upstream_file": "rust/wdf-umdf/src/wdf.rs",
+      "upstream_sha256": "e985a90842ab6e0ed54a97833b9c349e98383b95bc09538f24161368a2923e16",
+      "modified": true
+    },
+    {
+      "file": "vendor/wdf-umdf/src/lib.rs",
+      "upstream_file": "rust/wdf-umdf/src/lib.rs",
+      "upstream_sha256": "01104dbdb40eb6e2862a2382488cc899fd151dd7e26f9079be080f10273c8cbb",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf/src/iddcx.rs",
+      "upstream_file": "rust/wdf-umdf/src/iddcx.rs",
+      "upstream_sha256": "c116d06c9c1e1c9b50823f1f07d9e7cf56ad277413d0025ad875910ed904827c",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/build.rs",
+      "upstream_file": "rust/wdf-umdf-sys/build.rs",
+      "upstream_sha256": "e8fc4cd16a13910b1185e4e9eb9ffd4a7a7aecd37b97f09784208269432acec3",
+      "modified": true
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/Cargo.toml",
+      "upstream_file": "rust/wdf-umdf-sys/Cargo.toml",
+      "upstream_sha256": "73c8896cb46552d712857e36c4e5f76796e1645b6f1f152b74bb733b511a0a90",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/src/ntstatus.rs",
+      "upstream_file": "rust/wdf-umdf-sys/src/ntstatus.rs",
+      "upstream_sha256": "1fe7764ec1e625193e16260b159a82ef6f41ad0030dff0ff7e3c7285e40b361a",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/src/lib.rs",
+      "upstream_file": "rust/wdf-umdf-sys/src/lib.rs",
+      "upstream_sha256": "157b103d94d254da8dbcdd49b3084b42e1d1685b09d937cea5c05b4ae73de8e4",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/src/bindings.rs",
+      "upstream_file": "rust/wdf-umdf-sys/src/bindings.rs",
+      "upstream_sha256": "842103635109e91ffeb4bad46816662861b17a229358c2aea4c7785c794f05e1",
+      "modified": false
+    },
+    {
+      "file": "vendor/wdf-umdf-sys/c/wrapper.h",
+      "upstream_file": "rust/wdf-umdf-sys/c/wrapper.h",
+      "upstream_sha256": "c1b9f604a51fc1e353a906431d5572615037ca7c562b2c1125e1e068237ee45e",
+      "modified": false
+    },
+    {
+      "file": "driver/src/swap_chain_processor.rs",
+      "upstream_file": "rust/virtual-display-driver/src/swap_chain_processor.rs",
+      "upstream_sha256": "9f66d94a35356626414ad445d5e97eb89376ee595e1e2fcafb0a3a5baa465af3",
+      "modified": false
+    },
+    {
+      "file": "driver/src/panic.rs",
+      "upstream_file": "rust/virtual-display-driver/src/panic.rs",
+      "upstream_sha256": "2da645c6938b12eab70f493f362de8b80527b8059d53ff8bb7f1a771d1d2b0bf",
+      "modified": false
+    },
+    {
+      "file": "driver/src/lib.rs",
+      "upstream_file": "rust/virtual-display-driver/src/lib.rs",
+      "upstream_sha256": "a231aa2cb7ea6cccddeea983c1aaca09f5d24c5644bc81a9a041c3ab8e7c093d",
+      "modified": false
+    },
+    {
+      "file": "driver/src/helpers.rs",
+      "upstream_file": "rust/virtual-display-driver/src/helpers.rs",
+      "upstream_sha256": "fe1e42d507309f1034c2aaba41a6c7bb19162398160a064fb0a9cced2d57ca22",
+      "modified": false
+    },
+    {
+      "file": "driver/src/entry.rs",
+      "upstream_file": "rust/virtual-display-driver/src/entry.rs",
+      "upstream_sha256": "1370841db5a4f1951cfa8c2765ce473cdd3a66adfd8d179c89cea2bb952c14a3",
+      "modified": true
+    },
+    {
+      "file": "driver/src/edid.rs",
+      "upstream_file": "rust/virtual-display-driver/src/edid.rs",
+      "upstream_sha256": "5c416b6ad204ff1329d062731cb8a27626a2654afde78511b3ecca18ce3e5e72",
+      "modified": false
+    },
+    {
+      "file": "driver/src/direct_3d_device.rs",
+      "upstream_file": "rust/virtual-display-driver/src/direct_3d_device.rs",
+      "upstream_sha256": "dd2fd82197c27853bfca9353233029f423c2d6045144949815a02c017eafccd2",
+      "modified": false
+    },
+    {
+      "file": "driver/src/context.rs",
+      "upstream_file": "rust/virtual-display-driver/src/context.rs",
+      "upstream_sha256": "28f113e476a6b53afefb17731664889435c8f24aaaa025d822bc2000252d3cfe",
+      "modified": true
+    },
+    {
+      "file": "driver/src/callbacks.rs",
+      "upstream_file": "rust/virtual-display-driver/src/callbacks.rs",
+      "upstream_sha256": "0306918179cc74e69e2ff2b311bd5ed8b3d60032a56e5f6edec5e86acb5e9f32",
+      "modified": true
+    }
+  ]
+}

@@ -92,3 +92,13 @@ boundary; it neither installs drivers nor changes display configuration.
 The original Windows adapter also provides explicitly requested pointer movement
 using the public SendInput virtual-desktop API. Local sharing consent and a
 separate authenticated viewer control grant remain at the host/session layer.
+
+
+Experimental Windows indirect display driver (drivers/windows):
+UMDF/IddCx bindings, monitor/EDID and swap-chain implementation adapted from
+MolotovCherry/virtual-display-rs, commit 22fcd2e065aac13745cb27dc869848091b9e3a23,
+copyright (c) 2024 Cherry, MIT license. See drivers/windows/LICENSE.virtual-display-rs
+and PROVENANCE.json. This attributed component is separate from the original
+screen-sharing engine; it is unsigned, not app-integrated or production-approved.
+Microsoft SDK/WDK are build dependencies under Microsoft's own licenses and are
+not included in source or redistributed by the normal app installers.

@@ -1,0 +1,62 @@
+name: Build experimental Windows display driver
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/**']
+    paths: ['drivers/windows/**', 'scripts/windows/prepare-driver-kit.ps1', '.github/workflows/windows-driver.yml']
+  pull_request:
+    paths: ['drivers/windows/**', 'scripts/windows/prepare-driver-kit.ps1', '.github/workflows/windows-driver.yml']
+permissions:
+  contents: read
+concurrency:
+  group: windows-driver-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  protocol:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo test --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol --locked
+      - run: cargo clippy --manifest-path drivers/windows/Cargo.toml -p mm-display-driver-protocol --all-targets --locked -- -D warnings
+  driver:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Prepare verified Microsoft build kit
+        shell: pwsh
+        run: ./scripts/windows/prepare-driver-kit.ps1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: drivers/windows -> target
+      - name: Build isolated unsigned driver
+        working-directory: drivers/windows
+        run: cargo build --release --target x86_64-pc-windows-msvc -p mightymonitor-virtual-display-driver --locked
+      - name: Check driver exports and INF
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $binary = 'drivers/windows/target/x86_64-pc-windows-msvc/release/MightyMonitorDisplay.dll'
+          $exports = (& dumpbin.exe /exports $binary | Out-String)
+          if ($LASTEXITCODE -ne 0 -or $exports -notmatch 'FxDriverEntryUm' -or $exports -notmatch 'DriverEntry') { throw 'Missing UMDF driver exports' }
+          $out = 'output/experimental-windows-driver'
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item $binary $out
+          Copy-Item drivers/windows/driver/MightyMonitorDisplay.inf $out
+          & "$env:MM_WDK_ROOT/tools/10.0.26100.0/x64/infverif.exe" /v "$out/MightyMonitorDisplay.inf"
+          if ($LASTEXITCODE -ne 0) { throw 'INF validation failed' }
+          Copy-Item drivers/windows/README.md,drivers/windows/LICENSE.virtual-display-rs,drivers/windows/PROVENANCE.json $out
+          python scripts/artifact-manifest.py --output $out "$out/MightyMonitorDisplay.dll" "$out/MightyMonitorDisplay.inf"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: experimental-windows-driver-unsigned
+          path: output/experimental-windows-driver
+          if-no-files-found: error

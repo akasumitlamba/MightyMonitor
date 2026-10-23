@@ -461,3 +461,22 @@ Native CI dependency transfers now have bounded timeouts/retries and six-minute
 steps, with 25-minute job caps. Its confirming run is required. Windows/X11
 virtual-output creation, persistent pairing, production signing/publication,
 opposite-direction loop prevention and deferred physical acceptance remain open.
+
+
+2026-10-23 Windows driver source milestone: added the isolated `drivers/windows`
+workspace. Its UMDF/IddCx/EDID/swap-chain code and framework bindings are an
+attributed MIT adaptation of virtual-display-rs at 22fcd2e, preserved with license
+and per-file provenance. This is not represented as independently authored driver
+code. MightyMonitor replaces the global Notify/RemoveAll endpoint with an original
+bounded per-connection lease protocol (one output/client, four clients, dedicated
+pipe, explicit local ACL and no remote clients). It returns IddCx's real OS output
+identity. Disconnect/timeout drops only that lease; failed departure is retried with
+its slot reserved. A late creation task's owner is dropped for rollback. Native
+framework calls cannot safely be forcibly terminated. Protocol tests pass locally;
+native compilation, runtime/cleanup, INF validation and host integration remain
+unverified. No driver was installed, signed, trusted or enabled in the app.
+A dedicated workflow uses pinned/hash-checked and NuGet-signature-verified Microsoft
+SDK/WDK build packages in the ephemeral runner. It creates no trusted certificate.
+The native CI installer now uses Ubuntu's official HTTPS archive to avoid the
+observed slow Azure HTTP package bodies (39961458944 failed before code checks);
+existing signing checks and OS consent remain intact. Both changes need CI results.

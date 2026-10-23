@@ -29,8 +29,10 @@ and cross-build checks are evidence, but physical mixed-DPI, hotplug and Windows
 
 [virtual-display-rs](https://github.com/MolotovCherry/virtual-display-rs) is an
 MIT-licensed Rust Windows indirect display driver. It is a possible optional
-backend when already installed by the user, not an incorporated dependency yet.
-No driver code, binary, certificate or installer has been added to MightyMonitor.
+backend when already installed by the user, an isolated attributed development component, not an application dependency yet.
+Experimental attributed driver source now lives in `drivers/windows` with a
+dedicated original owned-lease endpoint and build workflow. It is not wired into
+the application, installed or signed; native compilation/runtime remain unverified.
 Its public `rust/driver-ipc` API uses the `virtualdisplaydriver` named pipe,
 JSON messages delimited by byte 0x04, State/Notify/Remove commands and monitor
 IDs/modes. The read-only audit pins commit `22fcd2e065aac13745cb27dc869848091b9e3a23`;
