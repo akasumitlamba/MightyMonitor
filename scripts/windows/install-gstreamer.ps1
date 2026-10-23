@@ -5,7 +5,19 @@ $expectedHash = 'e4c41ee6ee9c6c32a45d198463ec08d79bac3bd5fa58adc93d13fe4a08abc9d
 $filename = "gstreamer-1.0-msvc-x86_64-$version.exe"
 $installer = Join-Path $env:RUNNER_TEMP $filename
 $root = Join-Path $env:RUNNER_TEMP 'gstreamer'
-Invoke-WebRequest "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc/$filename" -OutFile $installer
+# Retry transport failures only. Always discard partial bytes; a completed
+# response must still pass the pinned checksum below before any execution.
+for ($attempt = 1; $attempt -le 3; $attempt++) {
+    Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
+    try {
+        Invoke-WebRequest "https://gstreamer.freedesktop.org/data/pkg/windows/$version/msvc/$filename" -OutFile $installer -TimeoutSec 180
+        break
+    } catch {
+        Remove-Item -LiteralPath $installer -Force -ErrorAction SilentlyContinue
+        if ($attempt -eq 3) { throw }
+        Start-Sleep -Seconds (2 * $attempt)
+    }
+}
 $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actualHash -ne $expectedHash) { throw 'GStreamer installer checksum mismatch' }
 $process = Start-Process -FilePath $installer -ArgumentList @('/VERYSILENT', '/NORESTART', '/CURRENTUSER', '/TYPE=devel', "/DIR=`"$root`"") -Wait -PassThru

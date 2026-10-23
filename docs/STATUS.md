@@ -1,363 +1,468 @@
-# MightyMonitor project handover
+# Status
 
-Last reviewed: 20 October 2026. This is the starting point for a new contributor
-or AI assistant. Verify repository/release state before relying on this snapshot.
+2026-10-18: repository bootstrapped (workspace, `core` skeleton, CI, docs, roadmap, issues). No milestone complete yet.
 
-## Intended finished app
+2026-10-18: M1-2 stream framing + FrameDecoder + docs/PROTOCOL.md implemented on branch feat/m1-2-framing.
 
-An original, clean-room Rust application for Windows 11, Linux and Android
-(the user's Android targets are 10, 11, 14 and 16). Devices on the same local
-network should share, view and optionally control screens in either direction:
+2026-10-18: M1-1 workspace dependencies, stable toolchain, core module split, and CI concurrency configured.
 
-- Show a phone screen in a PC window and control it with keyboard/mouse.
-- Show and control a Windows/Linux screen from a phone or another PC.
-- Create real extra desktop space on a source PC and view it on another device.
-  A mirrored window is not an extended display.
-- Host and view concurrently: eventually Linux extends to Windows while Windows
-  extends to Linux, with an Android session alongside them. Control and disconnect
-  must remain scoped to each session, with no recursive capture or input loops.
-- Wi-Fi is primary. Reuse IP over Ethernet, Android USB networking and supported
-  Thunderbolt/USB4 networking. An arbitrary USB-C cable between two host ports
-  does not guarantee a network link. Never promise zero latency.
-- Simple View/Share navigation, minimal text, light neutral/green styling and a
-  modern flat project icon. No blue/dark default. No proprietary product branding
-  in marketing copy. Proprietary code/protocols/assets must not be copied.
-- Local accounts/cloud services are unnecessary. The project website must stay
-  plain HTML/CSS/JS usable from disk and GitHub Pages, without Sites hosting.
+2026-10-18: M1-4 frame-level async Transport + TCP implementation + loopback integration tests implemented on branch feat/m1-4-transport. Message-level API arrives with M1-3 integration.
 
-`CROSS_DEVICE.md` is the detailed product specification; `DEVICE_ACCEPTANCE.md`
-is the physical-device checklist and untested route matrix. Android is an
-extension *viewer*; a separate Android desktop is outside the initial scope.
+2026-10-18: M1-2 review nits: isolated FrameError trait implementations, explained decoder validation, clarified poisoned-frame delivery, and added the 16 MiB payload boundary test.
 
-## Verified state
+2026-10-18: M1-5 frame-level reconnect interface, capped exponential backoff with injectable jitter, provisional Resume payload, bounded lifecycle events, and deterministic/unit + loopback recovery tests implemented. Typed Message::Resume integration awaits M1-3; mDNS remains M8.
 
-PRs #38–46 are merged upstream. #44 added remote control and concurrent desktop
-viewers; #45 added experimental Wayland extension. Check newer PRs before editing.
+2026-10-18: PR #16 review: reject oversized sends before connection work and preserve connections on local frame errors; only send I/O errors and write timeouts recover. Cancelled sends drop their transport. Backoff resets on the first received frame, delays have a 1 ms floor, and retry-budget docs count scheduled attempts (including cancelled sleeps). Added regression tests.
+2026-10-18: M1-4 review nits: increased the loopback stream timeout, renamed the ping-pong roundtrip test, and documented send allocation, throughput, and sticky receive errors.
 
-| Capability | Implementation and evidence | Remaining acceptance/limits |
-| --- | --- | --- |
-| Linux mirror/view | X11 and system-authorized PipeWire/Wayland; shared H.264 | Physical two-device Wi-Fi/recovery/latency matrix |
-| Windows mirror/view | GStreamer DXGI capture and H.264 decoding | Physical Windows capture/control and cross-device tests |
-| Android mirror/view | MediaProjection capture, MediaCodec decode, Rust JNI networking | PC→phone and phone→desktop real video passed on Android 10/11/14/16 **emulators**; physical phones unverified |
-| Secure sessions | Pinned TLS 1.3, per-share private certificate/token link, QR, fresh identity per Share | Persistent device pairing not implemented; opt-in discovery passes Rust LAN and Android emulator tests on the development branch |
-| Desktop control | Windows/X11 native input; Wayland RemoteDesktop portal; focused picture forwards input | Actual X11 injection/held-key cleanup passed on isolated Xvfb; physical Windows and interactive Wayland input unverified; Windows explicit-screen mapping is implemented in development |
-| Android control | User-enabled Accessibility service, optional user-selected IME, local per-share and viewer grants | Actual Android button tap, text entry and revocation passed on all four emulator versions; physical phones unverified |
-| Concurrent viewers | Desktop host accepts four viewers, one controller at a time | Two encrypted H.264 viewers and controller handoff passed on Xvfb; Android host supports one viewer; opposite-direction multi-device acceptance remains |
-| Linux Extend | Portal Virtual source, advertised capability and returned type checked; Mirror/Extend UI | Live KDE Wayland: real extra output appeared, three H.264 frames decoded over secure loopback, normal Stop removed output and restored original active displays. Layout/window movement, virtual-display input, other compositors and physical Wi-Fi unverified |
-| Windows/X11 Extend | Explicit unsupported error | Actual virtual-output/driver implementation missing |
-| Installers | Linux DEB, Windows per-user setup, Android debug/test APK | Builds pass, including Windows install/runtime/uninstall; Android release-signing build path verified with a disposable key; production keys, stable release publication and update continuity not established |
-| Website | Static `website/dist`; latest stable GitHub installer asset lookup | Keep status current; do not confuse workflow artifacts with published releases |
+2026-10-18: Milestone 1 progress snapshot, historical (main at 35ea74f; later PRs have since merged, see ROADMAP.md). Merged: #12 (M1-2 framing), #13 and #15 (M1-4 TCP transport/loopback), #14 (M1-1 workspace), #16 (M1-5 reconnect). Open at the time: #17 (M1-6 bitrate controller). Not done at the time: M1-3 (typed messages; PR #18 was closed unmerged) and M1-7 (CI hardening/mocks); these have since landed (M1-3 redo, #17, M1-7 and the reader/writer split in #22 are all merged; see the later entries below). Reviewer follow-ups are tracked in the "M1 follow-ups from review" issue and listed below. Milestone 2 is planned in issue #3; follow-up (3) (split reader/writer) was a prerequisite for streaming and is now done.
 
-The full app is **not complete**. There is no defensible measured completion
-percentage. Builds, emulator tests and a local live test are distinct evidence.
+## M1 follow-ups
+- [ ] (1) Send-only `ReconnectingSession` never resets its retry budget when `max_attempts` is `Some`.
+- [x] (2, checked against main `core/src/reconnect.rs`: resolved by documentation/behavior, not by recovery) A `TransportError::Closed` returned by a transport send is not treated as recoverable. Only `Io` and write `Timeout` trigger recovery in both `ReconnectingSession::send` and the split writer path; other errors, including `Closed`, retain the transport and are returned to the caller. `Closed` is used as the disconnect reason when a cancelled inline write drops the transport. Original item: Treat `TransportError::Closed` from send as recoverable, or document that it is not.
+- [x] (3, done by #22) `&mut self` means recv blocks send during backoff: needs a split reader/writer or channel design before the streaming milestones (M2 prerequisite).
+- [x] (4, done by #22) `JitterSource` should be `Send`.
+- [x] (5, done on main: PROTOCOL.md states Resume is unauthenticated and clarifies `last_seq == 0`) PROTOCOL.md: state that Resume is unauthenticated (bind to pairing/auth later), clarify `last_seq == 0`, reword "Kind/flags".
+- [x] (6, done on main by M1-3: kinds 0xfe/0xff reserved, `PROTOCOL_VERSION` is 2) M1-3 should reserve kinds `0xfe` and `0xff`, and bump `PROTOCOL_VERSION` when the Resume kind is finalized.
+- [ ] (7) Add a server-side Resume handler.
+- [ ] (8) `lib.rs` hygiene: group `pub mod` lines then re-exports; add docs to `error.rs` and `traits.rs`.
 
-## Code map
+2026-10-18: M2-2 step A implemented: Linux-only host-linux crate, pure-Rust X11 GetImage capture with packed BGRA, monotonic frame metadata, optional pacing, fake-source unit tests, and Xvfb smoke coverage in CI. PipeWire portal capture remains the next PR.
+2026-10-18: M2-0 reader/writer split implemented with a bounded command channel, prompt NotConnected during backoff, deadline-bounded writes, shared lifecycle state/events, and Send JitterSource (covers #19 items 3 and 4). Added deterministic backoff/concurrent-task, replacement-transport, cancelled-write, and static Send checks; existing unsplit reconnect and loopback behavior retained.
+2026-10-18: M1-3 typed Message enum and input events integrated with bounded bincode encoding and validated frame kinds; kinds 0xfe/0xff reserved for protocol extension/escape; PROTOCOL_VERSION=2; provisional Resume replaced by Message::Resume kind 9 in reconnect sessions.
 
-- `core/`: versioned messages/framing, generic transports, reconnect, bitrate,
-  normalized input events, platform traits. See PROTOCOL.md and ABR.md.
-- `discovery/`: untrusted mDNS presence, explicit public metadata whitelist, bounded
-  desktop device list; Android uses platform NSD. See DISCOVERY.md for test limits.
-- `security/`: TLS 1.3, certificate pinning, private session invitations and
-  asynchronous/blocking handshakes. See SECURE_CONNECTIONS.md.
-- `codec-gst/`: H.264 encoding/decoding and Windows capture adapter.
-- `display-windows/`: small Win32 display snapshot/identity and explicit-pointer
-  adapter; owns documented unsafe enumeration/SendInput boundaries, with no driver
-  installation or display configuration changes.
-- `host-linux/`: X11 capture, Wayland portal/PipeWire, shared latest-frame capture,
-  optional RemoteDesktop portal input and Virtual monitor support.
-- `host/`: `mm-host`, capture/encoder pipeline, per-viewer sessions, native input,
-  exclusive controller ownership and managed Stop lifecycle.
-- `viewer/`: eframe/egui `mm-viewer`, View/Share, QR, decoder, focused input,
-  child-host lifecycle. `examples/receive_smoke.rs` receives actual video.
-- `android-bridge/`: original Rust phone host/client and JNI bridge.
-- `android/`: native Java Activity, MediaCodec/MediaProjection foreground service,
-  optional Accessibility/IME; debug-only InputTestActivity and instrumentation.
-- `packaging/`, `scripts/`, `.github/workflows/`: installers and platform checks.
-- `website/dist/`: deployable HTML/CSS/JS, bundled fonts and original icon.
-- `docs/STATUS.md`: historical progress log, not a concise current support matrix.
+2026-10-18: M2-1 monotonic clock and caller-supplied offset estimator, TCP loopback latency/RTT bench, Linux netem helper, CI smoke, and docs/LATENCY.md added; release loopback results recorded (64 KiB p99 7.493 ms, 1 MiB p99 18.760 ms); 2 ms unpaced target remains unmet, real Wi-Fi and glass-to-glass measurements pending.
+2026-10-18: PR #22 review: merged typed Message::Resume support into split sessions, made cancelled inline reader writes disconnect with Closed, and distinguished queue deadlines from write deadlines with regression tests and cancellation documentation.
 
-Read REMOTE_CONTROL.md, EXTENDED_DISPLAYS.md, INSTALLERS.md, WINDOWS.md and
-ANDROID instructions in `android/README.md` before changing their features.
+2026-10-18: M1-6 ABR controller implemented on branch feat/m1-6-abr.
 
-## Security and lifecycle invariants
+2026-10-18: PR #17 review: added absolute RTT slack to tolerate LAN jitter and unified ABR feedback with message::NetStats.
 
-- A viewing link is a bearer secret. Do not broadcast it through discovery,
-  store it in preferences, print it in diagnostics or put it in screenshots/PRs.
-- TLS pin/token failures are terminal: no fallback, public trust bypass or downgrade.
-  Legacy plaintext viewing is explicit opt-in and cannot enable remote control.
-- Sharing is view-only by default. Control needs local host permission plus a
-  separate viewer request. Android also requires real OS Accessibility consent;
-  optional keyboard enable/selection stays with the user. Wayland uses OS consent.
-- Disconnect, focus loss, revocation and Stop release held input. Reconnect drops
-  stale input and needs a fresh control grant. Queues/frame buffers stay bounded.
-- Four desktop viewers share exclusive controller ownership. A view-only peer
-  must not release another viewer's keys on the shared Wayland input backend.
-- Never automate real user input during tests on their active desktop. Android
-  secure-setting commands in emulator instrumentation are test-only, not app code.
-- Windows protected/elevated screens and Android protected content retain OS limits.
+2026-10-18: M2-3 GStreamer H.264 codec crate added on feat/m2-3-h264: low-latency x264, live bitrate changes, upstream force-key-unit, optional probed NVENC/VAAPI with software fallback, avdec_h264 decoding, fallible frame APIs and core trait adapters. I420/RGBA input and packed I420 output; PSNR, bitrate, IDR and 1080p timing tests added. Local 1080p encode p50 ~3.9 ms (10 ms target, 40 ms sanity bound). Ubuntu CI installs GStreamer; Windows compiles an empty gated crate. See docs/CODEC.md for API/platform limits and measurements; hardware runtime remains unverified.
 
-## Next work, in order of useful independent milestones
+2026-10-18: M1-7 done: M1 wrap-up complete, feature-gated mock platform traits and TCP mock pipeline test added, CI doc job enabled on Linux and Windows, and protocol/contribution docs reviewed. M1 done.
 
-1. **Physical acceptance and usability:** install on Windows 11 and the supported
-   phones; record actual Wi-Fi playback, motion latency median/p95, sustained
-   sessions, rotation/scaling, focus, revocation, congestion and reconnection.
-   Finish KDE virtual-monitor layout/input tests and another supported compositor.
-   OS permission dialogs require the user; do independent work while waiting.
-2. **Discovery and pairing UX:** opt-in desktop/Android presence discovery is
-   implemented on the current development branch. A real local Rust advertise/
-   resolve/remove test passed and confirmed no TCP connection. Android 10/11/14/16 NSD/video/control tests passed after bounded SDK-download
-   retry; the control test now includes Hindi and a check mark. Physical cross-device discovery
-   remains unverified. Continue toward smooth
-   pairing without broadcasting tokens
-   or treating nearby peers as trusted. Preserve explicit sharing/control consent.
-   Plan certificate identity, pairing confirmation, revocation and persistence
-   before replacing private links. Android discovery needs lifecycle/network tests.
-3. **Windows extended display:** read WINDOWS_EXTENSION_PLAN.md first. It records
-   capture/input targeting and an unsafe stale-monitor-list race in a candidate
-   driver protocol; no driver dependency has been added. Implement/integrate a license-compatible virtual
-   display driver and monitor/input mapping. Research driver signing/distribution.
-   Do not automatically install a third-party root certificate or disable driver
-   signature enforcement. Production signing/account/certificate access is an
-   external dependency to explain concretely, not silently bypass.
-4. **Concurrent product behavior:** explicit source selection, independent session
-   identities and opposite-direction streams; prevent recursive capture/input;
-   increase phone-host peers only with bounded-resource and lifecycle acceptance.
-5. **Wired setup:** read-only desktop and Android IPv4 interface pickers are
-   implemented in development; see NETWORK_SETUP.md. Deep links now prefill the
-   desktop viewer and per-user installer handlers are implemented, with Windows install/uninstall handler validation passed. Continue to test Wi-Fi/Ethernet/USB
-   networking, and test supported USB4/Thunderbolt plus Android tethering/tunnels.
-   Document actual hardware support instead of assuming a Type-C cable works.
-6. **Production delivery:** stable Android signing/update keys, Windows signing,
-   dependency/license review, installer upgrade/uninstall tests, versioned
-   published installer releases, then latest-release website download validation.
-   Never commit signing credentials. Browser streaming is a later roadmap feature;
-   the static website itself is not a screen viewer.
+2026-10-18: M2-2 step B implemented: optional Linux PipeWire/Wayland capture with ashpd ScreenCast consent, mapped BGRx/RGBx to opaque BGRA conversion, stride/chunk validation, monotonic metadata, bounded frame queue and session cleanup. Default builds require no PipeWire libraries. Fake conversion tests run without the feature; interactive Wayland smoke test is ignored by default. Dedicated Ubuntu Rust 1.85 feature build/clippy/test job added. Live Wayland validation requires a desktop session.
 
-Do not leave later milestones as unexplained "pending": implement what can be
-implemented, identify physical/hardware/signing dependencies precisely, and keep
-this file's evidence matrix current as work lands.
+M2-2B validation: native dev libraries installed locally; fmt, default workspace clippy/tests/build, feature build/clippy and all-feature tests pass, including feature verification on Rust 1.85. Windows cross-target all-targets check passes; full cross-linking is unavailable locally because MinGW dlltool is absent. Interactive Wayland smoke remains unrun because this environment has no Wayland session.
 
-## Build and meaningful checks
+2026-10-18: M2-4 host streaming pipeline implemented on feat/m2-4-host-pipeline.
+Added the portable mightymonitor-host library and Linux mm-host binary using X11
+capture and GStreamer H.264, core split reader/writer sessions, Hello/Resume
+handshakes, Ping/Pong, NetStats-driven ABR, and forced keyframes on request and
+reconnect. A one-frame latest-capture slot drops replaced/stale frames; exposed
+metrics bound queue occupancy and measure capture-to-send-initiation age. Added
+two queue unit tests and the three loopback acceptance tests with fake capture
+and dummy encoding. Usage, CLI flags, architecture and resume/backpressure limits
+are documented in docs/HOST.md. No new third-party packages; reused Tokio (MIT)
+and async-trait (MIT OR Apache-2.0). Required workspace fmt, clippy with warnings
+denied, mock-enabled tests, rustdoc with warnings denied, and build all pass.
+Windows GNU cross-target all-targets cargo check also passes. Live X11-to-viewer
+H.264 streaming, Wi-Fi/end-to-end latency, hardware encoding, and Windows linking
+or runtime remain unverified; the existing X11 smoke test is ignored by default.
+The roadmap tracks M2 as a whole, so its completion status is unchanged.
 
-Use the Rust toolchain/MSRV and exact dependency versions specified in the repo
-(current workspace MSRV is 1.85). Linux needs native GStreamer, PipeWire/SPA,
-Clang, X11 and GUI development libraries; follow workflow dependency lists.
+2026-10-18: M2-3 review follow-ups: codec-gst now gated on target_os = "linux" (empty crate elsewhere), `#![forbid(unsafe_code)]`, decode input/dimension bounds with overflow-checked even-size chroma math, pipeline setup without unwraps, and core `Encoder`/`Decoder` traits return `Result<_, CodecError>` so the adapters no longer panic. NOTICE and docs/CODEC.md note avdec_h264 (libav) is LGPL. Not done (out of scope): exact version pins, serial/looser latency tests, vah264enc migration, hardware encoder verification.
 
-```sh
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --features android-bridge/jni --locked -- -D warnings
-MM_REQUIRE_CODECS=1 cargo test --workspace --features android-bridge/jni --locked
-node website/tests/downloads.cjs
-```
+2026-10-18: M2-6 desktop viewer implemented on feat/m2-6-viewer. Added
+mightymonitor-viewer / mm-viewer with pinned eframe 0.31.1, Linux codec-gst H.264
+I420 decoding, RGB texture presentation, connection controls, lifecycle state,
+fps/payload bitrate/RTT overlay and logged decode-to-texture-submission latency.
+The GUI feature can be disabled for the headless generic core ViewerSession;
+its split ReconnectingSession reader/writer uses the acknowledged session id and
+last received sequence for Resume and waits for a keyframe after reconnect.
+Bounded ordered encoded input and a latest decoded-picture slot limit backlog.
+NetStats and matching Ping/Pong run at approximately one-second intervals.
+Windows compiles the GUI and displays an explicit unsupported decoder error.
+Added minimal TCP fake-host acceptance tests for reconnect/Resume/keyframe,
+feedback cadence, invalid configuration/Closed, and I420 conversion. Updated
+Linux CI GUI prerequisites and NOTICE. Also repaired inherited M2-4 call sites
+for M2-3's now-fallible Encoder trait, propagating bitrate failures.
 
-`MM_REQUIRE_CODECS=1` makes codec availability meaningful. Ignored live tests are
-not automatic passes. Run `host/tests/x11_input.rs` only on an isolated Xvfb with
-`MM_ALLOW_INPUT_SMOKE=1` and sequential tests. Current platform workflows also
-check Windows, PipeWire and MSRV. Android's workflow builds three ABIs and runs
-four real video/control/discovery tests on APIs 29/30/34/36. Instrumentation must grant
-Accessibility **after** its process restart and wait for the specific target
-editor's IME connection; prebinding or accepting any stale IME caused failures.
+Validation: workspace fmt, clippy with warnings denied, tests, build, mock-feature
+tests, PipeWire-feature build/clippy, all-feature tests, rustdoc with warnings
+denied, Rust 1.85 all-targets workspace check and PipeWire-feature build,
+and Windows GNU cross-target
+all-targets clippy pass. Live desktop rendering, real host H.264 streaming,
+Wi-Fi recovery/latency, physical presentation timing and Windows linking/runtime
+remain unverified. Decode-to-present here means texture submission, not scanout.
+M2-4 PR #29 is still unmerged; usage, dependency and manual smoke steps are in
+VIEWER.md. Windows real decoding, input forwarding and negotiated colorimetry
+remain future work; M2 as a whole is not complete.
 
-For Linux Extend, start `mm-host --secure --extend --managed` with a local bind,
-keep its stdin open, approve the virtual monitor, receive real H.264 video, send
-`STOP`, and compare active displays before/during/after. A closed stdin immediately
-stops a managed host. Keep its invitation private and delete test credentials.
-
-Installer workflows are `linux-installer.yml` and `windows-installer.yml`.
-Android builds use `android-viewer.yml`. They can be dispatched on a feature ref;
-workflow artifacts are temporary development downloads, not stable releases.
-Do not rely on another contributor's `/tmp` dependency paths or local binaries.
-Recreate dependencies from the checked-in workflows. Avoid concurrent builds from
-multiple worktrees into one cargo target directory because stale output can mislead.
-
-## Repository and PR workflow
-
-Upstream: `reduckyLang/MightyMonitor`. User fork: `akasumitlamba/MightyMonitor`.
-Check `git remote -v`, clean/dirty state and applicable AGENTS.md before working.
-User authorizes commits to their fork and milestone PRs to upstream; the user or
-maintainer merges them. Prefer `codex/` branch names. Do not discard local work.
-
-The maintainer uses **squash merge**. This preserves the source but changes ancestry.
-PRs #40–45 needed synchronization when based on pre-squash feature history.
-Before each new PR:
-
-1. Fetch upstream main and confirm the previous prerequisite really merged.
-2. Compare its reviewed branch tree with the squash merge/main tree.
-3. Synchronize the new feature branch; resolve conflicts by inspecting code.
-   Taking feature versions wholesale is safe only if tree identity was proven
-   and no independent upstream changes would be lost. Never assume it.
-4. Verify the PR diff contains only the new milestone and is mergeable. Push
-   normally; avoid forced rewrites of someone else's work.
-5. Run relevant checks, include concrete evidence and limitations, open and attach
-   the PR. Avoid overlapping dependent PRs. Document the next merge order clearly.
-
-No new scheduling/hosting service is needed to keep the website fresh: update it
-with each milestone. Its release buttons must point only to real published
-installers from the configured upstream repository, with honest unavailable states.
-
-## Keeping this handover useful
-
-At each milestone update: the date, support/evidence matrix, remaining work,
-new module map entries, tests and known failure causes, relevant PRs, and website
-status copy. Link this guide from README and keep AGENTS.md pointing here. Keep
-personal conversation history, local machine identifiers, secrets and transient
-execution-session details out of the repository. This guide should explain the
-project sufficiently for a contributor with no access to previous chats.
-
-## Current development branch and evidence
-
-Continue on `codex/device-discovery`. The user has asked for implementation and
-testing to continue without pausing for PRs or merges; create upstream PRs later.
-Commit normal checkpoints to the fork. No new PR is open for these changes.
-
-- **Verified at 27173aa:** opt-in discovery, network selection, desktop private-link
-  prefill and Unicode Keyboard entry; Android full-screen viewing, keep-awake,
-  scrollable Share controls, rotated-pointer/letterbox rejection, Unicode entry,
-  control revocation and Stop status. Android run 39373557186 passed all four tests
-  on API 29/30/34/36. CI/MSRV/PipeWire passed in 39373557265.
-- **Desktop installer lifecycle:** Linux actual install/reinstall, installed
-  decoder, desktop validation and purge passed in 39373557147. Windows reinstall,
-  private-runtime initialization, URI registration and uninstall passed in
-  39373557232. These ran on isolated CI machines, not the user's active desktop.
-- **Build identity:** SHA256SUMS and BUILD_INFO.json are included with installer/
-  APK artifacts. The records contain relative paths, source commit, tracked-source
-  modification flag, sizes and hashes. Linux 39377608049 and Windows 39377608033
-  passed the manifest follow-up; APK manifest generation passed in 39377927435.
-  They are unsigned provenance/integrity records, not publisher signatures.
-- **Android release build:** RELEASE_SIGNING.md documents the four private
-  MM_ANDROID signing environment variables. Missing credentials fail release
-  assembly. The APK job in 39377927435 passed both that refusal and actual signing/
-  apksigner verification using a disposable random CI key. It deleted the key and
-  signed test APK. A production key, stable update identity and publication are
-  still required; the downloadable CI APK remains a debug/test build.
-- **Android notification follow-up:** a first Share on API 33+ requests optional
-  POST_NOTIFICATIONS once, then separately requests capture consent even after
-  denial. App Stop remains available. Java compilation passes; all four emulator tests passed on API 29/30/34/36 in
-  39377927435, including denial on the newer Android versions.
-- **Desktop full-screen follow-up:** hide navigation/connection/status panels,
-  retain an explicit exit, release held input on transitions and consume local
-  Escape before remote translation. Local input regression tests and warning-free
-  workspace Clippy pass. Native Linux/Windows/MSRV/PipeWire checks passed in 39378671820; physical
-  full-screen UI acceptance remains unverified.
-
-Android run 39378671813 passed actual JNI ELF and debug/release APK 16 KiB
-alignment, release-signing checks, and all four video/control/discovery emulator
-tests on API 29/30/34/36. Linux package install/reinstall/runtime/purge passed in
-39378671812; Windows setup/reinstall/runtime/URI/uninstall passed in 39378671793.
-The matching e468edb installer artifacts were downloaded and checksum-verified
-locally. They remain development builds, not a published stable release.
-
-The desktop reconnect-status follow-up passed native CI and both installers at
-9fe1716. Its repeated Android suite failed the initial control tap on API 29 and
-editor focus after rotation on API 36; API 30/34 passed. The readiness follow-up described below passed its confirming run. Input tests now wait for stable focused target bounds before each single gesture.
-Viewer rotation separately checks visible viewport orientation/aspect and new
-frames; image rendering does not require keyboard focus. Full-screen entry hides
-the local keyboard. Java compilation and confirming Android run 39395701699 passed.
-The control test now runs three consented Share/control/Stop sessions in one app
-process. The first failure still fails the test. Avoid repeatedly force-stopping
-the process merely to repeat gesture checks: that hit Android 16 Accessibility
-rebind suppression before the second repeat could begin. Forced-process recovery
-remains a separate, unverified lifecycle scenario.
-The native Linux idle UI snapshot rendered successfully without sharing/input;
-the unused Sharing off bar is removed while preserving active/error
-indicators. Desktop CI and both installer lifecycle jobs passed at 734aea2.
-full-screen physical-device UI acceptance is still unverified.
-Android workflow filters now cover headless interop/capture dependencies and
-leave GUI-only verification to desktop CI.
-
-The support table above remains the product-level limit: no physical Windows/
-phone acceptance, no Windows/X11 true extension, no persistent pairing and no
-published production release. Read DEVICE_ACCEPTANCE.md for the untested routes.
+2026-10-18: M2-4 post-main integration: updated host and test Encoder adapters to
+core's Result signatures. Pipeline::on_stats now returns Result; sessions log
+rejected live ABR changes and continue at the previous encoder setting, while
+initial bitrate failures remain fatal. Recovered poisoned host locks and added
+a capture-thread drop guard so backend panic closes/wakes the frame slot.
+Added configurable post-handshake idle timeout (--idle-timeout-secs, default 30s),
+renewed by received controls including Pings, and a stderr warning for resolved
+non-loopback binds without authentication/encryption. Existing tests already
+assert the constant max_queue_len == 1 bound. New tests cover bad Hello version,
+wrong role, handshake timeout, capture panic termination, and idle timeout/Ping
+renewal; existing Resume-first coverage retained. docs/HOST.md updated.
+Verified locally: cargo fmt --all -- --check; cargo clippy --workspace
+--all-targets -- -D warnings; cargo test --workspace; cargo build --workspace.
+All passed, including six host loopback/pipeline integration tests. The X11 smoke
+test remains ignored. Live desktop capture/viewing, Wi-Fi latency, hardware
+encoding and Windows build/runtime were not revalidated in this follow-up.
+Deferred review item (d): validation before pipeline/session resource creation
+requires restructuring the current API and CLI capture-dimension setup; invalid
+Hello version/role is rejected today, but after resources have been created.
+A capture backend that never returns can still retain its thread; idle timeout
+ends the session's wait, and in-progress writes remain bounded by write timeout.
 
 
-**Repeated-session confirmation at bc3210e:** Android run 39395701699 passed
-all four tests on Android 10/11/14/16. The viewer test required fresh video after
-landscape/portrait changes. The control test completed three independently
-consented share/tap/rotate/type/revoke/stop sessions in one process on each version
-(12 sessions total). CI 39395701831 passed Linux, Windows, MSRV and PipeWire.
-This resolves the observed test readiness failures for this run; forced-process
-Accessibility recovery and physical-device reliability remain unverified.
 
-**Windows screen selection follow-up:** `display-windows/` is an original, small
-read-only Win32 adapter with the explicit unsafe FFI boundary. Share offers an
-existing-screen picker and refresh. `mm-host --list-displays` lists GDI device
-names; `--display DEVICE` resolves a snapshot to its exact HMONITOR for GStreamer.
-The snapshot is checked before startup and each frame; disappearance, handle,
-geometry or primary-status changes stop that capture instead of falling back.
-At that checkpoint explicit selection was view-only; the later Windows input
-follow-up below supersedes that restriction. No virtual monitor is created. Local snapshot rejection
-tests and Windows adapter cross-Clippy passed; native Windows/Linux, MSRV and PipeWire checks passed at 893a490 in
-run 39399148245. Linux installer/guide checks passed in 39399148203. Physical
-multi-monitor/hotplug acceptance remains unverified.
+2026-10-18: Android viewer implementation added: native Android Activity and
+MediaCodec surface decoding, a JNI bridge into the shared Rust protocol, bounded
+ordered video queue, Hello/Resume reconnect, configuration/keyframe gating, and
+Ping/NetStats feedback. Rust loopback tests cover actual protocol events, reconnect
+and shutdown under queue pressure. Android APK/emulator build workflow added;
+APK compilation passed for arm64, 32-bit ARM and x86_64. Real PC H.264
+playback passed on Android 10, 11, 14 and 16 emulators; physical phone
+acceptance remains pending. This milestone does not include phone capture,
+remote input, secure pairing, virtual displays or a production-signed release.
 
 
-The user-facing GETTING_STARTED.md guide is linked from README and included in
-desktop installers. Keep its simple setup/permission/troubleshooting instructions
-consistent with actual capabilities. Installer jobs check its presence and removal.
+2026-10-18: Android screen hosting and light interface milestone added. Android
+MediaProjection consent and a foreground capture service feed surface H.264 to
+an original Rust protocol server. Native queue bounds, overflow IDR gating,
+handshake, timed writes, keepalive, stop lifecycle and bitrate feedback are
+implemented. Capture-to-Rust-to-Android-decoder tests passed on Android 10, 11,
+14 and 16 emulators. Real desktop H.264 decoding of Android capture also passed on
+all four emulator versions. Desktop and Android now separate View/Share with a light neutral
+and green palette; technical settings are collapsed. Physical devices, secure
+pairing, remote input, extended monitors, concurrent peers and production
+Windows packaging remain incomplete.
+
+2026-10-18: Windows desktop streaming implementation added: shared GStreamer H.264
+encode/decode enabled on Windows, DXGI capture via d3d11screencapturesrc with
+bounded appsink, validated/cropped packed RGBA, CLI monitor selection, and real
+viewer decoding/host launch instead of unsupported placeholders. Windows CI
+installs the pinned official 1.28.8 SDK with SHA256 validation and verifies codec
+plugins before running tests. Linux synthetic-capture and buffer-boundary tests
+exercise the common conversion path; a real Windows capture smoke is opt-in.
+This is implementation progress, not physical Windows acceptance. Remote input,
+secure pairing, virtual displays, and Windows installers remain separate milestones.
+Linux Debian alpha packaging is included from main.
 
 
-The desktop Share page now scrolls vertically so QR/settings/control actions stay
-reachable in short windows. Local viewer Clippy passes with warnings denied;
-native Windows/Linux/MSRV/PipeWire CI 39399759531 and both installer jobs
-39399759511/39399759517 passed at 3676811. The View canvas
-is unchanged.
+2026-10-19: Private session viewing invitations and pinned TLS 1.3 implemented
+across desktop and Android. Authentication failures are terminal; there is no
+secure-to-plaintext fallback. Android workers can cancel stalled TLS handshakes.
+Local workspace tests include real H.264 over TLS, wrong pin/token rejection,
+blocking/async interoperability, Android client/server video and stop lifecycle.
+Platform CI/emulator validation is tracked in the milestone PR. Persistent device
+pairing, remote control, extended displays and physical-device acceptance remain
+incomplete; this is a viewing-security milestone, not a finished product.
 
 
-**Later Android repeat at 53594c1:** run 39398842473 passed API 30/34/36 but
-API 29 failed its initial tap in the third control session (the first two sessions
-completed). Do not treat the earlier all-green run as proof of settled reliability.
-The failure did not include dispatch/cancellation evidence, so its cause is not
-yet established. A follow-up adds fixed-size, content-free service counters and
-debug fixture DOWN/UP/CANCEL counts to test diagnostics, plus an active accessibility
-window-ID readiness check. No coordinates, text, keys, tokens or viewing links are
-recorded by the service. It does not retry failed gestures or alter permission
-requirements; its confirming execution is pending. Physical-device testing is
-deferred while implementation/build work continues.
+2026-10-19: Linux host now selects portal-authorized Wayland capture automatically
+when built with its default PipeWire feature. A bounded shared latest-frame source
+keeps one portal session across viewer reconnects, handles idle desktops and
+renegotiates resolution changes. Synthetic lifecycle/crop/resize tests supplement
+native builds; interactive compositor acceptance remains pending.
 
 
-**Desktop local revocation follow-up:** Share now offers Stop control while
-locally allowed sharing is active. The private managed-host input pipe accepts
-bounded REVOKE_CONTROL/STOP commands. A monotonic owner/consent signal revokes
-all current input leases and prevents future grants for that share lifetime;
-closed ownership fails closed. Session reads/writes remain pinned during release,
-late valid input is discarded, and video continues. Failure to deliver the GUI
-command ends sharing. Six real framed-socket tests with synthetic capture/input
-pass, including release during a deliberately stalled video write, multi-session
-revocation and later reconnect refusal. Native viewer/host Clippy passes locally;
-new platform/installer runs are required. These tests do not inject OS input.
-
-**Android diagnostic run f5afd04:** 39473898336 built the three-ABI APK and passed
-API 29/30. API 34 first failed a stale notification-permission UI handle, leaving
-a dialog that blocked later fixture launches. The permission helper now resolves
-and clicks within one bounded loop and re-resolves stale handles before any click
-was dispatched. API 36 failed the valid rotated click in session three after
-three successful initial taps; its cause is not yet proven. The rotated assertion
-now includes the same bounded dispatch/target counters. Main/test Java compile.
-No failed remote gesture is retried. Full device testing remains deferred while
-implementation and installer work continue.
+2026-10-19: Remote-control milestone (development branch): optional desktop
+keyboard/mouse input, focused-viewer forwarding, and Android accessibility/IME
+input are implemented behind local and viewer grants. Wayland uses one system
+RemoteDesktop/ScreenCast consent session. Desktop sharing accepts up to four
+viewers with one controller at a time; disconnect/revocation releases held input.
+Full workspace tests and warning-free clippy passed locally, along with actual
+X11 input and two encrypted H.264 viewer sessions with controller handoff.
+Android APK builds pass; automated Android control acceptance is currently blocked
+by the test service not rebinding after instrumentation restarts the app. This
+is not an Android control acceptance pass. Physical Windows/Android, interactive
+Wayland input, virtual displays, discovery and production release signing remain
+unfinished. See REMOTE_CONTROL.md for permission and platform details.
 
 
-**Windows selected-screen input follow-up:** main/default and explicit screens
-are pinned at host start. Optional control maps the negotiated picture into the
-selected screen's physical rectangle, then into absolute virtual-desktop input;
-negative monitor origins and the codec's cropped odd edge are accounted for.
-All input events revalidate the selected snapshot except ReleaseAll, which must
-always be allowed to clean up held input. Legacy monitor indices remain view-only.
-The UI retains two explicit control grants and view-only defaults. Three snapshot/
-geometry tests and Windows-adapter cross-Clippy pass without injecting input;
-native Windows and physical mixed-DPI/hotplug acceptance are still required.
-Windows virtual-monitor creation remains unimplemented.
+2026-10-19: Remote-control acceptance follow-up: secure phone control, real
+Android button gestures, text entry through the selected optional keyboard, and
+revocation passed on Android 10/11/14/16 emulators. Existing PC-to-phone video
+and phone-to-desktop H.264 acceptance tests also passed on these versions. Test
+setup now grants accessibility after instrumentation restarts the target process
+and waits for the actual target editor's input connection. Shipped app permission
+behavior is unchanged. Both desktop installer builds passed, including Windows
+installation/runtime/uninstallation checks. Physical devices and interactive
+Wayland input remain unverified. PR #44 is the remote-control review milestone.
+
+2026-10-19: Experimental Wayland extension is implemented on the separate
+`codex/virtual-display` branch after the remote-control milestone. It requests
+the portal's Virtual source, checks advertised support and the returned stream
+type, reuses encrypted H.264 viewing/control, and exposes Mirror/Extend in Share.
+Unsupported X11/Windows extension fails before publishing a viewing invitation.
+Local Linux build, clippy, rejection integration test and Windows cross-check pass.
+This Linux desktop advertises virtual-monitor support, but actual creation,
+streaming and removal require interactive system consent and remain unverified.
+No Windows display driver or X11 extension has been added.
 
 
-**23 October build continuation:** Windows selected-screen input adapter tests
-and Windows-target adapter Clippy pass at 20011b1; native platform builds are
-running. The previous revocation milestone 72a8299 passed CI and both desktop
-installers (39476317038/39476317077/39476317117). Android APK assembly passed,
-but API 30 control failed with target DOWN=1/UP=0 and one cancelled continued
-gesture (39476317032). This is concrete cancellation evidence, not a permission
-failure. Quick presses now allow 32 ms for an arriving release so a tap can be
-submitted as one complete gesture; a held press starts a continued stroke after
-that interval. Revocation clears scheduled presses. Existing tests now require
-four additional independent quick taps per session without retrying failures.
-Java app compilation passes; emulator confirmation is required before claiming
-the cancellation issue resolved. Physical tests remain deferred by request.
+2026-10-19: Live KDE Wayland extension acceptance passed after the user granted
+system consent: a new virtual monitor appeared in KScreen, a secure desktop viewer
+decoded three real H.264 frames, managed-host Stop exited with status zero, and
+the virtual monitor disappeared with the original active display set restored.
+This test used loopback and view-only sharing. Layout/window movement, virtual
+monitor input, other compositors and physical cross-device Wi-Fi remain unverified.
+
+
+2026-10-20: Opt-in untrusted local presence discovery is implemented on the
+development branch for desktop and Android. Advertisements exclude viewing
+credentials; a private link is still required to connect. Rust unit tests and
+real local multicast advertise/resolve/remove/no-TCP tests passed. Android source
+and resources compile; NSD emulator and physical cross-device acceptance remain
+unverified. Work continues without waiting for PR creation per the user request.
+
+
+2026-10-20: Continued development without waiting for PRs: desktop/Android
+read-only IPv4 network selection, desktop private-link prefill, Linux URI-scheme
+declaration and Windows per-user URI registration are implemented. Links do not
+auto-connect or enable control. Startup argument tests and installer association
+checks were added. Local Java/resources and warning-free Rust checks pass; full
+updated platform/installer/device checks are still running.
+
+
+2026-10-20: First discovery emulator results: Android 11/14/16 passed all four
+video/control/presence tests. Android 10 failed before app installation while
+downloading its SDK platform (invalid archive), not in an app assertion. Bounded
+SDK-download retry/preflight was added. Continued work adds a desktop Keyboard
+panel for Unicode/composed text; the next Android control run includes Hindi and
+a check mark in its real editor assertion. Updated tests are pending.
+
+
+2026-10-20: Development checkpoint f10545d passed all native/MSRV/PipeWire checks,
+Windows installer/runtime/uninstall/URI cleanup, Linux alpha.7 packaging and all
+four Android emulator versions, including NSD removal and real Unicode text entry.
+Further changes fix Android letterbox clicks reusing a stale pointer, remote IME
+fullscreen, Stop status and unavailable selected-network handling; active visible
+Android viewing now keeps the display awake. Expanded rotation/click/cleanup
+regressions are awaiting fresh runs. No new PR was opened per the user request.
+
+
+2026-10-20: Added Android full-screen viewing with an explicit exit overlay,
+aspect-ratio fitting on viewport resize, restored controls/system bars on exit
+and disconnect, and live-video enter/exit regression assertions. Main/debug/test
+Java compilation passed locally; fresh emulator execution is pending.
+
+
+2026-10-20: Follow-up usability changes bound desktop discovery to a compact
+scrolling list and keep Android Share controls reachable with scrolling on small
+or landscape displays. Full-screen transitions explicitly release remote input.
+Local Java compilation and workspace Clippy with warnings denied passed.
+
+
+2026-10-20: Expanded delivery checks: Linux actual package install/reinstall,
+installed decoder initialization, desktop entry validation and purge cleanup;
+Windows same-version reinstall before runtime/URI/uninstall checks. Updated the
+local Linux packaging default to alpha.7. Workflow YAML parses locally; these new
+packaging checks have not run yet. Physical upgrades and clean-device acceptance
+remain separate.
+
+
+2026-10-20: Full-screen/live-video checks passed on all four emulator versions in
+run 39372769598. The expanded control suite passed Android 10/11 but failed the
+rotation precondition on 14/16. The test measured the background MainActivity's
+display; it now uses UI Automator display dimensions and explicit test-device
+rotation with cleanup. This diagnosis still requires a confirming rerun; rotated
+control is not yet accepted on 14/16. No production permission is automated.
+
+
+2026-10-20: Installer/APK artifact workflows now prepare portable SHA256SUMS and
+BUILD_INFO.json with exact source revision, dirty-source indicator, sizes and
+hashes. The standard-library generator passed local independent-hash and nested
+path checks; YAML parses. No signing credential or certificate was generated.
+Fresh workflow execution for manifest packaging remains pending.
+
+
+2026-10-20: Confirmed checkpoint 27173aa: Android run 39373557186 passed all four
+tests on API 29/30/34/36 after using actual device dimensions/rotation in the test.
+This includes live full-screen enter/exit, real rotated clicks, stale-letterbox
+rejection, Unicode editor entry, revocation and Stop status. Linux actual package
+install/reinstall/runtime/desktop validation/purge passed (39373557147), as did
+Windows reinstall/runtime/URI/uninstall (39373557232) and CI/MSRV/PipeWire
+(39373557265). Physical-device acceptance and Windows Extend remain unfinished.
+
+
+2026-10-20: Added Android 13+ optional notification permission on first Share so
+its existing Stop action can appear. Declining notifications still proceeds to
+separate OS capture consent. Emulator capture helpers now exercise notification
+denial when that prompt appears. Main/debug/test Java compilation passed; actual
+new permission-flow execution awaits the next Android run.
+
+
+2026-10-20: Implemented Android release-signing configuration and refusal without
+publisher credentials. Added CI negative check and genuine release assembly /
+apksigner verification using a disposable random test key, not a production key.
+The key/test release APK are deleted and excluded from artifact uploads. Gradle
+execution is pending; this is not a published or production-signed release.
+
+
+2026-10-20: Desktop Full screen now hides navigation/connection/status panels,
+keeps an explicit exit, releases held input/focus and consumes local Escape before
+remote translation. The new Escape regression plus existing Unicode input tests
+passed locally; workspace Clippy with warnings denied passed. Platform/UI checks
+are pending. The handover's development evidence was consolidated to remove
+superseded pending claims. Website FAQ reflects development viewing/discovery.
+
+
+2026-10-20: Added actual Android JNI ELF load-alignment and debug/release APK
+zipalign checks for 16 KiB pages. The new readelf-based checker accepted a real
+16 KiB-linked ELF and rejected a 4 KiB-linked ELF locally. Actual Android-library
+and APK checks await CI; physical 16 KiB-page hardware is unverified.
+
+
+2026-10-20: Android a696298 APK job passed unsigned-release refusal, disposable
+release signing/apksigner verification and artifact manifests. Android 16 also
+passed the actual optional-notification-denial/video/control/discovery suite;
+other emulator results are still running. Related viewer documentation was
+updated to remove stale single-viewer/X11-only/no-discovery statements.
+
+
+2026-10-20: Confirmed a696298 Android run 39377927435 succeeded on all four emulator
+versions, including optional-notification denial followed by real video/control.
+Release-signing guard and disposable signed build also passed. The next checkpoint
+adds desktop full-screen behavior and explicit actual 16 KiB ELF/APK checks; those
+new platform checks remain to run. No new PR was created.
+
+
+2026-10-20: The full-screen viewer now retains visible reconnecting status while
+hiding ordinary connected controls. Viewer Clippy with warnings denied passed.
+Android workflow coverage was focused on its actual headless-viewer/capture/codec
+and shared-protocol dependencies; desktop-only UI changes keep their desktop
+checks and no longer need unrelated emulator reruns. Workflow YAML parses.
+
+
+2026-10-20: Checkpoint e468edb passed Android real JNI/debug/release 16 KiB
+alignment, signing guard/test signature checks, and all four emulator tests on
+10/11/14/16 (39378671813). Desktop CI/MSRV/PipeWire (39378671820), Windows installer
+lifecycle (39378671793), and Linux package lifecycle (39378671812) passed. Matching
+Windows/Linux/Android artifacts were retrieved locally and independently checked
+against SHA256SUMS and BUILD_INFO.json; each reported clean tracked sources.
+The small later reconnect-status/filter follow-up awaits its fresh builds.
+
+
+2026-10-20: Repeat checkpoint 9fe1716 passed native CI and both installers, but
+Android control assertions failed intermittently on 10 (initial tap) and 16
+(editor focus after rotation); 11/14 passed. Earlier four-version passes remain
+historical evidence, not proof this intermittency is solved. Instrumentation now
+waits for shown/focused/stable non-pending target bounds before computing a single
+remote gesture; it does not retry clicks or bypass actual control assertions.
+Expanded viewer playback checks rotate to landscape and back while requiring new
+frames. Java test compilation passes; confirming execution is pending.
+
+The current native Linux viewer was also launched using its developer-only idle
+snapshot example. It rendered its normal View page successfully and exited without
+starting capture or sending input. This is normal-window UI evidence only.
+
+
+2026-10-20: Added two independent extra control-test executions on API 29/36,
+the versions with intermittent failures. Each runs the real grant/gesture/Unicode/
+revocation test in a fresh instrumentation launch on the same isolated emulator;
+a failed execution fails the job, rather than being retried until green. The
+script refuses non-emulator devices and preserves logs. Execution is pending.
+
+
+2026-10-20: Simplified the desktop idle View page by hiding an unused sharing
+bar. Active sharing and sharing failures retain their global indicators; connected
+viewing retains its full-screen action. The native Linux snapshot rendered the
+revised idle window successfully; viewer Clippy with warnings denied passed.
+No capture or input injection was started for this UI check.
+
+
+2026-10-20: Expanded viewer-rotation tests failed on API 29/34/36 at the generic
+input-target readiness precondition (API 30 passed). That precondition is not
+appropriate for view-only video. The viewer check now requires a stable visible
+full-screen viewport with correct orientation/4:3 fixture aspect ratio, followed
+by three new frames; it does not require keyboard focus. Input-gesture checks
+retain their stricter focus/layout requirements. Failures now report safe numeric
+geometry/state diagnostics. Full-screen entry also dismisses the local keyboard.
+Both Java compilations pass. These changes require confirming execution.
+Control repetitions run even if a different full-suite test failed, but the
+original suite failure still fails the job; no failed assertion is ignored.
+
+
+2026-10-20: The fresh-instrumentation stress approach exposed Android 16
+Accessibility rebind/crash suppression after repeated forced process restarts
+(full suite and first repeat passed, second failed before control began). It was
+replaced by three independently consented share/control/rotate/type/revoke/stop
+sessions within one test process on every emulator version. The first failed
+session aborts the test; no failed result is retried into success. This models
+ordinary repeated sharing without repeatedly force-stopping an enabled system
+service. Initial capture orientation is explicitly portrait for the letterbox
+fixture. The old restart script was removed. Java compilation passes; runs pending.
+
+
+2026-10-20: Confirming Android run 39395701699 passed all four tests on APIs
+29/30/34/36, including fresh viewer frames after rotation and three independently
+consented control/share/stop rounds per version. CI 39395701831 also passed.
+Historical pending/failure entries above describe earlier revisions. Forced-process
+Accessibility recovery remains separate and unverified.
+
+2026-10-20: Added read-only Windows screen enumeration, a Share screen picker and
+CLI --list-displays/--display. Exact HMONITOR capture checks the selected snapshot
+before startup and every frame, rejecting removal/layout/identity changes without
+fallback. Explicit selection stays view-only. This is existing-screen selection,
+not Windows Extend. Snapshot rejection tests and Windows adapter cross-Clippy
+pass; full platform checks and physical multi-monitor acceptance remain.
+
+
+2026-10-20: Added GETTING_STARTED.md with plain-language setup, consent, control,
+extra-display limits and troubleshooting. It is linked from README and bundled
+in both desktop installers. Packaging checks verify the guide's presence and
+Linux purge cleanup; installer confirmation is pending. Updated older installer
+documentation to distinguish implemented input/Wayland extension from physical
+acceptance and Windows virtual-display work.
+
+
+2026-10-20: Native Windows/Linux, MSRV and PipeWire passed in 39399148245
+at 893a490, including the new display adapter and exact-screen capture code.
+Linux installer/guide presence and purge checks passed in 39399148203.
+A follow-up adds vertical scrolling to the desktop Share page so QR/settings/Stop
+remain reachable on short windows. Viewer Clippy passes; final layout CI pending.
+
+
+2026-10-20: The final scrolling Share UI passed Windows/Linux/MSRV/PipeWire CI
+39399759531 and Windows/Linux installers 39399759511/39399759517 at 3676811.
+Android repeat 39398842473 passed API 30/34/36; API 29 failed the third session's
+first remote tap after the first two sessions completed. Cause is unproven.
+Added bounded, content-free gesture dispatch/completion/cancellation counters and
+debug-only fixture touch counts for diagnostic assertions; test readiness also
+checks the active accessibility window against the actual target window. No
+failed click is retried. Confirmation is pending; this is diagnostic work, not a
+claim that the Android 10 issue has been fixed.
+
+
+Development follow-up: Added desktop Stop control without interrupting viewing.
+Six real framed-socket tests with synthetic input/capture pass, including local
+owner loss, revocation across sessions, late-input discard, refusal on reconnect
+and held-input release during a stalled video write. Viewer/host Clippy passes.
+Native input was not injected during these tests. Platform builds pending.
+
+Android run 39473898336 built successfully and passed API 29/30. API 34 failed on
+a stale system-permission UI handle, which blocked later fixture launches; that
+helper now re-resolves stale handles within its original timeout. API 36 missed
+a rotated valid click in the third session; the rotated assertion now includes
+dispatch/target counters. This cause remains unproven, not reported as fixed.
+
+
+Development follow-up: Implemented explicit Windows screen input mapping using
+physical display offsets and virtual-desktop absolute pointer coordinates. Main
+screen also pins its snapshot. Odd-edge video cropping is accounted for; changed
+or removed display snapshots fail before input, while ReleaseAll remains allowed.
+Geometry tests cover monitors left/above the main screen, offsets, corners and
+invalid/out-of-desktop coordinates; snapshot tests and adapter cross-Clippy pass.
+No input was injected on the developer desktop. Native Windows builds and
+physical mixed-DPI/hotplug acceptance remain separate; no virtual driver added.
+
+
+2026-10-23: Resumed Windows selected-monitor control builds. Android control
+failure diagnostics in run 39476317032 showed an accepted DOWN without UP and
+a cancelled continued stroke. Quick down/up now coalesces into one complete tap
+within a 32 ms window; held presses retain continued dragging. Release clears
+scheduled presses. Tests require four additional independent taps each session,
+not retries. App Java compilation passes; confirming emulator run pending.
+Windows installer run 39951210788 failed before compilation because its official
+SDK download ended prematurely. Bounded network retries are added below; pinned
+checksum verification and install/plugin failure behavior stay strict.
