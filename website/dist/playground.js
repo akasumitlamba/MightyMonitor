@@ -14,10 +14,12 @@
   } catch {
     return;
   } // The complete CSS illustration remains available.
-  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.7));
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
   renderer.outputColorSpace = T.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = T.PCFSoftShadowMap;
+  renderer.shadowMap.autoUpdate = false;
+  renderer.shadowMap.needsUpdate = true;
   renderer.setClearColor(0x000000, 0);
   renderer.domElement.setAttribute("aria-hidden", "true");
   mount.append(renderer.domElement);
@@ -130,8 +132,8 @@
       ),
     );
     const canvas = document.createElement("canvas");
-    canvas.width = 960;
-    canvas.height = Math.round((960 * h) / w);
+    canvas.width = kind === "phone" ? 384 : 640;
+    canvas.height = Math.round((canvas.width * h) / w);
     const texture = new T.CanvasTexture(canvas);
     texture.colorSpace = T.SRGBColorSpace;
     const screen = new T.Mesh(
@@ -227,6 +229,10 @@
     ctx.fill();
   }
   function paint(d, index) {
+    // The phone UI is static within a mode. Do not upload its tall texture on
+    // every video frame; only the desktop windows need continuous repainting.
+    if (d.kind === "phone" && d.paintedMode === mode) return;
+    d.paintedMode = mode;
     const c = d.canvas,
       ctx = c.getContext("2d"),
       w = c.width,
@@ -362,6 +368,8 @@
     if (last && running && !once)
       clock += Math.max(0, Math.min((now - last) / 1000, 0.1));
     if (!once) last = now;
+    const oldDeskX = desk.rotation.x,
+      oldDeskY = desk.rotation.y;
     desk.rotation.y = T.MathUtils.lerp(
       desk.rotation.y,
       targetX,
@@ -372,7 +380,13 @@
       targetY,
       paused || reduced.matches ? 1 : 0.065,
     );
+    let moved =
+      Math.abs(oldDeskX - desk.rotation.x) +
+        Math.abs(oldDeskY - desk.rotation.y) >
+      0.0001;
     devices.forEach((d, i) => {
+      const oldX = d.group.position.x,
+        oldAngle = d.group.rotation.y;
       const spread = mode === "extend" ? 1.1 : 1;
       const desired =
         d.base.x * spread +
@@ -396,8 +410,15 @@
           (layout === 1 ? 0.16 : layout === 2 ? -0.12 : 0),
         reduced.matches || paused ? 1 : 0.07,
       );
+      moved ||=
+        Math.abs(oldX - d.group.position.x) +
+          Math.abs(oldAngle - d.group.rotation.y) >
+        0.0001;
       paint(d, i);
     });
+    // Moving pixels do not change an opaque device's shadow. Recompute the
+    // shadow map only when the physical composition changes.
+    if (moved) renderer.shadowMap.needsUpdate = true;
     renderer.render(scene, camera);
     if (running && !once) frame = requestAnimationFrame(draw);
   }
