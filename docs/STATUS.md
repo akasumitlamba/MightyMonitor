@@ -476,3 +476,10 @@ cancelling one complete 16 ms tap before target DOWN (other APIs passed). Comple
 taps now use Android's tap-timeout duration; held drag segments remain short.
 This is a timing hypothesis requiring confirmation, not a resolved reliability
 claim. Main Java compiles locally. No permission bypass or gesture retry added.
+
+
+2026-10-23: Added original virtual-output backend/ownership abstraction with mode
+validation, exact OS identity, rollback and scoped idempotent cleanup. Four mock
+lifecycle tests pass (independent owners/preservation, invalid mode, rollback,
+cleanup retry), plus existing snapshot/geometry checks. This is a tested
+foundation, not a Windows virtual-display driver or working Extend capability.

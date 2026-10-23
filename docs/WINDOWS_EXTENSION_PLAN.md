@@ -68,8 +68,11 @@ These are reference material under their license, not proprietary application co
 
 ## Delivery and acceptance
 
-1. Implement a monitor-backend abstraction and mock owned creation/removal,
-   concurrent changes, timeouts, failure rollback and monitor identity checks.
+1. The original `display-windows::owned` abstraction now implements validated
+   modes and owned lifecycle/rollback. Mock tests cover independent owners,
+   preservation, invalid identity rollback and cleanup retry. Native deadlines,
+   driver disconnect cleanup and actual concurrent OS operations still need a
+   concrete backend and acceptance.
 2. Choose/build the Rust driver and its safe IPC contract. Keep installation
    separate from unprivileged viewing/sharing. Record dependency provenance.
 3. Add exact Windows monitor targeting and secondary-display pointer mapping;

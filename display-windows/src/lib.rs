@@ -3,6 +3,7 @@
 //! Native pointers stay inside the adapter; callers receive owned snapshot data.
 #![deny(unsafe_op_in_unsafe_fn)]
 use std::io;
+pub mod owned;
 #[cfg(any(target_os = "windows", test))]
 mod pointer;
 #[cfg(target_os = "windows")]

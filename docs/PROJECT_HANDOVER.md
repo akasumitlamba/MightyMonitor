@@ -1,6 +1,6 @@
 # MightyMonitor project handover
 
-Last reviewed: 20 October 2026. This is the starting point for a new contributor
+Last reviewed: 23 October 2026. This is the starting point for a new contributor
 or AI assistant. Verify repository/release state before relying on this snapshot.
 
 ## Intended finished app
@@ -371,3 +371,16 @@ cancelling one complete 16 ms tap before target DOWN (other APIs passed). Comple
 taps now use Android's tap-timeout duration; held drag segments remain short.
 This is a timing hypothesis requiring confirmation, not a resolved reliability
 claim. Main Java compiles locally. No permission bypass or gesture retry added.
+
+
+**Virtual-output ownership foundation (23 October):** `display-windows::owned`
+defines an atomic-create backend contract, exact OS adapter/target identity,
+bounded mode validation and an RAII owner. It arms rollback before validation,
+removes only its own opaque lease, retains ownership after failed cleanup for
+retry, and documents mandatory driver-side disconnect/crash cleanup and native
+operation deadlines. Four synthetic-backend tests pass alongside three existing
+geometry/snapshot tests; Windows-target Clippy passes. The production backend is
+not connected and no driver was added, installed or signed. Do not enable the
+Windows Extend UI based on these mock tests. Next: implement the dedicated atomic
+lease driver adapter and its OS identity resolution; never wrap the legacy global
+Notify list as an atomic create operation.
