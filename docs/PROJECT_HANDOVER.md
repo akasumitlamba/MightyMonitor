@@ -347,3 +347,17 @@ The UI retains two explicit control grants and view-only defaults. Three snapsho
 geometry tests and Windows-adapter cross-Clippy pass without injecting input;
 native Windows and physical mixed-DPI/hotplug acceptance are still required.
 Windows virtual-monitor creation remains unimplemented.
+
+
+**23 October build continuation:** Windows selected-screen input adapter tests
+and Windows-target adapter Clippy pass at 20011b1; native platform builds are
+running. The previous revocation milestone 72a8299 passed CI and both desktop
+installers (39476317038/39476317077/39476317117). Android APK assembly passed,
+but API 30 control failed with target DOWN=1/UP=0 and one cancelled continued
+gesture (39476317032). This is concrete cancellation evidence, not a permission
+failure. Quick presses now allow 32 ms for an arriving release so a tap can be
+submitted as one complete gesture; a held press starts a continued stroke after
+that interval. Revocation clears scheduled presses. Existing tests now require
+four additional independent quick taps per session without retrying failures.
+Java app compilation passes; emulator confirmation is required before claiming
+the cancellation issue resolved. Physical tests remain deferred by request.

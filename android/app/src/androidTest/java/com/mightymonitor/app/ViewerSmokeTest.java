@@ -187,6 +187,14 @@ public final class ViewerSmokeTest {
             String inputState=inputDiagnostic(button);
             assertTrue("Remote gesture did not click the actual Android button: "+inputState, InputTestActivity.taps.get() >= 1);
             System.out.println("Initial remote tap: "+inputState);
+            // Independent quick taps must each finish; never resend a failed tap.
+            for(int click=0;click<4;click++) {
+                int before=InputTestActivity.taps.get();
+                tap(client,button);
+                long clickDeadline=System.currentTimeMillis()+10000;
+                while(InputTestActivity.taps.get()==before && System.currentTimeMillis()<clickDeadline)Thread.sleep(20);
+                assertTrue("Quick remote tap did not complete: "+inputDiagnostic(button),InputTestActivity.taps.get()==before+1);
+            }
             android.app.Activity testTarget=target;
             InstrumentationRegistry.getInstrumentation().runOnMainSync(()->testTarget.setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE));
             androidx.test.uiautomator.UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).setOrientationLeft();

@@ -18,7 +18,8 @@ public final class RemoteControlService extends AccessibilityService {
     private static volatile RemoteControlService current;
     private final Handler main = new Handler(Looper.getMainLooper());
     private float x, y, strokeX, strokeY;
-    private boolean down, busy, changed, shift, ctrl, alt, pointerValid;
+    private boolean down, busy, changed, shift, ctrl, alt, pointerValid, pendingPress;
+    private final Runnable beginPress = this::drainGesture;
     private GestureDescription.StrokeDescription stroke;
     private long received, releases, dispatched, completed, cancelled, rejected, invalidPoints, blocked, failed;
     // Bounded counters only: no coordinates, text, keys or invitation data.
@@ -48,7 +49,7 @@ public final class RemoteControlService extends AccessibilityService {
     private final Runnable watch = new Runnable() {
         @Override public void run() { if (!allowed()) release(); if (current == RemoteControlService.this) main.postDelayed(this, 100); }
     };
-    private void release() { releases++; pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
+    private void release() { releases++; pendingPress=false; main.removeCallbacks(beginPress); pointerValid = false; down = false; changed = true; shift = ctrl = alt = false; drainGesture(); }
     private PointF map(float nx, float ny) {
         if (!Float.isFinite(nx) || !Float.isFinite(ny) || nx < 0 || nx > 1 || ny < 0 || ny > 1) return null;
         android.util.DisplayMetrics metrics = new android.util.DisplayMetrics();
@@ -62,9 +63,21 @@ public final class RemoteControlService extends AccessibilityService {
         return new PointF(Math.max(0, Math.min(metrics.widthPixels - 1, px)), Math.max(0, Math.min(metrics.heightPixels - 1, py)));
     }
     private void point(float nx, float ny) { PointF p = map(nx, ny); pointerValid = p != null; if(p==null)invalidPoints++; if (p != null) {x = p.x; y = p.y; changed = true; drainGesture();} }
+    private void press() {
+        down = true; changed = true;
+        if (!busy && stroke == null) {
+            // Coalesce a quick down/up into one complete tap instead of a
+            // continued stroke whose final segment can be cancelled by Android.
+            pendingPress = true;
+            main.removeCallbacks(beginPress);
+            main.postDelayed(beginPress, 32);
+        } else drainGesture();
+    }
     private void drainGesture() {
         if (busy || (!changed && !down)) return;
-        if (stroke == null && !down) {changed = false; return;}
+        if (stroke == null && !down && !pendingPress) {changed = false; return;}
+        main.removeCallbacks(beginPress);
+        pendingPress = false;
         if (down && !allowed()) down = false;
         Path path = new Path();
         if (stroke == null) path.moveTo(x, y); else {path.moveTo(strokeX, strokeY); path.lineTo(x, y);}
@@ -86,13 +99,16 @@ public final class RemoteControlService extends AccessibilityService {
             case 1: if (event.length == 9) point(bytes.getFloat(1), bytes.getFloat(5)); break;
             case 2:
                 if (event.length != 3 || (event[2] != 0 && !pointerValid)) break;
-                if (event[1] == 0) {down = event[2] != 0; changed = true; drainGesture();}
+                if (event[1] == 0) {
+                    if (event[2] != 0) press();
+                    else { down = false; changed = true; drainGesture(); }
+                }
                 else if (event[1] == 1 && event[2] != 0) performGlobalAction(GLOBAL_ACTION_BACK);
                 else if (event[1] == 2 && event[2] != 0) performGlobalAction(GLOBAL_ACTION_HOME);
                 break;
             case 3:
                 if (event.length != 10) break;
-                if (event[1] == 0) {PointF p = map(bytes.getFloat(2), bytes.getFloat(6)); if (p == null) {invalidPoints++;pointerValid=false;break;} pointerValid=true; x = p.x; y = p.y; down = true; changed = true; drainGesture();}
+                if (event[1] == 0) {PointF p = map(bytes.getFloat(2), bytes.getFloat(6)); if (p == null) {invalidPoints++;pointerValid=false;break;} pointerValid=true; x = p.x; y = p.y; press();}
                 else if (event[1] == 1) point(bytes.getFloat(2), bytes.getFloat(6));
                 else {point(bytes.getFloat(2), bytes.getFloat(6)); down = false; changed = true; drainGesture();}
                 break;
