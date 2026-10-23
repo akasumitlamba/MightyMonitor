@@ -651,3 +651,17 @@ Otherwise a concurrent cleanup borrow could increment an already freed Arc.
 Seven portable protocol/lifecycle tests and Clippy pass, including 256 concurrent
 initialization/cleanup interleavings. This is concurrency coverage, not proof of
 native WDF acceptance. No driver installation or signing bypass was performed.
+
+
+2026-10-23 website redesign: the static site now uses a split opening with
+original CSS perspective devices, moving local-connection paths, animated screen
+widgets and user-selected Mirror/Control/Extend previews. Three original animated
+feature illustrations replace the icon-only feature treatment. Neutral/green
+styling, locally bundled fonts, inline SVG, keyboard focus and real GitHub release
+installer filtering remain. Download cards now describe the actual EXE/DEB/APK
+formats. A global pause control and system reduced-motion rule cover looping
+artwork; the page pauses while hidden and starts paused without JavaScript.
+Responsive browser checks covered 320/390/768-pixel widths and desktop; installer
+filter/offline/rate-limit tests pass. This website milestone is isolated on current
+upstream main so it can merge independently of ongoing app/driver work. See
+website/DESIGN.md for design decisions and website/README.md for maintenance.

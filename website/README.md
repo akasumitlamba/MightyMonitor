@@ -37,6 +37,16 @@ The website does not create installers. Maintainers must build, validate and att
 node website/tests/downloads.cjs
 ```
 
-The automated tests cover missing releases, real installer filtering, untrusted URLs, source-only releases and offline/rate-limit fallback. The development status is an editorial snapshot dated 20 October 2026. Update it at every merged milestone, keeping implementation, emulator/local validation and physical-device acceptance distinct. The interactive device illustration is explicitly a concept, not a screenshot or a claim that all platform/device combinations work. Icons are inline SVG and do not depend on font glyph coverage.
+The automated tests cover missing releases, real installer filtering, untrusted URLs, source-only releases and offline/rate-limit fallback. The development status is an editorial snapshot dated 23 October 2026. Update it at every merged milestone, keeping implementation, emulator/local validation and physical-device acceptance distinct. The interactive device illustration is explicitly a concept, not a screenshot or a claim that all platform/device combinations work. Icons are inline SVG and do not depend on font glyph coverage.
 
 See DESIGN.md for the frontend-design skill's design plan and critique. The icon is original project artwork. Bundled Sora and IBM Plex Sans fonts include their open-font licenses in `dist/assets/fonts/`.
+
+
+## Motion and artwork
+
+The dimensional device scene and three feature illustrations are original CSS/SVG.
+Mirror, Control and Extend switch the concept preview. Pause motion stops looping
+artwork across the page; operating-system reduced motion disables animation and
+smooth scrolling. Artwork starts paused without JavaScript. The page uses no
+WebGL library, external model, remote font or build pipeline. `dist/motion.js`
+handles only animation preferences and background-tab pausing.
