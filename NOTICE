@@ -76,8 +76,3 @@ Desktop remote input uses Enigo 0.6.1 (MIT), through its public keyboard/mouse
 API on Windows and X11. Wayland input uses the existing ashpd dependency and
 the system RemoteDesktop portal. Android accessibility/IME integration is original.
 https://github.com/enigo-rs/enigo
-
-Website 3D illustration uses Three.js 0.160.1 (MIT), vendored as a local classic
-script for file:// compatibility. See website/dist/vendor/THREE-LICENSE.txt and
-PROVENANCE.json for the upstream package, integrity hash and license. Device
-geometry, landscape artwork, motion choreography and interaction code are original.

@@ -58,18 +58,13 @@ See DESIGN.md for the frontend-design skill's design plan and critique. The icon
 
 ## Motion and artwork
 
-`dist/playground.js` builds the original 3D devices and shared landscape in WebGL.
-Three.js 0.160.1 is vendored locally as a classic script with its MIT license and
-npm integrity metadata; no CDN or ES-module file-origin dependency is required.
-Mirror synchronizes a moving window, Control adds a remote pointer, and Extend
-moves a window across separate views. Rearrange changes the physical composition.
-Pointer movement changes the perspective without intercepting touch scrolling.
-
-Rendering is capped at 30fps and pauses offscreen, in hidden tabs, on system
-reduced motion and when the visitor pauses motion. Manual mode/layout changes
-still render in the paused state. The complete CSS illustration stays visible
-without WebGL or JavaScript and is restored if the context is lost. This is a
-concept illustration, not a live application session.
+`dist/assets/artwork/` contains generated studio illustrations and prompt notes.
+`dist/artwork.js` moves a separate transparent window between the illustrated
+screens. Mirror, Control and Extend select different paths. Playback starts on,
+with explicit Pause/Play controls, system reduced-motion support and suspension
+when offscreen or hidden. There is no WebGL dependency or external asset CDN.
+The full artwork remains visible without JavaScript. These are concept images,
+not live app screenshots.
 
 The editable app icon master is `../assets/brand/mightymonitor.svg`; see that
 folder's README for the design, provenance and synchronized export locations.

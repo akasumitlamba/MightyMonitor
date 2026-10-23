@@ -14,14 +14,14 @@
       reduced.matches
         ? "Reduced motion enabled"
         : paused
-          ? "Resume animation"
-          : "Pause animation",
+          ? "Play demo"
+          : "Pause demo",
     );
     button.textContent = reduced.matches
       ? "Reduced motion"
       : paused
-        ? "Resume motion"
-        : "Pause motion";
+        ? "Play demo"
+        : "Pause demo";
   }
   button.addEventListener("click", () => {
     paused = !paused;

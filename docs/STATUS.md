@@ -241,3 +241,13 @@ A real local browser check of /MightyMonitor/?preview=root#download reached
 /MightyMonitor/website/dist/?preview=root#download with all assets. Automated
 root-route and installer filtering tests pass; new website checks run on PRs.
 Do not claim this is deployed until the PR is merged and Pages finishes.
+
+## 23 October 2026 — generated website artwork revision
+
+Replaced the rejected homemade devices and vague “make room” copy with five
+image-generated studio assets. The hero moves a separate transparent window
+between screens, with Mirror/Control/Extend paths and a clear Pause/Play control.
+Removed the Three.js runtime; root Pages entry and refined app icon are preserved.
+Prompt notes live in website/dist/assets/artwork/README.md. Download filtering and
+root Pages regression checks pass. Artwork is illustrative; app acceptance status
+is unchanged. Physical-device tests remain deferred by the user.
